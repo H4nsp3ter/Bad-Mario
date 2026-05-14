@@ -1,4 +1,8 @@
-class Game {
+window.onload = () => {
+    Assets.init();
+    const game = new Game();
+    game.start();
+};class Game {
     constructor() {
         this.canvas = document.getElementById('gameCanvas');
         if(!this.canvas) { this.canvas = document.createElement('canvas'); this.canvas.id = 'gameCanvas'; document.body.appendChild(this.canvas); }
@@ -35,6 +39,16 @@ class Game {
         });
         window.addEventListener('mousedown', () => { this.input.keys['MouseLeft'] = true; });
         window.addEventListener('mouseup', () => { this.input.keys['MouseLeft'] = false; });
+        window.addEventListener('keydown', (e) => {
+    if (e.code === 'KeyH' && this.state === 'MENU') {
+        const prompt = document.getElementById('start-screen-prompt');
+        const inst = document.getElementById('menu-instructions');
+        if (prompt && inst) {
+            prompt.classList.toggle('hidden');
+            inst.classList.toggle('hidden');
+        }
+    }
+});
     }
 
     requestFullScreen() {
