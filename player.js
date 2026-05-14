@@ -27,6 +27,9 @@ class Player extends Entity {
 
         let currentSpeed = CONFIG.PLAYER_SPEED;
         if (this.weapon === 'MINIGUN' && this.shootCooldown > 0) currentSpeed *= 0.1;
+        // NEU: Flammenwerfer macht den Spieler auch etwas langsamer beim Feuern
+        if (this.weapon === 'FLAMETHROWER' && this.shootCooldown > 0) currentSpeed *= 0.5;
+
         if (this.hp < (CONFIG.MAX_HP * 0.3)) {
             currentSpeed *= 0.6;
             if (Math.random() < 0.2 && (moveDirX !== 0 || !this.grounded)) game.particles.spawnBlood(this.x + this.w/2, this.y + this.h - 5, 3);
@@ -72,6 +75,8 @@ class Player extends Entity {
         if (input.isJustPressed('Digit2')) { this.weapon = 'PISTOL'; this.ammo = 50; }
         if (input.isJustPressed('Digit3')) { this.weapon = 'SHOTGUN'; this.ammo = 20; }
         if (input.isJustPressed('Digit4')) { this.weapon = 'ROCKET'; this.ammo = 15; }
+        // NEU: Schnellwahl für Flammenwerfer (Testtaste 5)
+        if (input.isJustPressed('Digit5')) { this.weapon = 'FLAMETHROWER'; this.ammo = 250; }
     }
     
     fireWeapon(game, input) {
@@ -94,30 +99,40 @@ class Player extends Entity {
             if (hitSomething) { game.triggerShake(12, 0.2); game.audio.playMeleeHit(); }
             this.shootCooldown = this.weapon === 'CHAINSAW' ? 0.08 : 0.3;
         } else {
-            game.audio.playShoot();
-            if (this.weapon === 'PISTOL') {
-                game.triggerShake(4, 0.05); game.projectiles.push(new Projectile(px, py, vx, vy, false, 'PISTOL')); this.shootCooldown = 0.25;
-            } else if (this.weapon === 'UZI') {
-                game.triggerShake(6, 0.05);
-                game.projectiles.push(new Projectile(px, py, vy !== 0 ? (Math.random() - 0.5) * 200 : vx, vy !== 0 ? vy : (Math.random() - 0.5) * 200, false, 'PISTOL'));
-                this.shootCooldown = 0.05; this.ammo--;
-            } else if (this.weapon === 'ROCKET') {
-                this.vx = this.facingRight ? -800 : 800; this.vy = -100;
-                game.projectiles.push(new Projectile(px, py - 10, vx !== 0 ? dirX*800 : 0, vy !== 0 ? -800 : 0, false, 'ROCKET'));
-                this.shootCooldown = 1.0; this.ammo--; game.triggerShake(40, 0.8);
-            } else if (this.weapon === 'SHOTGUN') {
-                this.vx = this.facingRight ? -1500 : 1500; this.vy = -200;
-                for (let i = 0; i < 5; i++) game.projectiles.push(new Projectile(px, py, vx !== 0 ? vx + (Math.random() - 0.5)*400 : (Math.random() - 0.5) * 800, vy !== 0 ? (Math.random() - 0.5) * 800 : (Math.random() - 0.5) * 800, false, 'PISTOL'));
-                this.shootCooldown = 0.8; this.ammo--; game.triggerShake(25, 0.3);
-            } else if (this.weapon === 'ASSAULT_RIFLE') {
-                game.triggerShake(8, 0.05); game.projectiles.push(new Projectile(px, py, vx * 1.5, vy * 1.5, false, 'PISTOL')); this.shootCooldown = 0.08; this.ammo--;
-            } else if (this.weapon === 'MINIGUN') {
-                game.triggerShake(15, 0.1);
-                game.projectiles.push(new Projectile(px, py + (Math.random()-0.5)*20, vy !== 0 ? (Math.random() - 0.5) * 400 : vx * 1.8, vy !== 0 ? vy * 1.8 : (Math.random() - 0.5) * 400, false, 'PISTOL'));
-                game.particles.spawn(px, py, '#FFAA00', 3, 400, 0.1, true); game.particles.spawn(this.x + this.w/2, this.y + this.h/2, '#FFFF00', 1, 300, 0.5);
-                this.shootCooldown = 0.02; this.ammo--;
-            } else if (this.weapon === 'GRENADE') {
-                game.projectiles.push(new Projectile(px, py - 20, vx * 0.6, -600, false, 'GRENADE', true)); this.shootCooldown = 1.0; this.ammo--;
+            // NEU: Flammenwerfer-Logik
+            if (this.weapon === 'FLAMETHROWER') {
+                game.triggerShake(1, 0.02);
+                for(let i=0; i<3; i++) { // Mehrere Partikel pro Schuss für Dichte
+                    game.projectiles.push(new Projectile(px, py + (Math.random()-0.5)*20, vx * (0.6 + Math.random()*0.4), (Math.random()-0.5)*300, false, 'FLAME'));
+                }
+                this.shootCooldown = 0.04; 
+                this.ammo--;
+            } else {
+                game.audio.playShoot();
+                if (this.weapon === 'PISTOL') {
+                    game.triggerShake(4, 0.05); game.projectiles.push(new Projectile(px, py, vx, vy, false, 'PISTOL')); this.shootCooldown = 0.25;
+                } else if (this.weapon === 'UZI') {
+                    game.triggerShake(6, 0.05);
+                    game.projectiles.push(new Projectile(px, py, vy !== 0 ? (Math.random() - 0.5) * 200 : vx, vy !== 0 ? vy : (Math.random() - 0.5) * 200, false, 'PISTOL'));
+                    this.shootCooldown = 0.05; this.ammo--;
+                } else if (this.weapon === 'ROCKET') {
+                    this.vx = this.facingRight ? -800 : 800; this.vy = -100;
+                    game.projectiles.push(new Projectile(px, py - 10, vx !== 0 ? dirX*800 : 0, vy !== 0 ? -800 : 0, false, 'ROCKET'));
+                    this.shootCooldown = 1.0; this.ammo--; game.triggerShake(40, 0.8);
+                } else if (this.weapon === 'SHOTGUN') {
+                    this.vx = this.facingRight ? -1500 : 1500; this.vy = -200;
+                    for (let i = 0; i < 5; i++) game.projectiles.push(new Projectile(px, py, vx !== 0 ? vx + (Math.random() - 0.5)*400 : (Math.random() - 0.5) * 800, vy !== 0 ? (Math.random() - 0.5) * 800 : (Math.random() - 0.5) * 800, false, 'PISTOL'));
+                    this.shootCooldown = 0.8; this.ammo--; game.triggerShake(25, 0.3);
+                } else if (this.weapon === 'ASSAULT_RIFLE') {
+                    game.triggerShake(8, 0.05); game.projectiles.push(new Projectile(px, py, vx * 1.5, vy * 1.5, false, 'PISTOL')); this.shootCooldown = 0.08; this.ammo--;
+                } else if (this.weapon === 'MINIGUN') {
+                    game.triggerShake(15, 0.1);
+                    game.projectiles.push(new Projectile(px, py + (Math.random()-0.5)*20, vy !== 0 ? (Math.random() - 0.5) * 400 : vx * 1.8, vy !== 0 ? vy * 1.8 : (Math.random() - 0.5) * 400, false, 'PISTOL'));
+                    game.particles.spawn(px, py, '#FFAA00', 3, 400, 0.1, true); game.particles.spawn(this.x + this.w/2, this.y + this.h/2, '#FFFF00', 1, 300, 0.5);
+                    this.shootCooldown = 0.02; this.ammo--;
+                } else if (this.weapon === 'GRENADE') {
+                    game.projectiles.push(new Projectile(px, py - 20, vx * 0.6, -600, false, 'GRENADE', true)); this.shootCooldown = 1.0; this.ammo--;
+                }
             }
             if (this.ammo <= 0) { this.weapon = 'BAT'; this.ammo = Infinity; }
         }
@@ -152,6 +167,9 @@ class Player extends Entity {
         if (this.weapon === 'PISTOL') maxCd = 0.25; else if (this.weapon === 'UZI') maxCd = 0.05; else if (this.weapon === 'ROCKET') maxCd = 1.0;
         else if (this.weapon === 'CHAINSAW') maxCd = 0.08; else if (this.weapon === 'SHOTGUN') maxCd = 0.8; else if (this.weapon === 'ASSAULT_RIFLE') maxCd = 0.08;
         else if (this.weapon === 'MINIGUN') maxCd = 0.02; else if (this.weapon === 'GRENADE') maxCd = 1.0;
+        // NEU: CD für Flammenwerfer in der Anzeige
+        else if (this.weapon === 'FLAMETHROWER') maxCd = 0.04;
+
         let progress = Math.max(0, Math.min(1, this.shootCooldown > 0 ? this.shootCooldown / maxCd : 0));
         
         ctx.translate(0, 10);
@@ -170,7 +188,18 @@ class Player extends Entity {
             else if (this.weapon === 'ASSAULT_RIFLE') { ctx.fillStyle = '#222'; ctx.fillRect(-10, -5, 45, 10); ctx.fillRect(5, 5, 8, 12); ctx.fillRect(-10, 5, 8, 12); } 
             else if (this.weapon === 'MINIGUN') { ctx.fillStyle = '#444'; ctx.fillRect(-15, -8, 50, 16); ctx.fillStyle = '#222'; ctx.fillRect(35, -6, 20, 12); ctx.fillStyle = '#111'; ctx.fillRect(0, 8, 10, 15); } 
             else if (this.weapon === 'GRENADE') { ctx.fillStyle = '#006400'; ctx.beginPath(); ctx.arc(0, 0, 10, 0, Math.PI*2); ctx.fill(); ctx.fillStyle = '#111'; ctx.fillRect(-3, -15, 6, 8); }
-            if (this.flashTimer > 0 && this.weapon !== 'GRENADE') { ctx.fillStyle = '#FFFF00'; ctx.beginPath(); ctx.arc(['ROCKET', 'MINIGUN', 'ASSAULT_RIFLE'].includes(this.weapon) ? 50 : 25, 0, 15 + Math.random()*20, 0, Math.PI*2); ctx.fill(); }
+            // NEU: Zeichnen des Flammenwerfers am Spieler
+            else if (this.weapon === 'FLAMETHROWER') {
+                ctx.fillStyle = '#444'; ctx.fillRect(-10, -5, 40, 15); // Tank
+                ctx.fillStyle = '#222'; ctx.fillRect(25, -2, 15, 6);   // Rohr
+            }
+
+            if (this.flashTimer > 0 && this.weapon !== 'GRENADE') { 
+                ctx.fillStyle = '#FFFF00'; 
+                ctx.beginPath(); 
+                ctx.arc(['ROCKET', 'MINIGUN', 'ASSAULT_RIFLE', 'FLAMETHROWER'].includes(this.weapon) ? 50 : 25, 0, 15 + Math.random()*20, 0, Math.PI*2); 
+                ctx.fill(); 
+            }
         }
         ctx.restore();
     }
