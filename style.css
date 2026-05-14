@@ -569,3 +569,42 @@ button.menu-btn:hover {
 #zoom-controls button:active {
     background-color: #ff0000;
 }
+#menu-overlay {
+    background: url('bad-mario-bg.jpg') no-repeat center center;
+    background-size: cover;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    /* Ein dunkler roter Schleier über dem Bild */
+    box-shadow: inset 0 0 200px rgba(150, 0, 0, 0.7);
+}
+
+.menu-panel {
+    background: rgba(0, 0, 0, 0.6); /* Panel ist halbtransparent, um Bild zu sehen */
+    padding: 40px;
+    border: 4px solid #8b0000;
+    backdrop-filter: blur(4px); /* Schicker moderner Effekt */
+}
+
+.insert-coin-text {
+    color: #ffff00;
+    font-size: 1.8rem;
+    margin: 20px 0;
+    text-shadow: 2px 2px #000, 0 0 15px #ffaa00;
+}
+
+.pulsate {
+    animation: pulsateFrame 1.5s infinite;
+}
+
+@keyframes pulsateFrame {
+    0% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(1.05); }
+    100% { opacity: 1; transform: scale(1); }
+}
+
+.small-hint {
+    font-size: 0.8rem;
+    color: #888;
+    margin-top: 20px;
+}
