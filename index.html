@@ -11,17 +11,12 @@
 </head>
 <body>
     <div id="game-container">
-        <!-- Haupt-Layer (Multi-Layer-Parallax & Rendering via JS) -->
         <canvas id="gameCanvas"></canvas>
         
-        <!-- Post-Processing & Retro CRT Effekte -->
         <div id="crt-overlay"></div>
         
-        <!-- UI Layer (Striktes HUD, nur 1x im DOM, gesteuert via CSS/JS) -->
         <div id="hud">
-            <!-- HUD Top: Health & Score -->
             <div class="hud-top">
-                <!-- Moderne Lebensbalken-Struktur im Dark-Retro-Look -->
                 <div id="hp-display">
                     <span class="hp-label">HP</span>
                     <div id="health-bar-container">
@@ -31,19 +26,15 @@
                 
                 <div id="level-display">LEVEL: <span id="level-value">1</span></div>
 
-                <!-- Punkte / Coins Container -->
                 <div id="score-container">
                     <div id="score-display">SCORE: <span id="score-value">000000</span></div>
                     <div id="coin-display">COINS: <span id="coin-value">0</span></div>
                 </div>
             </div>
 
-            <!-- HUD Bottom: Weapons & Powerups -->
             <div class="hud-bottom">
-                <!-- Weapon HUD (Statische Simple Anzeige wie gefordert) -->
                 <div id="weapon-container">WPN: <span id="weapon-value">BAT [∞]</span></div>
 
-                <!-- Bereich für temporäre Power-Ups/Überraschungen -->
                 <div id="powerup-section">
                     <div id="active-powerup" class="hidden">
                         <div class="powerup-info">
@@ -57,13 +48,28 @@
                 </div>
             </div>
         </div>
+
+        <div id="mobile-controls" class="hidden">
+            <div id="dpad">
+                <button class="dpad-btn up" id="btn-up"></button>
+                <button class="dpad-btn right" id="btn-right"></button>
+                <button class="dpad-btn down" id="btn-down"></button>
+                <button class="dpad-btn left" id="btn-left"></button>
+                <div class="dpad-center"></div>
+            </div>
+            
+            <div id="action-pad">
+                <button class="action-btn x-btn" id="btn-x">X</button>
+                <button class="action-btn y-btn" id="btn-y">Y</button>
+                <button class="action-btn a-btn" id="btn-a">A</button>
+                <button class="action-btn b-btn" id="btn-b">B</button>
+            </div>
+        </div>
         
-        <!-- Menü Layer -->
         <div id="menu-overlay">
             <div class="menu-panel">
                 <h1 id="menu-title" class="gore-title">BAD MARIO</h1>
                 <div id="menu-content">
-                    <!-- Start Screen Instructions -->
                     <div id="menu-instructions">
                         <p class="instruction-title">STEUERUNG:</p>
                         <p>BEWEGUNG: <span class="key-badge">W</span> <span class="key-badge">A</span> <span class="key-badge">S</span> <span class="key-badge">D</span></p>
@@ -72,7 +78,6 @@
                         <p>WAFFENWECHSEL: <span class="key-badge">1-4</span></p>
                     </div>
 
-                    <!-- Game Over / Respawn Screen (NEU: Continue-Mechanik) -->
                     <div id="game-over-stats" class="hidden">
                         <h2 class="wasted-text">WASTED</h2>
                         <div class="stats-grid">
@@ -81,7 +86,6 @@
                             <p>COINS COLLECTED: <span id="final-coins">0</span></p>
                         </div>
                         
-                        <!-- Respawn / Continue Options -->
                         <div id="respawn-options">
                             <p id="continue-hint" class="retro-highlight pulsate">-> CONTINUE MISSION? <-</p>
                             <div class="action-buttons">
@@ -92,11 +96,13 @@
                                 <button id="restart-btn" class="retro-btn dark-btn">
                                     ABORT & RESTART
                                 </button>
+                                <button id="main-menu-btn" class="retro-btn menu-btn">
+                                    MAIN MENU
+                                </button>
                             </div>
                         </div>
                     </div>
 
-                    <!-- Initiale Start-Aktion -->
                     <button id="action-button" class="retro-btn main-start-btn">INSERT COIN TO START</button>
                 </div>
             </div>
