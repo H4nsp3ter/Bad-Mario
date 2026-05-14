@@ -1770,6 +1770,11 @@ class Game {
         this.canvas.height = window.innerHeight;
         this.generateParallaxLayers();
     }
+    requestFullScreen() {
+        const doc = document.documentElement;
+        if (doc.requestFullscreen) { doc.requestFullscreen().catch(err => console.log(err)); }
+        else if (doc.webkitRequestFullscreen) { doc.webkitRequestFullscreen(); } // Für iPhones/Safari
+    }
     generateParallaxLayers() {
         this.bgLayers = [
             { speed: 0.05, elements: [] },
