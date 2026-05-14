@@ -92,6 +92,7 @@ class Collectible extends Entity {
             else if (this.type === 'AXE') { ctx.fillStyle = '#654321'; ctx.fillRect(cx-2, cy-10, 4, 20); ctx.fillStyle='#999'; ctx.beginPath(); ctx.moveTo(cx, cy-8); ctx.lineTo(cx+10, cy-12); ctx.lineTo(cx+10, cy-2); ctx.fill(); }
             else if (this.type === 'KNIFE') { ctx.fillStyle = '#222'; ctx.fillRect(cx-2, cy+2, 4, 8); ctx.fillStyle='#CCC'; ctx.beginPath(); ctx.moveTo(cx-2, cy+2); ctx.lineTo(cx, cy-12); ctx.lineTo(cx+2, cy+2); ctx.fill(); }
             else if (this.type === 'BAT') { ctx.fillStyle = '#8B4513'; ctx.fillRect(cx-2, cy-12, 4, 24); ctx.fillRect(cx-3, cy-15, 6, 8); }
+            else if (this.type === 'FLAMETHROWER') { ctx.fillStyle = '#444'; ctx.fillRect(cx-10, cy-4, 20, 10); ctx.fillStyle = '#F60'; ctx.fillRect(cx+5, cy-2, 10, 6); }
         }
         ctx.shadowBlur = 0;
     }
@@ -103,38 +104,65 @@ class Projectile extends Entity {
         if (type === 'ROCKET') { w = 24; h = 24; }
         if (type === 'GORE') { w = 18; h = 18; }
         if (type === 'BULLET') { w = 16; h = 4; }
+        if (type === 'FLAME') { w = 20; h = 20; }
         super(x, y, w, h);
         this.vx = vx; this.vy = vy; this.isEnemy = isEnemy; this.type = type; this.isBallistic = isBallistic;
+        
         if (this.type === 'GORE') this.color = '#880000';
         else if (this.type === 'BULLET') this.color = '#FFD700';
         else if (this.type === 'GRENADE') this.color = '#006400';
+        else if (this.type === 'FLAME') this.color = CONFIG.COLORS.FLAME || '#FF6600';
         else this.color = isEnemy ? CONFIG.COLORS.PROJECTILE_ENEMY : (type === 'ROCKET' ? CONFIG.COLORS.PROJECTILE_ROCKET : CONFIG.COLORS.PROJECTILE_PLAYER);
-        this.trail = []; this.life = this.type === 'GRENADE' ? 2.0 : 99;
+        
+        this.trail = []; 
+        if (this.type === 'GRENADE') this.life = 2.0;
+        else if (this.type === 'FLAME') this.life = 0.4 + Math.random() * 0.2;
+        else this.life = 99;
     }
     update(dt, particles) {
         this.trail.push({x: this.x, y: this.y});
-        if(this.trail.length > (this.type==='ROCKET'?12:6)) this.trail.shift();
+        if(this.trail.length > (this.type==='ROCKET'?12:(this.type==='FLAME'?4:6))) this.trail.shift();
+        
         if (this.isBallistic) this.vy += CONFIG.GRAVITY * 0.4 * dt;
+        
+        // Flammen driften leicht nach oben
+        if (this.type === 'FLAME') this.vy -= 100 * dt;
+        
         this.x += this.vx * dt; this.y += this.vy * dt;
-        if (this.type === 'GORE' && Math.random() > 0.2) { particles.spawnBlood(this.x + this.w/2, this.y + this.h/2, 1); }
-        else if (Math.random() > (this.type==='ROCKET'?0.1:0.5) && this.type !== 'GRENADE' && this.type !== 'GORE' && this.type !== 'BULLET') {
+        
+        if (this.type === 'GORE' && Math.random() > 0.2) { 
+            particles.spawnBlood(this.x + this.w/2, this.y + this.h/2, 1); 
+        } else if (this.type === 'FLAME') {
+            if (Math.random() > 0.5) particles.spawn(this.x, this.y, '#FFFF00', 1, 50, 0.2, true);
+        } else if (Math.random() > (this.type==='ROCKET'?0.1:0.5) && this.type !== 'GRENADE' && this.type !== 'GORE' && this.type !== 'BULLET') {
             particles.spawn(this.x + this.w/2, this.y + this.h/2, this.color, 2, 40, 0.4, true);
         }
     }
     draw(ctx, camX, camY) {
+        const drawX = this.x - camX + this.w/2;
+        const drawY = this.y - camY + this.h/2;
+
         if (this.type === 'GORE') {
-            ctx.fillStyle = this.color; ctx.beginPath(); ctx.arc(this.x - camX + this.w/2, this.y - camY + this.h/2, this.w/2 + Math.random()*4, 0, Math.PI*2); ctx.fill();
-            ctx.fillStyle = '#FF0000'; ctx.beginPath(); ctx.arc(this.x - camX + this.w/2 + 2, this.y - camY + this.h/2 - 2, this.w/4, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = this.color; ctx.beginPath(); ctx.arc(drawX, drawY, this.w/2 + Math.random()*4, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#FF0000'; ctx.beginPath(); ctx.arc(drawX + 2, drawY - 2, this.w/4, 0, Math.PI*2); ctx.fill();
         } else if (this.type === 'BULLET') {
             ctx.fillStyle = this.color; ctx.fillRect(this.x - camX, this.y - camY, this.w, this.h);
             ctx.fillStyle = '#FFF'; ctx.fillRect(this.x - camX + this.w - 4, this.y - camY, 4, this.h);
+        } else if (this.type === 'FLAME') {
+            ctx.shadowBlur = 15; ctx.shadowColor = this.color;
+            ctx.fillStyle = this.color;
+            // Flammen werden zum Ende hin kleiner
+            const sizeMult = this.life / 0.6;
+            ctx.beginPath(); ctx.arc(drawX, drawY, (this.w/2) * sizeMult, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#FFD700'; ctx.beginPath(); ctx.arc(drawX, drawY, (this.w/4) * sizeMult, 0, Math.PI*2); ctx.fill();
+            ctx.shadowBlur = 0;
         } else {
             ctx.shadowBlur = this.type === 'ROCKET' ? 40 : 15; ctx.shadowColor = this.color; ctx.fillStyle = this.color;
             for(let i=0; i<this.trail.length; i++) {
                 let size = (i / this.trail.length) * this.w; ctx.globalAlpha = i / this.trail.length;
                 ctx.beginPath(); ctx.arc(this.trail[i].x - camX + this.w/2, this.trail[i].y - camY + this.h/2, size/2, 0, Math.PI*2); ctx.fill();
             }
-            ctx.globalAlpha = 1.0; ctx.fillStyle = '#FFF'; ctx.beginPath(); ctx.arc(this.x - camX + this.w / 2, this.y - camY + this.h / 2, this.w / 2, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+            ctx.globalAlpha = 1.0; ctx.fillStyle = '#FFF'; ctx.beginPath(); ctx.arc(drawX, drawY, this.w / 2, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
         }
     }
 }
