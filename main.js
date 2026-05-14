@@ -1711,6 +1711,12 @@ class Game {
         this.maxReachedLevel = 1;
         this.transitionTimer = 0;
         this.levelFlashTimer = 0;
+        
+        // NEU: Zoom-Logik
+        this.zoom = 1.0;
+        this.logicalWidth = window.innerWidth;
+        this.logicalHeight = window.innerHeight;
+
         this.resize();
         window.addEventListener('resize', () => this.resize());
         
@@ -1718,6 +1724,7 @@ class Game {
         const actionBtn = document.getElementById('action-button');
         if (actionBtn) {
             actionBtn.addEventListener('click', () => {
+                this.requestFullScreen();
                 this.audio.init();
                 this.startPlay(1);
             });
@@ -1726,6 +1733,7 @@ class Game {
         const continueBtn = document.getElementById('continue-btn');
         if (continueBtn) {
             continueBtn.addEventListener('click', () => {
+                this.requestFullScreen();
                 if (this.state === 'GAMEOVER') this.continueGame();
             });
         }
@@ -1733,6 +1741,7 @@ class Game {
         const restartBtn = document.getElementById('restart-btn');
         if (restartBtn) {
             restartBtn.addEventListener('click', () => {
+                this.requestFullScreen();
                 this.audio.init();
                 this.startPlay(1);
             });
@@ -1745,36 +1754,57 @@ class Game {
             });
         }
 
+        // NEU: Zoom-Buttons Events
+        const btnZoomIn = document.getElementById('btn-zoom-in');
+        const btnZoomOut = document.getElementById('btn-zoom-out');
+        if (btnZoomIn) {
+            btnZoomIn.addEventListener('touchstart', (e) => { e.preventDefault(); this.zoom = Math.min(3.0, this.zoom + 0.1); }, {passive: false});
+            btnZoomIn.addEventListener('mousedown', (e) => { e.preventDefault(); this.zoom = Math.min(3.0, this.zoom + 0.1); });
+        }
+        if (btnZoomOut) {
+            btnZoomOut.addEventListener('touchstart', (e) => { e.preventDefault(); this.zoom = Math.max(0.2, this.zoom - 0.1); }, {passive: false});
+            btnZoomOut.addEventListener('mousedown', (e) => { e.preventDefault(); this.zoom = Math.max(0.2, this.zoom - 0.1); });
+        }
+
         window.addEventListener('keydown', (e) => {
             if (e.code === 'Enter') {
                 if (this.state === 'GAMEOVER') this.continueGame();
                 else if (this.state !== 'PLAYING') {
+                    this.requestFullScreen();
                     this.audio.init();
                     this.startPlay(1);
                 }
             }
-            // Adding Mouse click support for firing
-            if (e.type === 'mousedown') {
-                this.input.keys['MouseLeft'] = true;
-            }
-            if (e.type === 'mouseup') {
-                this.input.keys['MouseLeft'] = false;
-            }
+            if (e.type === 'mousedown') this.input.keys['MouseLeft'] = true;
+            if (e.type === 'mouseup') this.input.keys['MouseLeft'] = false;
         });
-        
         window.addEventListener('mousedown', () => { this.input.keys['MouseLeft'] = true; });
         window.addEventListener('mouseup', () => { this.input.keys['MouseLeft'] = false; });
     }
+
+    requestFullScreen() {
+        const el = document.documentElement;
+        const requestMethod = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
+        if (requestMethod) {
+            requestMethod.call(el).catch(err => console.log("Fullscreen Error:", err));
+        }
+    }
+
     resize() {
         this.canvas.width = window.innerWidth;
         this.canvas.height = window.innerHeight;
+        
+        // NEU: Automatischer Mobile-Zoom
+        if (window.innerWidth < 850) {
+            // Skaliert die Kamera so, dass ca. 900 Pixel in die echte Höhe passen
+            this.zoom = window.innerHeight / 900; 
+        } else {
+            this.zoom = 1.0;
+        }
+        
         this.generateParallaxLayers();
     }
-    requestFullScreen() {
-        const doc = document.documentElement;
-        if (doc.requestFullscreen) { doc.requestFullscreen().catch(err => console.log(err)); }
-        else if (doc.webkitRequestFullscreen) { doc.webkitRequestFullscreen(); } // Für iPhones/Safari
-    }
+
     generateParallaxLayers() {
         this.bgLayers = [
             { speed: 0.05, elements: [] },
@@ -1808,7 +1838,6 @@ class Game {
         const instructions = document.getElementById('menu-instructions');
         if(instructions) instructions.classList.remove('hidden');
         
-        // Show Mobile Controls if on small screen
         const mobileControls = document.getElementById('mobile-controls');
         if (mobileControls) mobileControls.classList.remove('hidden');
 
@@ -1851,7 +1880,6 @@ class Game {
         const menuOverlay = document.getElementById('menu-overlay');
         if(menuOverlay) menuOverlay.classList.add('hidden');
 
-        // Show Mobile Controls
         const mobileControls = document.getElementById('mobile-controls');
         if (mobileControls) mobileControls.classList.remove('hidden');
     }
@@ -1859,11 +1887,9 @@ class Game {
         this.state = 'MENU';
         this.audio.stopBGM();
         
-        // Hide Mobile Controls
         const mobileControls = document.getElementById('mobile-controls');
         if (mobileControls) mobileControls.classList.add('hidden');
 
-        // Setup DOM for Main Menu
         const menuOverlay = document.getElementById('menu-overlay');
         if(menuOverlay) menuOverlay.classList.remove('hidden');
         
@@ -1915,7 +1941,6 @@ class Game {
             weaponValue.innerText = `${this.player.weapon} [${ammoStr}]`;
         }
 
-        // Update Game Over Screen stats in advance
         if (this.state === 'GAMEOVER') {
             const finalLevel = document.getElementById('final-level');
             const finalScore = document.getElementById('final-score');
@@ -1925,7 +1950,6 @@ class Game {
             if(finalScore) finalScore.innerText = this.player.score;
             if(finalCoins) finalCoins.innerText = this.player.coins;
 
-            // Hide Mobile Controls
             const mobileControls = document.getElementById('mobile-controls');
             if (mobileControls) mobileControls.classList.add('hidden');
         }
@@ -1940,20 +1964,27 @@ class Game {
         requestAnimationFrame((t) => this.loop(t));
     }
     update(dt) {
+        // NEU: Berechne logische Dimensionen basierend auf Zoom
+        this.logicalWidth = this.canvas.width / this.zoom;
+        this.logicalHeight = this.canvas.height / this.zoom;
+
         if (this.shakeTime > 0) this.shakeTime -= dt;
         if (this.transitionTimer > 0) this.transitionTimer -= dt;
         if (this.levelFlashTimer > 0) this.levelFlashTimer -= dt;
         this.audio.updateBGM(this.level);
-        this.levelGen.update(this.camera.x, this.canvas.width, this.level);
+        
+        this.levelGen.update(this.camera.x, this.logicalWidth, this.level);
         this.particles.update(dt, this.levelGen.platforms);
         this.player.update(dt, this.input, this);
         for (let c of this.levelGen.corpses) c.update(dt, this.levelGen.platforms);
-        const targetCamX = this.player.x - this.canvas.width * 0.4;
+        
+        const targetCamX = this.player.x - this.logicalWidth * 0.4;
         this.camera.x += (targetCamX - this.camera.x) * 5 * dt;
         if(this.camera.x < 0) this.camera.x = 0;
-        const targetCamY = this.player.y - this.canvas.height * 0.55;
+        
+        const targetCamY = this.player.y - this.logicalHeight * 0.55;
         this.camera.y += (targetCamY - this.camera.y) * 4 * dt;
-        this.deathY = Math.min(this.deathY, this.camera.y + this.canvas.height + 400);
+        this.deathY = Math.min(this.deathY, this.camera.y + this.logicalHeight + 400);
         
         if (this.player.y > this.deathY + 50) {
             this.player.takeDamage(50, this);
@@ -1963,9 +1994,9 @@ class Game {
                 this.player.y = p.y - this.player.h - 10;
                 this.player.vx = 0;
                 this.player.vy = 0;
-                this.camera.x = Math.max(0, p.x - this.canvas.width / 2);
-                this.camera.y = this.player.y - this.canvas.height / 2;
-                this.deathY = this.camera.y + this.canvas.height + 400;
+                this.camera.x = Math.max(0, p.x - this.logicalWidth / 2);
+                this.camera.y = this.player.y - this.logicalHeight / 2;
+                this.deathY = this.camera.y + this.logicalHeight + 400;
             }
         }
         
@@ -2004,20 +2035,16 @@ class Game {
             let proj = this.projectiles[i];
             proj.update(dt, this.particles);
             
-            if (proj.type === 'GRENADE') {
-                proj.life -= dt;
-            }
+            if (proj.type === 'GRENADE') proj.life -= dt;
 
-            if (proj.x < this.camera.x - 500 || proj.x > this.camera.x + this.canvas.width + 500 || 
-                proj.y < this.camera.y - 500 || proj.y > this.camera.y + this.canvas.height + 500) {
+            if (proj.x < this.camera.x - 500 || proj.x > this.camera.x + this.logicalWidth + 500 || 
+                proj.y < this.camera.y - 500 || proj.y > this.camera.y + this.logicalHeight + 500) {
                 this.projectiles.splice(i, 1);
                 continue;
             }
             let hit = false;
             
-            if (proj.type === 'GRENADE' && proj.life <= 0) {
-                hit = true;
-            }
+            if (proj.type === 'GRENADE' && proj.life <= 0) hit = true;
 
             if (!hit && proj.isEnemy && this.player.checkCollision(proj)) {
                 this.player.takeDamage(15, this);
@@ -2071,18 +2098,18 @@ class Game {
         }
     }
     drawBackground(levelData) {
-        const gradient = this.ctx.createLinearGradient(0, 0, 0, this.canvas.height);
+        const gradient = this.ctx.createLinearGradient(0, 0, 0, this.logicalHeight);
         gradient.addColorStop(0, levelData.SKY_TOP);
         gradient.addColorStop(1, levelData.SKY_BOTTOM);
         this.ctx.fillStyle = gradient;
-        this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+        this.ctx.fillRect(0, 0, this.logicalWidth, this.logicalHeight);
         for (let l=0; l<this.bgLayers.length; l++) {
             let layer = this.bgLayers[l];
             this.ctx.fillStyle = l === 2 ? '#000' : (this.level === 2 ? '#1A2A3A' : (this.level === 1 ? '#112200' : '#220000'));
             for (let e of layer.elements) {
                 let drawX = (e.x - this.camera.x * layer.speed) % 6000;
                 if (drawX < -800) drawX += 6000;
-                let drawY = e.y - this.camera.y * (layer.speed * 0.5) + this.canvas.height * 0.3;
+                let drawY = e.y - this.camera.y * (layer.speed * 0.5) + this.logicalHeight * 0.3;
                 if (this.level === 1) {
                     this.ctx.beginPath();
                     this.ctx.moveTo(drawX + e.w/2, drawY - e.h);
@@ -2104,7 +2131,9 @@ class Game {
     }
     draw() {
         this.ctx.save();
+        this.ctx.scale(this.zoom, this.zoom); // NEU: Canvas Skalierung
         this.ctx.imageSmoothingEnabled = false;
+        
         if (this.shakeTime > 0) {
             const dx = (Math.random() - 0.5) * this.shakeMag;
             const dy = (Math.random() - 0.5) * this.shakeMag;
@@ -2120,28 +2149,29 @@ class Game {
         for (let p of this.projectiles) p.draw(this.ctx, this.camera.x, this.camera.y);
         this.particles.draw(this.ctx, this.camera.x, this.camera.y);
         if(this.player) this.player.draw(this.ctx, this.camera.x, this.camera.y);
+        
         const time = performance.now() / 300;
         const startY = this.deathY - this.camera.y;
-        if (startY < this.canvas.height) {
+        if (startY < this.logicalHeight) {
             let ctx = this.ctx;
-            const lavaGrad = ctx.createLinearGradient(0, startY, 0, this.canvas.height);
+            const lavaGrad = ctx.createLinearGradient(0, startY, 0, this.logicalHeight);
             lavaGrad.addColorStop(0, levelData.LAVA_TOP);
             lavaGrad.addColorStop(1, levelData.LAVA_BOTTOM);
             ctx.shadowBlur = 50;
             ctx.shadowColor = levelData.LAVA_TOP;
             ctx.fillStyle = lavaGrad;
             ctx.beginPath();
-            ctx.moveTo(0, this.canvas.height);
+            ctx.moveTo(0, this.logicalHeight);
             ctx.lineTo(0, startY);
-            for (let x = 0; x <= this.canvas.width + 60; x += 60) {
+            for (let x = 0; x <= this.logicalWidth + 60; x += 60) {
                 const wave = Math.sin(time + x * 0.03) * 25;
                 ctx.lineTo(x, startY + wave);
             }
-            ctx.lineTo(this.canvas.width, this.canvas.height);
+            ctx.lineTo(this.logicalWidth, this.logicalHeight);
             ctx.fill();
             ctx.shadowBlur = 0;
             ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
-            for (let x = 0; x <= this.canvas.width; x += 90) {
+            for (let x = 0; x <= this.logicalWidth; x += 90) {
                 const wave = Math.sin(time + x * 0.03) * 25;
                 ctx.fillRect(x + Math.sin(time)*15, startY + wave + 8, 20, 8);
             }
@@ -2149,25 +2179,25 @@ class Game {
         if (this.transitionTimer > 0 && this.state === 'PLAYING') {
             const alpha = Math.min(1.0, this.transitionTimer / 1.5);
             this.ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.8})`;
-            this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+            this.ctx.fillRect(0, 0, this.logicalWidth, this.logicalHeight);
             this.ctx.fillStyle = '#000';
             this.ctx.font = 'bold 80px monospace';
             this.ctx.textAlign = 'center';
-            this.ctx.fillText(`LEVEL ${this.level}`, this.canvas.width / 2, this.canvas.height / 2 - 20);
+            this.ctx.fillText(`LEVEL ${this.level}`, this.logicalWidth / 2, this.logicalHeight / 2 - 20);
             this.ctx.fillStyle = '#900';
             this.ctx.font = 'bold 50px monospace';
-            this.ctx.fillText(CONFIG.LEVELS[this.level].DECOR, this.canvas.width / 2, this.canvas.height / 2 + 50);
+            this.ctx.fillText(CONFIG.LEVELS[this.level].DECOR, this.logicalWidth / 2, this.logicalHeight / 2 + 50);
             this.ctx.textAlign = 'left';
         }
         this.ctx.fillStyle = 'rgba(0,0,0,0.3)';
-        for(let i=0; i<this.canvas.height; i+=4) this.ctx.fillRect(0, i, this.canvas.width, 2);
+        for(let i=0; i<this.logicalHeight; i+=4) this.ctx.fillRect(0, i, this.logicalWidth, 2);
         if (this.state === 'PLAYING' && this.level === 3) {
             this.ctx.fillStyle = 'rgba(255,0,0,0.05)';
-            this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+            this.ctx.fillRect(0, 0, this.logicalWidth, this.logicalHeight);
         }
         if (this.levelFlashTimer > 0) {
             this.ctx.fillStyle = `rgba(255, 255, 255, ${this.levelFlashTimer})`;
-            this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
+            this.ctx.fillRect(0, 0, this.logicalWidth, this.logicalHeight);
         }
         this.ctx.restore();
     }
