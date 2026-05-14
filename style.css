@@ -1,361 +1,143 @@
-@import url('https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap');
+/* ========================================================================= */
+/* NEU: MOBILE CONTROLS (NINTENDO SNES STYLE) & MENU BUTTON                  */
+/* ========================================================================= */
 
-*, *::before, *::after {
-    margin: 0;
+/* Main Menu Button Styling (Game Over Screen) */
+button.menu-btn {
+    background-color: #004488;
+    box-shadow: 6px 6px 0 #000000, 0 0 30px rgba(0, 100, 255, 0.4);
+}
+
+button.menu-btn:hover {
+    background-color: #0066cc;
+    box-shadow: 6px 6px 0 #000000, 0 0 50px rgba(0, 150, 255, 1);
+}
+
+/* Container für die mobilen Bedienelemente */
+#mobile-controls {
+    position: absolute;
+    top: 0; 
+    left: 0; 
+    width: 100vw; 
+    height: 100vh;
+    z-index: 40; /* Liegt über dem Canvas, aber unter den Menüs */
+    pointer-events: none; /* Klicks in der Mitte (wo keine Buttons sind) gehen durch zum Spiel */
+}
+
+/* WICHTIG: Das Gamepad nur auf Smartphones/Tablets anzeigen */
+@media (min-width: 850px) {
+    #mobile-controls { display: none !important; }
+}
+
+/* Das HUD auf Handys etwas kleiner machen, damit es nicht im Weg ist */
+@media (max-width: 850px) {
+    #hud {
+        transform: scale(0.65);
+        transform-origin: top left;
+        top: 15px;
+        left: 15px;
+    }
+}
+
+/* Globale Button-Regeln für das Gamepad zurücksetzen */
+#mobile-controls button {
     padding: 0;
-    box-sizing: border-box;
+    letter-spacing: normal;
+    text-shadow: none;
+}
+#mobile-controls button:hover {
+    transform: none; 
 }
 
-body, html {
-    background-color: #000000;
-    color: #ffffff;
-    font-family: "Press Start 2P", cursive;
-    overflow: hidden;
-    width: 100vw;
-    height: 100vh;
-    position: relative;
-}
-
-/* CRT Glow & Vignette Effect Overlay - Darker and Bloodier */
-body::before {
-    content: "";
+/* ========================================================================= */
+/* D-PAD (Steuerkreuz Links)                                                 */
+/* ========================================================================= */
+#dpad {
     position: absolute;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background: radial-gradient(circle at center, rgba(255, 0, 0, 0.03) 0%, rgba(0, 0, 0, 0.85) 100%);
-    box-shadow: inset 0 0 150px rgba(139, 0, 0, 0.8);
-    z-index: 99;
-    pointer-events: none;
-}
-
-/* CRT Scanline Effect Overlay */
-body::after {
-    content: "";
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background: linear-gradient(
-        to bottom,
-        rgba(255, 255, 255, 0),
-        rgba(255, 255, 255, 0) 50%, 
-        rgba(0, 0, 0, 0.25) 50%,
-        rgba(0, 0, 0, 0.25)
-    );
-    background-size: 100% 4px;
-    z-index: 100;
-    pointer-events: none;
-}
-
-/* Fullscreen Game Container */
-#game-container {
-    position: relative;
-    width: 100vw;
-    height: 100vh;
-    background-color: #000000;
-}
-
-/* Fullscreen Canvas Layer */
-#gameCanvas, canvas {
-    display: block;
-    width: 100vw;
-    height: 100vh;
-    position: absolute;
-    top: 0;
-    left: 0;
-    z-index: 1;
-    image-rendering: pixelated;
-}
-
-/* Absolute UI Overlay Layer */
-#ui-layer {
-    position: absolute;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    z-index: 10;
-    pointer-events: none;
-}
-
-/* Heads Up Display */
-#hud {
-    position: absolute;
-    top: 30px;
+    bottom: 40px;
     left: 30px;
-    display: flex;
-    flex-direction: column;
-    gap: 20px;
-    z-index: 10;
-    pointer-events: none;
+    width: 150px;
+    height: 150px;
+    pointer-events: auto;
+    opacity: 0.5;
+    transition: opacity 0.2s;
 }
 
-#hud > div {
-    background-color: transparent;
-    padding: 0;
-    border: none;
-    box-shadow: none;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-}
+#dpad:active { opacity: 0.9; }
 
-/* Modern 16-Bit Health Bar - Intense Bloody Glow */
-#hp-display {
-    display: flex;
-    align-items: center;
-    gap: 15px;
-}
-
-.hp-label {
-    color: #ff3333;
-    font-size: 1.5rem;
-    font-weight: 400;
-    text-shadow: 
-        -2px -2px 0 #000,  
-         2px -2px 0 #000,
-        -2px  2px 0 #000,
-         2px  2px 0 #000,
-         4px  4px 0 #000,
-         0 0 25px rgba(255, 0, 0, 1),
-         0 0 45px rgba(139, 0, 0, 1);
-}
-
-#health-bar-container {
-    width: 300px;
-    height: 28px;
-    background-color: #0a0000;
-    border: 4px solid #000000;
-    box-shadow: 4px 4px 0px #000000, 0 0 30px rgba(255, 0, 0, 0.8), 0 0 50px rgba(139, 0, 0, 0.6);
-    position: relative;
-}
-
-#health-bar-fill {
-    height: 100%;
-    width: 100%; /* Modified by JS dynamically */
-    background: linear-gradient(90deg, #5a0000 0%, #aa0000 50%, #ff0000 100%);
-    background-size: 300px 100%;
-    background-position: left center;
-    background-repeat: no-repeat;
-    transition: width 0.15s cubic-bezier(0.4, 0, 0.2, 1);
-    box-shadow: inset 0 -4px 0 rgba(0, 0, 0, 0.6), inset 0 4px 0 rgba(255, 150, 150, 0.4), 0 0 20px rgba(255, 0, 0, 0.9);
+.dpad-center {
     position: absolute;
-    top: 0;
-    left: 0;
+    top: 33.33%; 
+    left: 33.33%;
+    width: 33.33%; 
+    height: 33.33%;
+    background-color: #555;
+    z-index: 1;
 }
 
-/* Score Display */
-#score-display {
-    color: #ffffff;
-    font-size: 1.5rem;
-    font-weight: 400;
-    text-shadow: 
-        -2px -2px 0 #000,  
-         2px -2px 0 #000,
-        -2px  2px 0 #000,
-         2px  2px 0 #000,
-         4px  4px 0 #000,
-         0 0 20px rgba(255, 215, 0, 1), 
-         0 0 35px rgba(218, 165, 32, 0.8);
-}
-
-/* Level Display - Satanic/Gore Vibe */
-#level-display {
-    color: #ff1111;
-    font-size: 1.5rem;
-    font-weight: 400;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    z-index: 10;
-    pointer-events: none;
-    text-shadow: 
-        -2px -2px 0 #000,  
-         2px -2px 0 #000,
-        -2px  2px 0 #000,
-         2px  2px 0 #000,
-         4px  4px 0 #000,
-         0 0 30px rgba(255, 0, 0, 1),
-         0 0 60px rgba(139, 0, 0, 1);
-}
-
-/* Weapon Container - High Contrast Brass/Gold Vibe */
-#weapon-container {
-    color: #ffd700;
-    font-size: 1.5rem;
-    font-weight: 400;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    z-index: 10;
-    pointer-events: none;
-    text-shadow: 
-        -2px -2px 0 #000,  
-         2px -2px 0 #000,
-        -2px  2px 0 #000,
-         2px  2px 0 #000,
-         4px  4px 0 #000,
-         0 0 20px rgba(212, 175, 55, 1),
-         0 0 45px rgba(184, 134, 11, 0.9);
-}
-
-/* Menus (Main, Game Over, Pause) */
-#menu-overlay {
+.dpad-btn {
     position: absolute;
-    top: 0;
-    left: 0;
-    width: 100vw;
-    height: 100vh;
-    background-color: rgba(0, 0, 0, 0.93);
+    background-color: #666;
+    border: 3px solid #111;
+    box-shadow: inset 3px 3px 0px rgba(255,255,255,0.2), inset -3px -3px 0px rgba(0,0,0,0.4);
+    border-radius: 4px;
+    z-index: 2;
+}
+
+.dpad-btn.active {
+    background-color: #444;
+    box-shadow: inset 3px 3px 0px rgba(0,0,0,0.7);
+}
+
+.dpad-btn.up { top: 0; left: 33.33%; width: 33.33%; height: 38%; border-bottom: none; border-radius: 8px 8px 0 0; }
+.dpad-btn.down { bottom: 0; left: 33.33%; width: 33.33%; height: 38%; border-top: none; border-radius: 0 0 8px 8px; }
+.dpad-btn.left { top: 33.33%; left: 0; width: 38%; height: 33.33%; border-right: none; border-radius: 8px 0 0 8px; }
+.dpad-btn.right { top: 33.33%; right: 0; width: 38%; height: 33.33%; border-left: none; border-radius: 0 8px 8px 0; }
+
+/* ========================================================================= */
+/* ACTION BUTTONS (Rechts - SNES Style)                                      */
+/* ========================================================================= */
+#action-pad {
+    position: absolute;
+    bottom: 40px;
+    right: 30px;
+    width: 170px;
+    height: 170px;
+    pointer-events: auto;
+    opacity: 0.6;
+    transition: opacity 0.2s;
+}
+
+#action-pad:active { opacity: 0.9; }
+
+.action-btn {
+    position: absolute;
+    width: 55px;
+    height: 55px;
+    border-radius: 50%;
+    border: 3px solid #111;
+    font-family: "Press Start 2P", cursive;
+    font-size: 1.1rem;
+    color: #fff;
     display: flex;
-    flex-direction: column;
     justify-content: center;
     align-items: center;
-    z-index: 20;
-    pointer-events: auto;
+    box-shadow: inset -2px -4px 0px rgba(0,0,0,0.4), 2px 4px 0px #000;
+    text-shadow: 2px 2px 0 #000 !important;
 }
 
-#menu-overlay h1 {
-    font-size: 5rem;
-    margin-bottom: 20px;
-    color: #ff0000;
-    text-transform: uppercase;
-    letter-spacing: 6px;
-    text-align: center;
-    line-height: 1.2;
-    text-shadow: 
-        -4px -4px 0 #000,  
-         4px -4px 0 #000,
-        -4px  4px 0 #000,
-         4px  4px 0 #000,
-         8px  8px 0 #000,
-         0 0 40px rgba(255, 0, 0, 1),
-         0 0 80px rgba(139, 0, 0, 0.9);
+.action-btn.active {
+    box-shadow: inset 2px 4px 0px rgba(0,0,0,0.4), 0px 0px 0px #000 !important;
 }
 
-#menu-overlay p {
-    font-size: 1.2rem;
-    margin-bottom: 50px;
-    color: #cccccc;
-    text-align: center;
-    line-height: 1.8;
-    letter-spacing: 2px;
-    text-transform: uppercase;
-    text-shadow: 
-        -2px -2px 0 #000,  
-         2px -2px 0 #000,
-        -2px  2px 0 #000,
-         2px  2px 0 #000,
-         4px  4px 0 #000,
-         0 0 15px rgba(255, 255, 255, 0.3);
-}
+/* SNES Farbcodierung */
+.action-btn.y-btn { top: 50%; left: 0; transform: translateY(-50%); background-color: #00A651; } /* Grün */
+.action-btn.x-btn { top: 0; left: 50%; transform: translateX(-50%); background-color: #00529B; } /* Blau */
+.action-btn.b-btn { bottom: 0; left: 50%; transform: translateX(-50%); background-color: #FFDE00; color: #000; text-shadow: none !important; } /* Gelb */
+.action-btn.a-btn { top: 50%; right: 0; transform: translateY(-50%); background-color: #ED1C24; } /* Rot */
 
-/* Arcade Continue Flow Styling */
-.continue-countdown {
-    font-size: 6rem !important;
-    color: #ff0000 !important;
-    margin: 30px 0 !important;
-    text-shadow: 
-        -4px -4px 0 #000,  
-         4px -4px 0 #000,
-        -4px  4px 0 #000,
-         4px  4px 0 #000,
-         8px  8px 0 #000,
-         0 0 50px #ff0000,
-         0 0 100px #8b0000 !important;
-    animation: pulse-blood 1s infinite;
-}
-
-.insert-coin-text {
-    color: #ffff00 !important;
-    font-size: 1.5rem !important;
-    text-shadow: 
-        -2px -2px 0 #000,  
-         2px -2px 0 #000,
-        -2px  2px 0 #000,
-         2px  2px 0 #000,
-         4px  4px 0 #000,
-         0 0 25px rgba(255, 255, 0, 0.8) !important;
-    animation: blink 1s infinite;
-}
-
-.button-group {
-    display: flex;
-    gap: 30px;
-    margin-top: 20px;
-}
-
-/* Interactive Elements */
-button {
-    pointer-events: auto;
-    padding: 20px 40px;
-    font-size: 1.2rem;
-    font-family: "Press Start 2P", cursive;
-    color: #ffffff;
-    background-color: #8b0000;
-    border: 4px solid #000000;
-    border-radius: 0;
-    cursor: pointer;
-    text-transform: uppercase;
-    letter-spacing: 2px;
-    box-shadow: 6px 6px 0 #000000, 0 0 30px rgba(255, 0, 0, 0.5);
-    text-shadow: 
-        -2px -2px 0 #000,  
-         2px -2px 0 #000,
-        -2px  2px 0 #000,
-         2px  2px 0 #000;
-    transition: all 0.1s ease;
-}
-
-button:hover {
-    background-color: #ff0000;
-    color: #ffffff;
-    box-shadow: 6px 6px 0 #000000, 0 0 50px rgba(255, 0, 0, 1);
-    transform: scale(1.05);
-}
-
-button:active {
-    transform: translate(6px, 6px) scale(1);
-    box-shadow: 0 0 0 #000000, 0 0 15px rgba(255, 0, 0, 0.8);
-}
-
-button.continue-btn {
-    background-color: #006600;
-    box-shadow: 6px 6px 0 #000000, 0 0 30px rgba(0, 255, 0, 0.4);
-}
-
-button.continue-btn:hover {
-    background-color: #00ff00;
-    color: #000000;
-    text-shadow: none;
-    box-shadow: 6px 6px 0 #000000, 0 0 60px rgba(0, 255, 0, 1);
-}
-
-button.give-up-btn {
-    background-color: #333333;
-    color: #aaaaaa;
-    box-shadow: 6px 6px 0 #000000, 0 0 10px rgba(255, 255, 255, 0.1);
-}
-
-button.give-up-btn:hover {
-    background-color: #555555;
-    color: #ffffff;
-    box-shadow: 6px 6px 0 #000000, 0 0 20px rgba(255, 255, 255, 0.4);
-}
-
-/* Animations */
-@keyframes pulse-blood {
-    0% { transform: scale(1); text-shadow: -4px -4px 0 #000, 4px -4px 0 #000, -4px 4px 0 #000, 4px 4px 0 #000, 8px 8px 0 #000, 0 0 30px #ff0000, 0 0 60px #8b0000; }
-    50% { transform: scale(1.15); text-shadow: -4px -4px 0 #000, 4px -4px 0 #000, -4px 4px 0 #000, 4px 4px 0 #000, 12px 12px 0 #000, 0 0 60px #ff0000, 0 0 120px #ff0000; }
-    100% { transform: scale(1); text-shadow: -4px -4px 0 #000, 4px -4px 0 #000, -4px 4px 0 #000, 4px 4px 0 #000, 8px 8px 0 #000, 0 0 30px #ff0000, 0 0 60px #8b0000; }
-}
-
-@keyframes blink {
-    0%, 100% { opacity: 1; }
-    50% { opacity: 0; }
-}
-
-/* JS Control Utility */
-.hidden {
-    display: none !important;
-}
+/* Spezifische Transform-Korrekturen für das Drücken (damit die Position erhalten bleibt) */
+.action-btn.y-btn.active { transform: translateY(-50%) translateY(4px); }
+.action-btn.x-btn.active { transform: translateX(-50%) translateY(4px); }
+.action-btn.b-btn.active { transform: translateX(-50%) translateY(4px); }
+.action-btn.a-btn.active { transform: translateY(-50%) translateY(4px); }
