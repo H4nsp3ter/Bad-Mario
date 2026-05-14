@@ -550,7 +550,51 @@ class InputHandler {
         this.previousKeys = {};
         window.addEventListener('keydown', e => this.keys[e.code] = true);
         window.addEventListener('keyup', e => this.keys[e.code] = false);
+
+        // Mobile Controls Listeners
+        this.setupMobileControls();
     }
+    
+    setupMobileControls() {
+        const bindButton = (btnId, keyName) => {
+            const btn = document.getElementById(btnId);
+            if (!btn) return;
+
+            // Touch Start / Mouse Down
+            const startEvent = (e) => {
+                e.preventDefault();
+                this.keys[keyName] = true;
+                btn.classList.add('active');
+            };
+
+            // Touch End / Mouse Up / Leave
+            const endEvent = (e) => {
+                e.preventDefault();
+                this.keys[keyName] = false;
+                btn.classList.remove('active');
+            };
+
+            btn.addEventListener('touchstart', startEvent, {passive: false});
+            btn.addEventListener('mousedown', startEvent);
+            
+            btn.addEventListener('touchend', endEvent);
+            btn.addEventListener('mouseup', endEvent);
+            btn.addEventListener('mouseleave', endEvent);
+        };
+
+        // D-Pad
+        bindButton('btn-up', 'KeyW');
+        bindButton('btn-down', 'KeyS');
+        bindButton('btn-left', 'KeyA');
+        bindButton('btn-right', 'KeyD');
+
+        // Action Buttons
+        bindButton('btn-b', 'Space'); // Jump
+        bindButton('btn-a', 'KeyF');  // Shoot/Attack
+        bindButton('btn-x', 'Digit1'); // Switch to Bat
+        bindButton('btn-y', 'Digit2'); // Switch to Gun
+    }
+
     update() {
         this.previousKeys = { ...this.keys };
     }
@@ -1304,7 +1348,13 @@ class Player extends Entity {
         else if (!this.grounded) this.state = 'AIR';
         else if (Math.abs(this.vx) > 5) this.state = 'WALK';
         else this.state = 'IDLE';
-        if (input.isDown('KeyF') && this.shootCooldown <= 0) this.fireWeapon(game, input);
+        if ((input.isDown('KeyF') || input.isDown('MouseLeft')) && this.shootCooldown <= 0) this.fireWeapon(game, input);
+        
+        // Weapon switching logic
+        if (input.isJustPressed('Digit1')) { this.weapon = 'BAT'; this.ammo = Infinity; }
+        if (input.isJustPressed('Digit2')) { this.weapon = 'PISTOL'; this.ammo = 50; }
+        if (input.isJustPressed('Digit3')) { this.weapon = 'SHOTGUN'; this.ammo = 20; }
+        if (input.isJustPressed('Digit4')) { this.weapon = 'ROCKET'; this.ammo = 15; }
     }
     fireWeapon(game, input) {
         const dirX = this.facingRight ? 1 : -1;
@@ -1663,16 +1713,38 @@ class Game {
         this.levelFlashTimer = 0;
         this.resize();
         window.addEventListener('resize', () => this.resize());
+        
+        // Button Listeners
         const actionBtn = document.getElementById('action-button');
         if (actionBtn) {
             actionBtn.addEventListener('click', () => {
-                if (this.state === 'GAMEOVER') this.continueGame();
-                else if (this.state !== 'PLAYING') {
-                    this.audio.init();
-                    this.startPlay(1);
-                }
+                this.audio.init();
+                this.startPlay(1);
             });
         }
+        
+        const continueBtn = document.getElementById('continue-btn');
+        if (continueBtn) {
+            continueBtn.addEventListener('click', () => {
+                if (this.state === 'GAMEOVER') this.continueGame();
+            });
+        }
+
+        const restartBtn = document.getElementById('restart-btn');
+        if (restartBtn) {
+            restartBtn.addEventListener('click', () => {
+                this.audio.init();
+                this.startPlay(1);
+            });
+        }
+
+        const mainMenuBtn = document.getElementById('main-menu-btn');
+        if (mainMenuBtn) {
+            mainMenuBtn.addEventListener('click', () => {
+                this.returnToMainMenu();
+            });
+        }
+
         window.addEventListener('keydown', (e) => {
             if (e.code === 'Enter') {
                 if (this.state === 'GAMEOVER') this.continueGame();
@@ -1681,7 +1753,17 @@ class Game {
                     this.startPlay(1);
                 }
             }
+            // Adding Mouse click support for firing
+            if (e.type === 'mousedown') {
+                this.input.keys['MouseLeft'] = true;
+            }
+            if (e.type === 'mouseup') {
+                this.input.keys['MouseLeft'] = false;
+            }
         });
+        
+        window.addEventListener('mousedown', () => { this.input.keys['MouseLeft'] = true; });
+        window.addEventListener('mouseup', () => { this.input.keys['MouseLeft'] = false; });
     }
     resize() {
         this.canvas.width = window.innerWidth;
@@ -1720,6 +1802,11 @@ class Game {
         if(gameOverStats) gameOverStats.classList.add('hidden');
         const instructions = document.getElementById('menu-instructions');
         if(instructions) instructions.classList.remove('hidden');
+        
+        // Show Mobile Controls if on small screen
+        const mobileControls = document.getElementById('mobile-controls');
+        if (mobileControls) mobileControls.classList.remove('hidden');
+
         this.state = 'PLAYING';
         this.level = level;
         this.maxReachedLevel = Math.max(this.maxReachedLevel, level);
@@ -1758,6 +1845,34 @@ class Game {
         
         const menuOverlay = document.getElementById('menu-overlay');
         if(menuOverlay) menuOverlay.classList.add('hidden');
+
+        // Show Mobile Controls
+        const mobileControls = document.getElementById('mobile-controls');
+        if (mobileControls) mobileControls.classList.remove('hidden');
+    }
+    returnToMainMenu() {
+        this.state = 'MENU';
+        this.audio.stopBGM();
+        
+        // Hide Mobile Controls
+        const mobileControls = document.getElementById('mobile-controls');
+        if (mobileControls) mobileControls.classList.add('hidden');
+
+        // Setup DOM for Main Menu
+        const menuOverlay = document.getElementById('menu-overlay');
+        if(menuOverlay) menuOverlay.classList.remove('hidden');
+        
+        const gameOverStats = document.getElementById('game-over-stats');
+        if(gameOverStats) gameOverStats.classList.add('hidden');
+        
+        const instructions = document.getElementById('menu-instructions');
+        if(instructions) instructions.classList.remove('hidden');
+
+        const actionBtn = document.getElementById('action-button');
+        if (actionBtn) {
+            actionBtn.classList.remove('hidden');
+            actionBtn.innerText = "INSERT COIN TO START";
+        }
     }
     checkLevelUp() {
         if (this.player.score >= 6000 && this.level < 3) {
@@ -1787,12 +1902,27 @@ class Game {
         if (coinValue) coinValue.innerText = this.player.coins;
         
         const levelValue = document.getElementById('level-value');
-        if (levelValue) levelValue.innerText = `LEVEL: ${this.level}`;
+        if (levelValue) levelValue.innerText = `${this.level}`;
         
         const weaponValue = document.getElementById('weapon-value');
         if (weaponValue) {
             let ammoStr = this.player.ammo === Infinity ? '∞' : this.player.ammo;
-            weaponValue.innerText = `WPN: ${this.player.weapon} [${ammoStr}]`;
+            weaponValue.innerText = `${this.player.weapon} [${ammoStr}]`;
+        }
+
+        // Update Game Over Screen stats in advance
+        if (this.state === 'GAMEOVER') {
+            const finalLevel = document.getElementById('final-level');
+            const finalScore = document.getElementById('final-score');
+            const finalCoins = document.getElementById('final-coins');
+            
+            if(finalLevel) finalLevel.innerText = this.level;
+            if(finalScore) finalScore.innerText = this.player.score;
+            if(finalCoins) finalCoins.innerText = this.player.coins;
+
+            // Hide Mobile Controls
+            const mobileControls = document.getElementById('mobile-controls');
+            if (mobileControls) mobileControls.classList.add('hidden');
         }
     }
     loop(timestamp) {
