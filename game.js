@@ -171,9 +171,13 @@ window.onload = () => {
             if (proj.type === 'GRENADE' && proj.life <= 0) hit = true;
             if (!hit && proj.isEnemy && this.player.checkCollision(proj)) { this.player.takeDamage(15, this); hit = true; }
             if (!hit && !proj.isEnemy) {
-                for (let j = this.levelGen.enemies.length - 1; j >= 0; j--) {
-                    let enemy = this.levelGen.enemies[j];
-                    if (!enemy.dead && proj.checkCollision(enemy)) { if (proj.type !== 'GRENADE') enemy.takeDamage(proj.type === 'ROCKET' ? 100 : 25, this); hit = true; break; }
+               if (!hit && !proj.isEnemy) {
+    for (let j = this.levelGen.enemies.length - 1; j >= 0; j--) {
+        let enemy = this.levelGen.enemies[j];
+        if (!enemy.dead && proj.checkCollision(enemy)) {
+            enemy.takeDamage(proj.type === 'FLAME' ? 5 : (proj.type === 'ROCKET' ? 100 : 25), this);
+            if (proj.type !== 'FLAME') hit = true; // Flammen fliegen weiter!
+            break; }
                 }
             }
             if (!hit) {
