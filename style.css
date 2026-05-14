@@ -504,3 +504,35 @@ button.menu-btn:hover {
 .action-btn.x-btn.active { transform: translateX(-50%) translateY(4px); }
 .action-btn.b-btn.active { transform: translateX(-50%) translateY(4px); }
 .action-btn.a-btn.active { transform: translateY(-50%) translateY(4px); }
+/* ========================================================================= */
+/* NEU: ZOOM CONTROLS                                                        */
+/* ========================================================================= */
+#zoom-controls {
+    position: absolute;
+    top: 20px;
+    right: 20px;
+    display: flex;
+    gap: 10px;
+    pointer-events: auto;
+    z-index: 50;
+}
+
+#zoom-controls button {
+    background-color: rgba(0, 0, 0, 0.7);
+    border: 2px solid #555;
+    color: white;
+    width: 45px;
+    height: 45px;
+    font-size: 1.2rem;
+    border-radius: 8px;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    box-shadow: none;
+    text-shadow: none;
+    padding: 0;
+}
+
+#zoom-controls button:active {
+    background-color: #ff0000;
+}
