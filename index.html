@@ -72,42 +72,34 @@
             </div>
         </div>
         
-        <div id="menu-overlay">
-            <div class="menu-panel">
-                <h1 id="menu-title" class="gore-title">BAD MARIO</h1>
-                <div id="menu-content">
-                    <div id="menu-instructions">
-                        <p class="instruction-title">STEUERUNG:</p>
-                        <p>BEWEGUNG: <span class="key-badge">W</span> <span class="key-badge">A</span> <span class="key-badge">S</span> <span class="key-badge">D</span></p>
-                        <p>SPRINGEN: <span class="key-badge">SPACE</span></p>
-                        <p>ANGRIFF: <span class="key-badge">F</span> / <span class="key-badge">LMB</span></p>
-                        <p>WAFFENWECHSEL: <span class="key-badge">1-4</span></p>
-                    </div>
+<div id="menu-overlay">
+    <div class="menu-panel">
+        <h1 id="menu-title" class="gore-title">BAD MARIO</h1>
+        
+        <div id="menu-content">
+            <div id="start-screen-prompt">
+                <p class="insert-coin-text pulsate">INSERT COIN TO START</p>
+                <button id="action-button" class="retro-btn main-start-btn">START MISSION</button>
+                <p class="small-hint">PRESS [H] FOR CONTROLS</p>
+            </div>
 
-                    <div id="game-over-stats" class="hidden">
-                        <h2 class="wasted-text">WASTED</h2>
-                        <div class="stats-grid">
-                            <p>LEVEL REACHED: <span id="final-level" class="blood-text">1</span></p>
-                            <p>FINAL SCORE: <span id="final-score">0</span></p>
-                            <p>COINS COLLECTED: <span id="final-coins">0</span></p>
-                        </div>
-                        
-                        <div id="respawn-options">
-                            <p id="continue-hint" class="retro-highlight pulsate">-> CONTINUE MISSION? <-</p>
-                            <div class="action-buttons">
-                                <button id="continue-btn" class="retro-btn gore-btn">
-                                    CONTINUE IN LEVEL X
-                                    <span class="btn-subtext">COST: 50 COINS</span>
-                                </button>
-                                <button id="restart-btn" class="retro-btn dark-btn">
-                                    ABORT & RESTART
-                                </button>
-                                <button id="main-menu-btn" class="retro-btn menu-btn">
-                                    MAIN MENU
-                                </button>
-                            </div>
-                        </div>
-                    </div>
+            <div id="menu-instructions" class="hidden">
+                <p class="instruction-title">STEUERUNG:</p>
+                <div class="controls-grid">
+                    <p>BEWEGUNG: <span class="key-badge">W</span> <span class="key-badge">A</span> <span class="key-badge">S</span> <span class="key-badge">D</span></p>
+                    <p>SPRINGEN: <span class="key-badge">SPACE</span></p>
+                    <p>ANGRIFF: <span class="key-badge">F</span> / <span class="key-badge">LMB</span></p>
+                    <p>WAFFEN: <span class="key-badge">1-4</span></p>
+                </div>
+                <button onclick="document.getElementById('menu-instructions').classList.add('hidden'); document.getElementById('start-screen-prompt').classList.remove('hidden');" class="retro-btn small-btn">BACK</button>
+            </div>
+
+            <div id="game-over-stats" class="hidden">
+                <h2 class="wasted-text">WASTED</h2>
+                </div>
+        </div>
+    </div>
+</div>
 
                     <button id="action-button" class="retro-btn main-start-btn">INSERT COIN TO START</button>
                 </div>
