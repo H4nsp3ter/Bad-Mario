@@ -3,9 +3,20 @@ class Player extends Entity {
         super(x, y, 96, 144);
         this.hp = CONFIG.MAX_HP; this.score = 0; this.coins = 0;
         this.grounded = false; this.isClimbing = false; this.facingRight = true;
-        this.invincibleTimer = 0; this.shootCooldown = 0; this.weapon = 'BAT'; this.ammo = Infinity;
+        this.invincibleTimer = 0; this.shootCooldown = 0; 
+        
+        // NEU: Das Inventar-System!
+        this.weapon = 'BAT'; 
+        this.inventory = { 'BAT': Infinity }; // Hier speichern wir die Munition pro Waffe
+        
         this.flashTimer = 0; this.lastSafePlatform = null; this.animTimer = 0;
     }
+
+    // Praktischer "Getter", damit das UI weiterhin checken kann, wie viel Ammo die AKTUELLE Waffe hat
+    get ammo() {
+        return this.inventory[this.weapon] || 0;
+    }
+
     update(dt, input, game) {
         this.animTimer += dt;
         if (this.invincibleTimer > 0) this.invincibleTimer -= dt;
@@ -70,14 +81,20 @@ class Player extends Entity {
         
         if ((input.isDown('KeyF') || input.isDown('MouseLeft')) && this.shootCooldown <= 0) this.fireWeapon(game, input);
         
-        if (input.isJustPressed('Digit1')) { this.weapon = 'BAT'; this.ammo = Infinity; }
-        if (input.isJustPressed('Digit2')) { this.weapon = 'PISTOL'; this.ammo = 50; }
-        if (input.isJustPressed('Digit3')) { this.weapon = 'SHOTGUN'; this.ammo = 20; }
-        if (input.isJustPressed('Digit4')) { this.weapon = 'ROCKET'; this.ammo = 15; }
-        if (input.isJustPressed('Digit5')) { this.weapon = 'FLAMETHROWER'; this.ammo = 250; }
+        // NEU: Mit Taste Q durch das Inventar wechseln
+        if (input.isJustPressed('KeyQ')) {
+            const weaponsList = Object.keys(this.inventory);
+            if (weaponsList.length > 1) {
+                let currentIndex = weaponsList.indexOf(this.weapon);
+                let nextIndex = (currentIndex + 1) % weaponsList.length;
+                this.weapon = weaponsList[nextIndex];
+                if (game.audio.playWeaponPickup) game.audio.playWeaponPickup(); // Klick-Sound beim Wechseln
+                game.updateHUD();
+            }
+        }
     }
     
-   fireWeapon(game, input) {
+    fireWeapon(game, input) {
         const dirX = this.facingRight ? 1 : -1;
         let px = this.facingRight ? this.x + this.w + 10 : this.x - 30, py = this.y + 60, vx = dirX * 1200, vy = 0;
         if (input && (input.isDown('KeyW') || input.isDown('ArrowUp'))) { px = this.x + this.w / 2; py = this.y - 10; vx = 0; vy = -1200; }
@@ -86,14 +103,10 @@ class Player extends Entity {
         this.flashTimer = 0.1;
         let pushback = 0; 
 
-        // Hilfsfunktion: Patronenhülsen spawnen
         const spawnShells = (count = 1) => {
-            if (!game.particles.spawnCasing) return; // Sicherstellen, dass Methode existiert
-            // Wir lassen die Hülsen etwa aus der Mitte der Waffe fliegen
+            if (!game.particles.spawnCasing) return; 
             let ejectX = this.facingRight ? this.x + this.w / 2 : this.x + this.w / 2;
-            for (let i = 0; i < count; i++) {
-                game.particles.spawnCasing(ejectX, py - 10, dirX);
-            }
+            for (let i = 0; i < count; i++) game.particles.spawnCasing(ejectX, py - 10, dirX);
         };
 
         if (isMelee) {
@@ -111,49 +124,50 @@ class Player extends Entity {
         } else {
             if (this.weapon === 'FLAMETHROWER') {
                 game.triggerShake(2, 0.02);
+                if (game.audio.playFlamethrower) game.audio.playFlamethrower(); // SOUND GEFIXT!
                 for(let i=0; i<3; i++) { 
                     game.projectiles.push(new Projectile(px, py + (Math.random()-0.5)*20, vx * (0.6 + Math.random()*0.4), (Math.random()-0.5)*300, false, 'FLAME'));
                 }
                 this.shootCooldown = 0.04; 
-                this.ammo--;
-                pushback = 20; 
+                this.inventory[this.weapon]--;
+                pushback = 10; 
             } else {
                 game.audio.playShoot();
                 if (this.weapon === 'PISTOL') {
                     game.triggerShake(4, 0.05); game.projectiles.push(new Projectile(px, py, vx, vy, false, 'PISTOL')); this.shootCooldown = 0.25;
-                    spawnShells(1);
+                    spawnShells(1); this.inventory[this.weapon]--;
                 } else if (this.weapon === 'UZI') {
                     game.triggerShake(6, 0.05);
                     game.projectiles.push(new Projectile(px, py, vy !== 0 ? (Math.random() - 0.5) * 200 : vx, vy !== 0 ? vy : (Math.random() - 0.5) * 200, false, 'PISTOL'));
-                    this.shootCooldown = 0.05; this.ammo--;
-                    spawnShells(1);
+                    this.shootCooldown = 0.05; this.inventory[this.weapon]--; spawnShells(1);
                 } else if (this.weapon === 'ROCKET') {
                     this.vx = this.facingRight ? -800 : 800; this.vy = -100;
                     game.projectiles.push(new Projectile(px, py - 10, vx !== 0 ? dirX*800 : 0, vy !== 0 ? -800 : 0, false, 'ROCKET'));
-                    this.shootCooldown = 1.0; this.ammo--; game.triggerShake(40, 0.8);
-                    pushback = 600; 
+                    this.shootCooldown = 1.0; this.inventory[this.weapon]--; game.triggerShake(40, 0.8);
+                    pushback = 200; // REDUZIERT
                 } else if (this.weapon === 'SHOTGUN') {
-                    this.vx = this.facingRight ? -1500 : 1500; this.vy = -200;
+                    this.vx = this.facingRight ? -800 : 800; this.vy = -150; // Rückstoß-Sprung reduziert
                     for (let i = 0; i < 5; i++) game.projectiles.push(new Projectile(px, py, vx !== 0 ? vx + (Math.random() - 0.5)*400 : (Math.random() - 0.5) * 800, vy !== 0 ? (Math.random() - 0.5) * 800 : (Math.random() - 0.5) * 800, false, 'PISTOL'));
-                    this.shootCooldown = 0.8; this.ammo--; game.triggerShake(25, 0.3);
-                    pushback = 800; 
-                    spawnShells(2); // Schrotflinte spuckt fette Hülsen!
+                    this.shootCooldown = 0.8; this.inventory[this.weapon]--; game.triggerShake(25, 0.3);
+                    pushback = 250; // MASSIV REDUZIERT (war 800!)
+                    spawnShells(2); 
                 } else if (this.weapon === 'ASSAULT_RIFLE') {
-                    game.triggerShake(8, 0.05); game.projectiles.push(new Projectile(px, py, vx * 1.5, vy * 1.5, false, 'PISTOL')); this.shootCooldown = 0.08; this.ammo--;
-                    pushback = 80;
-                    spawnShells(1);
+                    game.triggerShake(8, 0.05); game.projectiles.push(new Projectile(px, py, vx * 1.5, vy * 1.5, false, 'PISTOL')); this.shootCooldown = 0.08; this.inventory[this.weapon]--; pushback = 40; spawnShells(1);
                 } else if (this.weapon === 'MINIGUN') {
                     game.triggerShake(15, 0.1);
                     game.projectiles.push(new Projectile(px, py + (Math.random()-0.5)*20, vy !== 0 ? (Math.random() - 0.5) * 400 : vx * 1.8, vy !== 0 ? vy * 1.8 : (Math.random() - 0.5) * 400, false, 'PISTOL'));
                     game.particles.spawn(px, py, '#FFAA00', 3, 400, 0.1, true); game.particles.spawn(this.x + this.w/2, this.y + this.h/2, '#FFFF00', 1, 300, 0.5);
-                    this.shootCooldown = 0.02; this.ammo--;
-                    pushback = 40; 
-                    spawnShells(1); // Da die Minigun wahnsinnig schnell schießt, reicht hier 1 pro Frame für einen massiven Regen!
+                    this.shootCooldown = 0.02; this.inventory[this.weapon]--; pushback = 20; spawnShells(1);
                 } else if (this.weapon === 'GRENADE') {
-                    game.projectiles.push(new Projectile(px, py - 20, vx * 0.6, -600, false, 'GRENADE', true)); this.shootCooldown = 1.0; this.ammo--;
+                    game.projectiles.push(new Projectile(px, py - 20, vx * 0.6, -600, false, 'GRENADE', true)); this.shootCooldown = 1.0; this.inventory[this.weapon]--;
                 }
             }
-            if (this.ammo <= 0) { this.weapon = 'BAT'; this.ammo = Infinity; }
+            
+            // NEU: Wenn Munition leer, werfe Waffe aus Inventar und wechsel zum Bat
+            if (this.inventory[this.weapon] <= 0) { 
+                delete this.inventory[this.weapon];
+                this.weapon = 'BAT'; 
+            }
             
             if (vy === 0 && pushback > 0) {
                 this.vx -= dirX * pushback;
@@ -197,7 +211,6 @@ class Player extends Entity {
 
         let progress = Math.max(0, Math.min(1, this.shootCooldown > 0 ? this.shootCooldown / maxCd : 0));
         
-        // NEU: Waffen um 40% vergrößern
         ctx.scale(1.4, 1.4);
         ctx.translate(0, 5); 
         
@@ -208,9 +221,8 @@ class Player extends Entity {
             else if (this.weapon === 'AXE') { ctx.fillStyle = '#654321'; ctx.fillRect(0, -10, 8, 40); ctx.fillStyle = '#999'; ctx.beginPath(); ctx.moveTo(4, -10); ctx.lineTo(25, -20); ctx.lineTo(25, 5); ctx.lineTo(4, 0); ctx.fill(); ctx.fillStyle = '#8b0000'; ctx.fillRect(20, -15, 5, 15); } 
             else if (this.weapon === 'CHAINSAW') { ctx.fillStyle = '#F90'; ctx.fillRect(-10, -5, 30, 15); ctx.fillStyle = '#333'; ctx.fillRect(-15, -10, 10, 20); ctx.fillStyle = '#999'; ctx.fillRect(20, -2, 40, 8); ctx.fillStyle = '#111'; let offset = (performance.now() / 20) % 5; for(let i=0; i<35; i+=5) ctx.fillRect(20 + i + (progress>0?offset:0), -4, 2, 12); ctx.fillStyle = '#8b0000'; ctx.fillRect(45, -3, 15, 10); }
         } else {
-            // NEU: Visueller Rückstoß (Waffe zieht nach hinten ODER oben, je nach Progress)
             ctx.translate(progress * -10, progress * -3);
-            ctx.rotate(progress * -0.15); // Lässt den Lauf nach oben zucken
+            ctx.rotate(progress * -0.15); 
 
             if (this.weapon === 'PISTOL') { ctx.fillStyle = '#222'; ctx.fillRect(0, -5, 25, 10); ctx.fillRect(-5, 5, 10, 15); } 
             else if (this.weapon === 'UZI') { ctx.fillStyle = '#222'; ctx.fillRect(-10, -5, 35, 12); ctx.fillRect(0, 7, 10, 15); ctx.fillRect(20, 7, 5, 10); } 
@@ -225,10 +237,7 @@ class Player extends Entity {
             }
 
             if (this.flashTimer > 0 && this.weapon !== 'GRENADE') { 
-                ctx.fillStyle = '#FFFF00'; 
-                ctx.beginPath(); 
-                ctx.arc(['ROCKET', 'MINIGUN', 'ASSAULT_RIFLE', 'FLAMETHROWER'].includes(this.weapon) ? 50 : 25, 0, 15 + Math.random()*20, 0, Math.PI*2); 
-                ctx.fill(); 
+                ctx.fillStyle = '#FFFF00'; ctx.beginPath(); ctx.arc(['ROCKET', 'MINIGUN', 'ASSAULT_RIFLE', 'FLAMETHROWER'].includes(this.weapon) ? 50 : 25, 0, 15 + Math.random()*20, 0, Math.PI*2); ctx.fill(); 
             }
         }
         ctx.restore();
