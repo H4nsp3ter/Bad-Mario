@@ -77,14 +77,24 @@ class Player extends Entity {
         if (input.isJustPressed('Digit5')) { this.weapon = 'FLAMETHROWER'; this.ammo = 250; }
     }
     
-    fireWeapon(game, input) {
+   fireWeapon(game, input) {
         const dirX = this.facingRight ? 1 : -1;
         let px = this.facingRight ? this.x + this.w + 10 : this.x - 30, py = this.y + 60, vx = dirX * 1200, vy = 0;
         if (input && (input.isDown('KeyW') || input.isDown('ArrowUp'))) { px = this.x + this.w / 2; py = this.y - 10; vx = 0; vy = -1200; }
         
         let isMelee = ['KNIFE', 'AXE', 'BAT', 'CHAINSAW'].includes(this.weapon);
         this.flashTimer = 0.1;
-        let pushback = 0; // NEU: Physischer Rückstoß
+        let pushback = 0; 
+
+        // Hilfsfunktion: Patronenhülsen spawnen
+        const spawnShells = (count = 1) => {
+            if (!game.particles.spawnCasing) return; // Sicherstellen, dass Methode existiert
+            // Wir lassen die Hülsen etwa aus der Mitte der Waffe fliegen
+            let ejectX = this.facingRight ? this.x + this.w / 2 : this.x + this.w / 2;
+            for (let i = 0; i < count; i++) {
+                game.particles.spawnCasing(ejectX, py - 10, dirX);
+            }
+        };
 
         if (isMelee) {
             if (this.weapon === 'CHAINSAW') game.audio.playChainsaw(); else game.audio.playSwing(this.weapon);
@@ -106,41 +116,45 @@ class Player extends Entity {
                 }
                 this.shootCooldown = 0.04; 
                 this.ammo--;
-                pushback = 20; // Leichter konstanter Druck
+                pushback = 20; 
             } else {
                 game.audio.playShoot();
                 if (this.weapon === 'PISTOL') {
                     game.triggerShake(4, 0.05); game.projectiles.push(new Projectile(px, py, vx, vy, false, 'PISTOL')); this.shootCooldown = 0.25;
+                    spawnShells(1);
                 } else if (this.weapon === 'UZI') {
                     game.triggerShake(6, 0.05);
                     game.projectiles.push(new Projectile(px, py, vy !== 0 ? (Math.random() - 0.5) * 200 : vx, vy !== 0 ? vy : (Math.random() - 0.5) * 200, false, 'PISTOL'));
                     this.shootCooldown = 0.05; this.ammo--;
+                    spawnShells(1);
                 } else if (this.weapon === 'ROCKET') {
                     this.vx = this.facingRight ? -800 : 800; this.vy = -100;
                     game.projectiles.push(new Projectile(px, py - 10, vx !== 0 ? dirX*800 : 0, vy !== 0 ? -800 : 0, false, 'ROCKET'));
                     this.shootCooldown = 1.0; this.ammo--; game.triggerShake(40, 0.8);
-                    pushback = 600; // Massiver Rückstoß
+                    pushback = 600; 
                 } else if (this.weapon === 'SHOTGUN') {
                     this.vx = this.facingRight ? -1500 : 1500; this.vy = -200;
                     for (let i = 0; i < 5; i++) game.projectiles.push(new Projectile(px, py, vx !== 0 ? vx + (Math.random() - 0.5)*400 : (Math.random() - 0.5) * 800, vy !== 0 ? (Math.random() - 0.5) * 800 : (Math.random() - 0.5) * 800, false, 'PISTOL'));
                     this.shootCooldown = 0.8; this.ammo--; game.triggerShake(25, 0.3);
-                    pushback = 800; // Wirft dich fast um
+                    pushback = 800; 
+                    spawnShells(2); // Schrotflinte spuckt fette Hülsen!
                 } else if (this.weapon === 'ASSAULT_RIFLE') {
                     game.triggerShake(8, 0.05); game.projectiles.push(new Projectile(px, py, vx * 1.5, vy * 1.5, false, 'PISTOL')); this.shootCooldown = 0.08; this.ammo--;
                     pushback = 80;
+                    spawnShells(1);
                 } else if (this.weapon === 'MINIGUN') {
                     game.triggerShake(15, 0.1);
                     game.projectiles.push(new Projectile(px, py + (Math.random()-0.5)*20, vy !== 0 ? (Math.random() - 0.5) * 400 : vx * 1.8, vy !== 0 ? vy * 1.8 : (Math.random() - 0.5) * 400, false, 'PISTOL'));
                     game.particles.spawn(px, py, '#FFAA00', 3, 400, 0.1, true); game.particles.spawn(this.x + this.w/2, this.y + this.h/2, '#FFFF00', 1, 300, 0.5);
                     this.shootCooldown = 0.02; this.ammo--;
-                    pushback = 40; // Rattert dich nach hinten
+                    pushback = 40; 
+                    spawnShells(1); // Da die Minigun wahnsinnig schnell schießt, reicht hier 1 pro Frame für einen massiven Regen!
                 } else if (this.weapon === 'GRENADE') {
                     game.projectiles.push(new Projectile(px, py - 20, vx * 0.6, -600, false, 'GRENADE', true)); this.shootCooldown = 1.0; this.ammo--;
                 }
             }
             if (this.ammo <= 0) { this.weapon = 'BAT'; this.ammo = Infinity; }
             
-            // NEU: Physischen Rückstoß auf den Spieler anwenden (nur horizontal)
             if (vy === 0 && pushback > 0) {
                 this.vx -= dirX * pushback;
             }
