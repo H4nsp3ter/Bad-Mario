@@ -59,56 +59,45 @@ class LevelGenerator {
         return rand < 0.3 ? new SoldierEnemy(x, y, gameLevel) : (rand < (1 - hardChance) ? new ZombieEnemy(x, y, gameLevel) : new GiantZombieEnemy(x, y - 50, gameLevel));
     }
 
-    generateBossArena(gameLevel) {
+generateBossArena(gameLevel) {
         this.bossSpawned = true;
-        this.platforms.push(new Platform(this.cursorX, this.cursorY, 3000, 1500, true)); 
         
-        const arenaWidth = 2500;
+        const arenaWidth = 3000;
         const arenaHeight = 1500;
         
-        // Der Boden der Arena
+        // SICHERHEITS-BRÜCKE: Schließt jede Lücke zum vorherigen Cursor
+        this.platforms.push(new Platform(this.cursorX - 100, this.cursorY, 400, 1000, true));
+        this.cursorX += 200;
+
+        // DER ARENA BODEN (direkt verbunden)
         this.platforms.push(new Platform(this.cursorX, this.cursorY, arenaWidth, arenaHeight, true));
         
-        // Arena-Wand (Rechts, damit man nicht flieht)
-        this.platforms.push(new Platform(this.cursorX + arenaWidth, this.cursorY - 800, 50, 800, false)); 
+        // NUR RECHTE WAND (Links bleibt offen zum Reingehen!)
+        this.platforms.push(new Platform(this.cursorX + arenaWidth, this.cursorY - 800, 60, 800, false)); 
         
-        // ==========================================
-        // NEU: Taktische Plattformen in der Arena!
-        // ==========================================
-        this.platforms.push(new Platform(this.cursorX + 500, this.cursorY - 250, 300, 30, false)); // Links unten
-        this.platforms.push(new Platform(this.cursorX + 1700, this.cursorY - 250, 300, 30, false)); // Rechts unten
-        this.platforms.push(new Platform(this.cursorX + 1100, this.cursorY - 500, 300, 30, false)); // Mitte oben (Sniper-Spot)
+        // Taktische Plattformen
+        this.platforms.push(new Platform(this.cursorX + 600, this.cursorY - 250, 400, 40, false));
+        this.platforms.push(new Platform(this.cursorX + 1800, this.cursorY - 250, 400, 40, false));
         
-        // Kampf-Vorbereitungs-Items
-        this.items.push(new Collectible(this.cursorX + 300, this.cursorY - 50, 'HEART'));
+        // Items
+        this.items.push(new Collectible(this.cursorX + 100, this.cursorY - 60, 'HEART'));
         const bossWeapon = gameLevel === 1 ? 'MINIGUN' : (gameLevel === 2 ? 'ROCKET' : 'FLAMETHROWER');
-        this.items.push(new Collectible(this.cursorX + 450, this.cursorY - 50, bossWeapon));
-        
-        // Heilung auf der mittleren Plattform verstecken!
-        this.items.push(new Collectible(this.cursorX + 1250, this.cursorY - 550, 'HEART'));
+        this.items.push(new Collectible(this.cursorX + 250, this.cursorY - 60, bossWeapon));
 
         // BOSS SPAWN
         let boss;
-        if (gameLevel === 1) {
-            boss = new GiantZombieEnemy(this.cursorX + 1800, this.cursorY - 200, gameLevel);
-            boss.w *= 2.5; boss.h *= 2.5; boss.hp = 4000;
-            if (boss.speed) boss.speed *= 0.8; 
-        } else if (gameLevel === 2) {
-            boss = new SoldierEnemy(this.cursorX + 1800, this.cursorY - 200, gameLevel);
-            boss.w *= 2.2; boss.h *= 2.2; boss.hp = 8000;
-            if (boss.maxShootCooldown) boss.maxShootCooldown = 0.5; 
-        } else {
-            boss = new GiantZombieEnemy(this.cursorX + 1800, this.cursorY - 200, gameLevel);
-            boss.w *= 3.5; boss.h *= 3.5; boss.hp = 15000;
-            if (boss.speed) boss.speed *= 1.8; 
-        }
+        if (gameLevel === 1) boss = new GiantZombieEnemy(this.cursorX + 2200, this.cursorY - 200, gameLevel);
+        else if (gameLevel === 2) boss = new SoldierEnemy(this.cursorX + 2200, this.cursorY - 200, gameLevel);
+        else boss = new GiantZombieEnemy(this.cursorX + 2200, this.cursorY - 200, gameLevel);
+
+        if(gameLevel === 1) { boss.w *= 2.5; boss.h *= 2.5; boss.hp = 4000; }
+        if(gameLevel === 2) { boss.w *= 2.2; boss.h *= 2.2; boss.hp = 8000; boss.maxShootCooldown = 0.4; }
+        if(gameLevel === 3) { boss.w *= 3.5; boss.h *= 3.5; boss.hp = 15000; boss.speed *= 1.5; }
 
         boss.isBoss = true; 
         this.enemies.push(boss);
-
-        this.cursorX += arenaWidth + 200;
+        this.cursorX += arenaWidth + 400;
     }
-
    generateChunk(gameLevel) {
         const levelLength = 15000 * gameLevel;
 
