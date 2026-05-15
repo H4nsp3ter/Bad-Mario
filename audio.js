@@ -206,6 +206,28 @@ class AudioManager {
         this.cleanupNode(osc);
     }
 
+    // NEU: Flaschen-Klirren!
+    playBottlePickup() {
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        
+        osc.type = 'sine';
+        // Hoher Ton, der leicht abfällt (typisch für Glas)
+        osc.frequency.setValueAtTime(1500, now);
+        osc.frequency.exponentialRampToValueAtTime(2500, now + 0.05);
+        osc.frequency.exponentialRampToValueAtTime(1200, now + 0.1);
+        
+        gain.gain.setValueAtTime(0.6, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+        
+        osc.connect(gain).connect(this.ctx.destination);
+        osc.start(now);
+        osc.stop(now + 0.15);
+        this.cleanupNode(osc);
+    }
+
     // NEU: Waffe aufheben Sound (Militärisches "Klick-Klack")
     playWeaponPickup() {
         if (!this.ctx) return;
