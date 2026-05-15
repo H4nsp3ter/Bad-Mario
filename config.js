@@ -19,7 +19,7 @@ const CONFIG = {
         POWERUP_STAR: '#FFD700',
         POWERUP_HEART: '#FF0033',
         COIN: '#FFB800',
-        LADDER: '#332211'
+        LADDER: '#332211',
         FLAME: '#FF6600',
     }
 };
