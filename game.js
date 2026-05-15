@@ -635,7 +635,40 @@ class Game {
             this.ctx.fillStyle = `rgba(255, 255, 255, ${this.levelFlashTimer})`; 
             this.ctx.fillRect(0, 0, this.logicalWidth, this.logicalHeight); 
         }
-        
+        // ==========================================
+        // WAFFEN-ICONS (INVENTAR-ANZEIGE)
+        // ==========================================
+        if (this.player && this.state === 'PLAYING') {
+            const inv = Object.keys(this.player.inventory);
+            const iconSize = 50;
+            const padding = 10;
+            const startX = 20;
+            const startY = this.logicalHeight - 70;
+
+            inv.forEach((wType, index) => {
+                const isCurrent = this.player.weapon === wType;
+                const x = startX + index * (iconSize + padding);
+                
+                // Hintergrund-Kasten
+                this.ctx.fillStyle = isCurrent ? 'rgba(255, 255, 0, 0.4)' : 'rgba(0, 0, 0, 0.5)';
+                this.ctx.strokeStyle = isCurrent ? '#FFF' : '#666';
+                this.ctx.lineWidth = isCurrent ? 3 : 1;
+                this.ctx.fillRect(x, startY, iconSize, iconSize);
+                this.ctx.strokeRect(x, startY, iconSize, iconSize);
+
+                // Mini-Waffen-Symbol (vereinfacht gezeichnet)
+                this.ctx.fillStyle = '#EEE';
+                this.ctx.font = '10px monospace';
+                this.ctx.textAlign = 'center';
+                this.ctx.fillText(wType.substring(0, 5), x + iconSize/2, startY + iconSize - 5);
+                
+                // Munitionszahl
+                const am = this.player.inventory[wType];
+                this.ctx.font = 'bold 12px monospace';
+                this.ctx.fillText(am === Infinity ? '∞' : am, x + iconSize/2, startY + 15);
+            });
+            this.ctx.textAlign = 'left'; // Reset
+        }
         this.ctx.restore();
     }
 }
