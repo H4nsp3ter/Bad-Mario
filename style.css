@@ -623,4 +623,29 @@ button.menu-btn:hover {
     color: #888;
     margin-top: 20px;
 }
+.difficulty-box {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    margin: 20px 0;
+}
 
+.diff-btn {
+    width: 250px;
+    padding: 12px !important;
+    font-size: 1.2rem !important;
+    transition: transform 0.1s;
+}
+
+.diff-btn:hover {
+    transform: scale(1.05);
+}
+
+/* Farben für die Vibes */
+.princess { border-color: #ff69b4 !important; color: #ff69b4 !important; } /* Pink */
+.regular  { border-color: #00ff00 !important; color: #00ff00 !important; } /* Grün */
+.badass   { border-color: #ff0000 !important; color: #ff0000 !important; font-weight: bold; } /* Blutrot */
+
+.princess:hover { background: #ff69b4 !important; color: #000 !important; }
+.regular:hover  { background: #00ff00 !important; color: #000 !important; }
+.badass:hover   { background: #ff0000 !important; color: #000 !important; box-shadow: 0 0 20px #ff0000; }
