@@ -18,7 +18,7 @@ class Game {
         this.particles = new ParticleManager(); 
         this.audio = new AudioManager();
         
-        this.state = 'MENU'; 
+        this.state = 'MENU'; // Status: MENU, PLAYING, PAUSED, GAMEOVER
         this.lastTime = 0; 
         this.camera = { x: 0, y: 0 }; 
         this.levelGen = new LevelGenerator();
@@ -32,6 +32,14 @@ class Game {
         this.maxReachedLevel = 1; 
         this.transitionTimer = 0; 
         this.levelFlashTimer = 0;
+        
+        // ==========================================
+        // NEUE FEATURES (Highscore, Combo, Blut)
+        // ==========================================
+        this.savedHighscore = localStorage.getItem('badMarioHighscore') || 0;
+        this.combo = 0;
+        this.comboTimer = 0;
+        this.screenBlood = [];
         
         this.zoom = 1.0; 
         this.logicalWidth = window.innerWidth; 
@@ -77,16 +85,18 @@ class Game {
             // Spiel starten / Continue
             if (e.code === 'Enter') { 
                 if (this.state === 'GAMEOVER') this.continueGame(); 
-                else if (this.state !== 'PLAYING') { this.requestFullScreen(); this.audio.init(); this.startPlay(1); } 
+                else if (this.state === 'MENU') { this.requestFullScreen(); this.audio.init(); this.startPlay(1); } 
+            }
+            // PAUSE-MENÜ (Mit ESCAPE)
+            if (e.code === 'Escape') {
+                if (this.state === 'PLAYING') this.state = 'PAUSED';
+                else if (this.state === 'PAUSED') this.state = 'PLAYING';
             }
             // Hilfe-Menü (H)
             if (e.code === 'KeyH' && this.state === 'MENU') {
                 const prompt = document.getElementById('start-screen-prompt');
                 const inst = document.getElementById('menu-instructions');
-                if (prompt && inst) {
-                    prompt.classList.toggle('hidden');
-                    inst.classList.toggle('hidden');
-                }
+                if (prompt && inst) { prompt.classList.toggle('hidden'); inst.classList.toggle('hidden'); }
             }
         });
 
@@ -150,6 +160,11 @@ class Game {
         this.projectiles = []; 
         this.particles.particles = [];
         
+        // Reset Features
+        this.screenBlood = [];
+        this.combo = 0;
+        this.comboTimer = 0;
+        
         // UI Cache Reset
         this.uiCache = { hp: -1, score: -1, coins: -1, level: -1, weapon: '' };
         this.updateHUD(); 
@@ -176,6 +191,7 @@ class Game {
         this.camera.y = 0; 
         this.deathY = 2000; 
         this.projectiles = [];
+        this.screenBlood = [];
         
         this.particles.spawnExplosion(this.player.x, this.player.y, this); 
         this.updateHUD(); 
@@ -199,30 +215,59 @@ class Game {
         }
     }
 
+    // Heilt Mario bei 20 Münzen, statt Level Up (Level Up kommt durch Bosse)
     checkLevelUp() {
-        if (this.player.score >= 6000 && this.level < 3) { 
-            this.level = 3; 
-            this.maxReachedLevel = Math.max(this.maxReachedLevel, this.level); 
-            this.audio.updateBGM(this.level); 
-            this.triggerShake(30, 1.0); 
-            this.transitionTimer = 3.0; 
-            this.levelFlashTimer = 1.0; 
-        } 
-        else if (this.player.score >= 3000 && this.level < 2) { 
-            this.level = 2; 
-            this.maxReachedLevel = Math.max(this.maxReachedLevel, this.level); 
-            this.audio.updateBGM(this.level); 
-            this.triggerShake(20, 0.5); 
-            this.transitionTimer = 3.0; 
-            this.levelFlashTimer = 1.0; 
+        if (this.player.coins % 20 === 0 && this.player.coins > 0) { 
+            this.player.hp = Math.min(CONFIG.MAX_HP, this.player.hp + 20); 
+            this.particles.spawn(this.player.x + this.player.w/2, this.player.y, '#00FF00', 20, 150);
         }
         this.updateHUD();
+    }
+
+    // Boss besiegt!
+    handleBossDefeat() {
+        this.triggerShake(60, 2.0); 
+        this.audio.playExplosion();
+        this.player.score += 5000; 
+
+        if (this.level < 3) {
+            this.level++;
+            this.maxReachedLevel = Math.max(this.maxReachedLevel, this.level);
+            this.audio.updateBGM(this.level);
+            this.transitionTimer = 4.0;
+            this.levelFlashTimer = 1.5;
+            this.levelGen.bossSpawned = false; 
+            this.levelGen.cursorX += 1500; 
+        } else {
+            this.gameOver("VICTORY!", "#00FF00");
+        }
+        this.updateHUD();
+    }
+
+    // Zentrale Game Over / Victory Methode
+    gameOver(titleText = "WASTED", color = "#ff0000") {
+        this.state = 'GAMEOVER';
+        
+        if (this.player.score > this.savedHighscore) {
+            this.savedHighscore = this.player.score;
+            localStorage.setItem('badMarioHighscore', this.savedHighscore);
+        }
+
+        const wastedText = document.querySelector('.wasted-text');
+        if (wastedText) {
+            wastedText.innerText = titleText;
+            wastedText.style.color = color;
+            wastedText.style.textShadow = `0 0 20px ${color}`;
+        }
+        
+        const menuOverlay = document.getElementById('menu-overlay');
+        if(menuOverlay) menuOverlay.classList.remove('hidden');
+        document.getElementById('mobile-controls')?.classList.add('hidden');
     }
 
     updateHUD() {
         if (!this.player) return;
 
-        // Optimierung: Nur updaten, wenn sich Werte ändern
         if (this.uiCache.hp !== this.player.hp) {
             document.getElementById('health-bar-fill').style.width = `${Math.max(0, (this.player.hp / CONFIG.MAX_HP) * 100)}%`;
             this.uiCache.hp = this.player.hp;
@@ -248,9 +293,8 @@ class Game {
 
         if (this.state === 'GAMEOVER') {
             document.getElementById('final-level').innerText = this.level;
-            document.getElementById('final-score').innerText = this.player.score;
+            document.getElementById('final-score').innerText = this.player.score + (this.player.score >= this.savedHighscore && this.player.score > 0 ? " (NEW RECORD!)" : "");
             document.getElementById('final-coins').innerText = this.player.coins;
-            document.getElementById('mobile-controls')?.classList.add('hidden');
         }
     }
 
@@ -259,7 +303,9 @@ class Game {
         this.lastTime = timestamp; 
         if (dt > 0.1) dt = 0.1;
         
-        if (this.state === 'PLAYING') this.update(dt);
+        if (this.state === 'PLAYING') {
+            this.update(dt);
+        }
         
         this.draw(); 
         this.input.update(); 
@@ -274,21 +320,46 @@ class Game {
         if (this.transitionTimer > 0) this.transitionTimer -= dt;
         if (this.levelFlashTimer > 0) this.levelFlashTimer -= dt;
         
+        // Combo Timer
+        if (this.comboTimer > 0) {
+            this.comboTimer -= dt;
+            if (this.comboTimer <= 0) this.combo = 0;
+        }
+
+        // Screen Blood Animation
+        for (let i = this.screenBlood.length - 1; i >= 0; i--) {
+            this.screenBlood[i].y += 50 * dt; 
+            this.screenBlood[i].alpha -= 0.5 * dt; 
+            if (this.screenBlood[i].alpha <= 0) this.screenBlood.splice(i, 1);
+        }
+        
         this.audio.updateBGM(this.level);
         this.levelGen.update(this.camera.x, this.logicalWidth, this.level);
         this.particles.update(dt, this.levelGen.platforms);
+        
+        // Spieler updaten und schauen, ob er Schaden nimmt (für Linse-Blut)
+        let oldHp = this.player.hp;
         this.player.update(dt, this.input, this);
+        if (this.player.hp < oldHp) {
+            for(let k=0; k<5; k++) {
+                this.screenBlood.push({ 
+                    x: Math.random() * this.logicalWidth, 
+                    y: Math.random() * this.logicalHeight, 
+                    size: 20 + Math.random()*50, 
+                    alpha: 0.8 
+                });
+            }
+        }
         
         for (let c of this.levelGen.corpses) c.update(dt, this.levelGen.platforms);
         
-        // Kamera-Bewegung
+        // Kamera
         this.camera.x += ((this.player.x - this.logicalWidth * 0.4) - this.camera.x) * 5 * dt; 
         if(this.camera.x < 0) this.camera.x = 0;
-        
         this.camera.y += ((this.player.y - this.logicalHeight * 0.55) - this.camera.y) * 4 * dt;
         this.deathY = Math.min(this.deathY, this.camera.y + this.logicalHeight + 400);
         
-        // Death durch in Abgrund fallen
+        // Lava Tod
         if (this.player.y > this.deathY + 50) {
             this.player.takeDamage(50, this);
             if (this.player.hp > 0) {
@@ -300,10 +371,12 @@ class Game {
                 this.camera.x = Math.max(0, p.x - this.logicalWidth / 2); 
                 this.camera.y = this.player.y - this.logicalHeight / 2; 
                 this.deathY = this.camera.y + this.logicalHeight + 400;
+            } else if (this.state !== 'GAMEOVER') {
+                this.gameOver();
             }
         }
         
-        // Items aufsammeln
+        // Items
         for (let i = this.levelGen.items.length - 1; i >= 0; i--) {
             let item = this.levelGen.items[i]; 
             item.update(dt);
@@ -345,7 +418,6 @@ class Game {
             
             if (proj.type === 'GRENADE') proj.life -= dt;
             
-            // Projektil Out of Bounds
             if (proj.x < this.camera.x - 500 || proj.x > this.camera.x + this.logicalWidth + 500 || 
                 proj.y < this.camera.y - 500 || proj.y > this.camera.y + this.logicalHeight + 500) { 
                 this.projectiles.splice(i, 1); 
@@ -355,29 +427,23 @@ class Game {
             let hit = false;
             if (proj.type === 'GRENADE' && proj.life <= 0) hit = true;
             
-            // Gegner-Projektile treffen Spieler
             if (!hit && proj.isEnemy && this.player.checkCollision(proj)) { 
                 this.player.takeDamage(15, this); 
                 hit = true; 
             }
             
-            // Spieler-Projektile treffen Gegner
             if (!hit && !proj.isEnemy) {
                 for (let j = this.levelGen.enemies.length - 1; j >= 0; j--) {
                     let enemy = this.levelGen.enemies[j];
                     if (!enemy.dead && proj.checkCollision(enemy)) {
                         let damage = proj.type === 'FLAME' ? 5 : (proj.type === 'ROCKET' ? 100 : 25);
                         enemy.takeDamage(damage, this);
-                        // Flammen durchdringen Gegner!
-                        if (proj.type !== 'FLAME') {
-                            hit = true; 
-                        }
+                        if (proj.type !== 'FLAME') hit = true; 
                         break; 
                     }
                 }
             }
             
-            // Kollision mit Plattformen
             if (!hit) {
                 for (let p of this.levelGen.platforms) { 
                     if (proj.checkCollision(p)) { 
@@ -398,25 +464,35 @@ class Game {
             }
         }
         
-        // Gegner-Logik & Nahkampf-Kollision mit Spieler
+        // Gegner Update & Kollision
         for (let i = this.levelGen.enemies.length - 1; i >= 0; i--) {
             let enemy = this.levelGen.enemies[i];
             if (enemy.dead) { 
+                if (enemy.isBoss) this.handleBossDefeat();
+                
+                // COMBO SYSTEM
+                this.combo++;
+                this.comboTimer = 2.0; 
+                this.player.score += this.combo * 10;
+                
                 this.levelGen.enemies.splice(i, 1); 
                 continue; 
             }
             enemy.update(dt, this);
             
             if (!enemy.dead && this.player.checkCollision(enemy)) {
-                // Mario-Sprung auf den Kopf
                 if (this.player.vy > 0 && this.player.y + this.player.h - this.player.vy * dt < enemy.y + enemy.h * 0.5) { 
                     enemy.takeDamage(100, this); 
                     this.player.vy = -CONFIG.JUMP_FORCE * 0.8; 
-                } 
-                else { 
+                } else { 
                     this.player.takeDamage(20, this); 
                 }
             }
+        }
+
+        // Gameover Check falls man z.B. durch Beschuss stirbt
+        if (this.player.hp <= 0 && this.state !== 'GAMEOVER') {
+            this.gameOver();
         }
     }
 
@@ -434,26 +510,17 @@ class Game {
             for (let e of layer.elements) {
                 let drawX = (e.x - this.camera.x * layer.speed) % 6000; 
                 if (drawX < -800) drawX += 6000;
-                
                 let drawY = e.y - this.camera.y * (layer.speed * 0.5) + this.logicalHeight * 0.3;
                 
                 if (this.level === 1) { 
-                    this.ctx.beginPath(); 
-                    this.ctx.moveTo(drawX + e.w/2, drawY - e.h); 
-                    this.ctx.lineTo(drawX + e.w, drawY + e.h); 
-                    this.ctx.lineTo(drawX, drawY + e.h); 
-                    this.ctx.fill(); 
+                    this.ctx.beginPath(); this.ctx.moveTo(drawX + e.w/2, drawY - e.h); this.ctx.lineTo(drawX + e.w, drawY + e.h); this.ctx.lineTo(drawX, drawY + e.h); this.ctx.fill(); 
                 } 
                 else if (this.level === 2) { 
                     this.ctx.fillRect(drawX, drawY, e.w * 0.5, e.h * 1.5); 
                     if (e.type === 0) this.ctx.fillRect(drawX + e.w*0.5, drawY + 50, e.w*0.5, 20); 
                 } 
                 else { 
-                    this.ctx.beginPath(); 
-                    this.ctx.moveTo(drawX + e.w/2, drawY); 
-                    this.ctx.quadraticCurveTo(drawX + e.w, drawY + e.h/2, drawX + e.w/2, drawY + e.h); 
-                    this.ctx.quadraticCurveTo(drawX, drawY + e.h/2, drawX + e.w/2, drawY); 
-                    this.ctx.fill(); 
+                    this.ctx.beginPath(); this.ctx.moveTo(drawX + e.w/2, drawY); this.ctx.quadraticCurveTo(drawX + e.w, drawY + e.h/2, drawX + e.w/2, drawY + e.h); this.ctx.quadraticCurveTo(drawX, drawY + e.h/2, drawX + e.w/2, drawY); this.ctx.fill(); 
                 }
             }
         }
@@ -482,7 +549,7 @@ class Game {
         
         if (this.player) this.player.draw(this.ctx, this.camera.x, this.camera.y);
         
-        // Lava rendern
+        // Lava
         const time = performance.now() / 300;
         const startY = this.deathY - this.camera.y;
         
@@ -513,7 +580,22 @@ class Game {
             }
         }
         
-        // Transition Rendern (Wechsel in neues Level)
+        // COMBO TEXT
+        if (this.combo > 1) {
+            this.ctx.fillStyle = '#FF0000';
+            this.ctx.font = `bold ${30 + Math.sin(time*5)*5}px monospace`;
+            this.ctx.fillText(`COMBO x${this.combo}!`, this.player.x - this.camera.x - 20, this.player.y - this.camera.y - 40);
+        }
+
+        // SCREEN BLOOD (Blut auf der Kamera)
+        for (let drop of this.screenBlood) {
+            this.ctx.fillStyle = `rgba(180, 0, 0, ${drop.alpha})`;
+            this.ctx.beginPath();
+            this.ctx.arc(drop.x, drop.y, drop.size, 0, Math.PI*2);
+            this.ctx.fill();
+        }
+
+        // Transition 
         if (this.transitionTimer > 0 && this.state === 'PLAYING') {
             this.ctx.fillStyle = `rgba(255, 255, 255, ${Math.min(1.0, this.transitionTimer / 1.5) * 0.8})`; 
             this.ctx.fillRect(0, 0, this.logicalWidth, this.logicalHeight);
@@ -527,19 +609,27 @@ class Game {
             this.ctx.textAlign = 'left';
         }
         
-        // CRT Scanlines rendern
-        this.ctx.fillStyle = 'rgba(0,0,0,0.3)'; 
-        for (let i = 0; i < this.logicalHeight; i += 4) {
-            this.ctx.fillRect(0, i, this.logicalWidth, 2);
+        // PAUSE SCREEN
+        if (this.state === 'PAUSED') {
+            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.6)'; 
+            this.ctx.fillRect(0, 0, this.logicalWidth, this.logicalHeight);
+            this.ctx.fillStyle = '#FFF'; 
+            this.ctx.font = 'bold 60px monospace'; 
+            this.ctx.textAlign = 'center';
+            this.ctx.fillText('PAUSED', this.logicalWidth / 2, this.logicalHeight / 2);
+            this.ctx.font = '20px monospace'; 
+            this.ctx.fillText('Press ESC to Resume', this.logicalWidth / 2, this.logicalHeight / 2 + 40);
+            this.ctx.textAlign = 'left';
         }
+
+        // Scanlines & Effekte
+        this.ctx.fillStyle = 'rgba(0,0,0,0.3)'; 
+        for (let i = 0; i < this.logicalHeight; i += 4) this.ctx.fillRect(0, i, this.logicalWidth, 2);
         
-        // Roter Filter für Level 3
         if (this.state === 'PLAYING' && this.level === 3) { 
             this.ctx.fillStyle = 'rgba(255,0,0,0.05)'; 
             this.ctx.fillRect(0, 0, this.logicalWidth, this.logicalHeight); 
         }
-        
-        // Flash-Effekt beim Levelaufstieg
         if (this.levelFlashTimer > 0) { 
             this.ctx.fillStyle = `rgba(255, 255, 255, ${this.levelFlashTimer})`; 
             this.ctx.fillRect(0, 0, this.logicalWidth, this.logicalHeight); 
