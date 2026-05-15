@@ -67,13 +67,24 @@ class Ladder extends Entity {
 class Collectible extends Entity {
     constructor(x, y, type) { super(x, y, 36, 36); this.type = type; this.time = Math.random() * 10; this.startY = y; }
     update(dt) { this.time += dt; this.y = this.startY + Math.sin(this.time * 4) * 12; }
-    draw(ctx, camX, camY) {
+draw(ctx, camX, camY) {
         const cx = this.x - camX + this.w / 2, cy = this.y - camY + this.h / 2;
         ctx.shadowBlur = 25;
-        if (this.type === 'COIN') {
-            ctx.shadowColor = CONFIG.COLORS.COIN; ctx.fillStyle = CONFIG.COLORS.COIN;
-            ctx.beginPath(); ctx.ellipse(cx, cy, 12, 18, 0, 0, Math.PI*2); ctx.fill();
-            ctx.fillStyle = '#FFF'; ctx.fillRect(cx - 3, cy - 9, 6, 18);
+        
+        if (this.type === 'BEER') {
+            // Braune Bierflasche
+            ctx.shadowColor = '#8B4513'; ctx.fillStyle = '#8B4513'; 
+            ctx.fillRect(cx - 4, cy - 6, 8, 14); // Körper
+            ctx.fillRect(cx - 2, cy - 12, 4, 6); // Hals
+            ctx.fillStyle = '#DDD'; ctx.fillRect(cx - 3, cy - 12, 6, 2); // Kronkorken
+            ctx.fillStyle = '#FFF'; ctx.fillRect(cx - 3, cy, 6, 6); // Etikett
+        } else if (this.type === 'LIQUOR') {
+            // Heller Schnaps (gibt ordentlich Punkte!)
+            ctx.shadowColor = '#00FFFF'; ctx.fillStyle = '#E0FFFF'; 
+            ctx.fillRect(cx - 6, cy - 4, 12, 12); // Breiterer Körper
+            ctx.fillRect(cx - 2, cy - 12, 4, 8); // Hals
+            ctx.fillStyle = '#FF0000'; ctx.fillRect(cx - 3, cy - 12, 6, 2); // Roter Deckel
+            ctx.fillStyle = '#FFD700'; ctx.fillRect(cx - 4, cy, 8, 6); // Goldenes Etikett
         } else if (this.type === 'HEART') {
             ctx.shadowColor = CONFIG.COLORS.POWERUP_HEART; ctx.fillStyle = CONFIG.COLORS.POWERUP_HEART;
             const path = new Path2D(); path.moveTo(cx, cy + 9);
