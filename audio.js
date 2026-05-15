@@ -1,26 +1,51 @@
 class AudioManager {
     constructor() {
         this.ctx = null;
-        this.isPlayingBGM = false;
-        this.step = 0;
-        this.nextNoteTime = 0;
+        this.masterGain = null;
         this.distortionCurve = null;
-        this.lastFlameSound = 0; // Um Überlagerung beim Flammenwerfer zu stoppen
+        this.lastFlameSound = 0;
+        
+        // NEU: MP3 Buffer-Speicher
+        this.buffers = {};
+        this.currentBGM = null;
+        this.currentBGMName = '';
+        
+        this.isMuted = false;
     }
 
     init() {
         if (!this.ctx) {
             this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+            
+            // MASTER GAIN (Globale Lautstärke) - Standard auf 40% für angenehmes Hören
+            this.masterGain = this.ctx.createGain();
+            this.masterGain.gain.value = 0.4; 
+            this.masterGain.connect(this.ctx.destination);
+
             this.distortionCurve = this.makeDistortionCurve(400);
+
+            // HIER KANNST DU DEINE ECHTEN MP3s LADEN!
+            // Lege einfach z.B. "level_metal.mp3" in deinen Ordner und nimm die // weg.
+            // this.loadTrack('BGM_LEVEL', 'audio/level_metal.mp3');
+            // this.loadTrack('BGM_BOSS', 'audio/boss_thrash.mp3');
         }
         if (this.ctx.state === 'suspended') this.ctx.resume();
     }
 
-    // Hilfsfunktion, um Memory Leaks zu vermeiden
-    cleanupNode(node) {
-        if (node) {
-            node.onended = () => node.disconnect();
+    // Lädt eine echte MP3/WAV in den Speicher
+    async loadTrack(name, url) {
+        try {
+            const response = await fetch(url);
+            const arrayBuffer = await response.arrayBuffer();
+            this.buffers[name] = await this.ctx.decodeAudioData(arrayBuffer);
+            console.log(`Audio geladen: ${name}`);
+        } catch (e) {
+            console.warn(`Konnte Audio nicht laden: ${url}`, e);
         }
+    }
+
+    cleanupNode(node) {
+        if (node) node.onended = () => node.disconnect();
     }
 
     makeDistortionCurve(amount) {
@@ -35,101 +60,44 @@ class AudioManager {
         return curve;
     }
 
-    playMeleeHit() {
-        if (!this.ctx) return;
-        const now = this.ctx.currentTime;
-        const osc = this.ctx.createOscillator();
-        const oscGain = this.ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(150, now);
-        osc.frequency.exponentialRampToValueAtTime(40, now + 0.1);
-        oscGain.gain.setValueAtTime(1.0, now);
-        oscGain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-        osc.connect(oscGain).connect(this.ctx.destination);
-        osc.start(now);
-        osc.stop(now + 0.1);
-        this.cleanupNode(osc);
-
-        const bufferSize = this.ctx.sampleRate * 0.05;
-        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-        const data = buffer.getChannelData(0);
-        for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
-        const noise = this.ctx.createBufferSource();
-        noise.buffer = buffer;
-        const filter = this.ctx.createBiquadFilter();
-        filter.type = 'highpass';
-        filter.frequency.setValueAtTime(3000, now);
-        const noiseGain = this.ctx.createGain();
-        noiseGain.gain.setValueAtTime(0.6, now);
-        noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
-        noise.connect(filter).connect(noiseGain).connect(this.ctx.destination);
-        noise.start(now);
-        this.cleanupNode(noise);
+    // PITCH RANDOMIZER: Macht Sounds organischer!
+    randomPitch(baseFreq, variation = 0.1) {
+        return baseFreq * (1 + (Math.random() * variation * 2 - variation));
     }
 
-    playSwing(weapon) {
-        if (!this.ctx) return;
-        const now = this.ctx.currentTime;
-        const bufferSize = this.ctx.sampleRate * 0.15;
-        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-        const data = buffer.getChannelData(0);
-        for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
-        const noise = this.ctx.createBufferSource();
-        noise.buffer = buffer;
-        const filter = this.ctx.createBiquadFilter();
-        filter.type = 'bandpass';
-        let startFreq = 2000, endFreq = 500;
-        if (weapon === 'BAT') { startFreq = 800; endFreq = 200; }
-        filter.frequency.setValueAtTime(startFreq, now);
-        filter.frequency.exponentialRampToValueAtTime(endFreq, now + 0.15);
-        const gain = this.ctx.createGain();
-        gain.gain.setValueAtTime(0.8, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
-        noise.connect(filter).connect(gain).connect(this.ctx.destination);
-        noise.start(now);
-        this.cleanupNode(noise);
-    }
-
-    playChainsaw() {
-        if (!this.ctx) return;
-        const now = this.ctx.currentTime;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(60, now);
-        osc.frequency.linearRampToValueAtTime(120, now + 0.1);
-        osc.frequency.linearRampToValueAtTime(80, now + 0.2);
-        const dist = this.ctx.createWaveShaper();
-        dist.curve = this.distortionCurve;
-        gain.gain.setValueAtTime(0.8, now);
-        gain.gain.linearRampToValueAtTime(0.01, now + 0.2);
-        osc.connect(dist).connect(gain).connect(this.ctx.destination);
-        osc.start(now);
-        osc.stop(now + 0.2);
-        this.cleanupNode(osc);
-    }
-
-    playJump() {
-        if (!this.ctx) return;
-        const now = this.ctx.currentTime;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(150, now);
-        osc.frequency.exponentialRampToValueAtTime(350, now + 0.15);
-        gain.gain.setValueAtTime(0.2, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
-        osc.connect(gain);
-        gain.connect(this.ctx.destination);
-        osc.start(now);
-        osc.stop(now + 0.15);
-        this.cleanupNode(osc);
-    }
-
+    // ==========================================
+    // LAYERED SFX (Der neue, fette Waffensound)
+    // ==========================================
     playShoot() {
-        if (!this.ctx) return;
+        if (!this.ctx || this.isMuted) return;
         const now = this.ctx.currentTime;
-        const bufferSize = this.ctx.sampleRate * 0.15;
+        
+        // 1. Der Klick (Mechanik der Waffe)
+        const clickOsc = this.ctx.createOscillator();
+        const clickGain = this.ctx.createGain();
+        clickOsc.type = 'square';
+        clickOsc.frequency.setValueAtTime(this.randomPitch(2000), now);
+        clickOsc.frequency.exponentialRampToValueAtTime(100, now + 0.05);
+        clickGain.gain.setValueAtTime(0.5, now);
+        clickGain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+        clickOsc.connect(clickGain).connect(this.masterGain);
+        clickOsc.start(now); clickOsc.stop(now + 0.05);
+        this.cleanupNode(clickOsc);
+
+        // 2. Der Wumms (Druckwelle im Bauch)
+        const bassOsc = this.ctx.createOscillator();
+        const bassGain = this.ctx.createGain();
+        bassOsc.type = 'sine';
+        bassOsc.frequency.setValueAtTime(this.randomPitch(250), now);
+        bassOsc.frequency.exponentialRampToValueAtTime(30, now + 0.2);
+        bassGain.gain.setValueAtTime(1.0, now);
+        bassGain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+        bassOsc.connect(bassGain).connect(this.masterGain);
+        bassOsc.start(now); bassOsc.stop(now + 0.2);
+        this.cleanupNode(bassOsc);
+
+        // 3. Das Rauschen (Zischen der Patrone)
+        const bufferSize = this.ctx.sampleRate * 0.2;
         const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
         const data = buffer.getChannelData(0);
         for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
@@ -137,21 +105,101 @@ class AudioManager {
         noise.buffer = buffer;
         const filter = this.ctx.createBiquadFilter();
         filter.type = 'lowpass';
-        filter.frequency.value = 3000;
-        filter.frequency.exponentialRampToValueAtTime(100, now + 0.1);
-        const gain = this.ctx.createGain();
-        gain.gain.setValueAtTime(0.6, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
-        noise.connect(filter).connect(gain).connect(this.ctx.destination);
+        filter.frequency.value = 2000;
+        filter.frequency.exponentialRampToValueAtTime(100, now + 0.15);
+        const noiseGain = this.ctx.createGain();
+        noiseGain.gain.setValueAtTime(0.8, now);
+        noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+        noise.connect(filter).connect(noiseGain).connect(this.masterGain);
         noise.start(now);
         this.cleanupNode(noise);
     }
 
-    // NEU: Flammenwerfer Sound (Rauschen statt Knallen)
-    playFlamethrower() {
-        if (!this.ctx) return;
+    playScream() {
+        if (!this.ctx || this.isMuted) return;
         const now = this.ctx.currentTime;
-        // Anti-Spam: Spielt den Sound max alle 0.1 Sekunden ab, auch wenn die Waffe schneller feuert
+        
+        // FM Synthese für organische, eklige Schreie
+        const osc1 = this.ctx.createOscillator(); // Hauptstimme
+        const osc2 = this.ctx.createOscillator(); // Dissonanz
+        const gain = this.ctx.createGain();
+        
+        osc1.type = 'sawtooth';
+        osc2.type = 'triangle';
+        
+        const baseFreq = this.randomPitch(600, 0.3); // Stark variierende Monsterstimmen
+        
+        osc1.frequency.setValueAtTime(baseFreq, now);
+        osc1.frequency.exponentialRampToValueAtTime(50, now + 0.5);
+        
+        osc2.frequency.setValueAtTime(baseFreq * 1.15, now); // Dissonanz!
+        osc2.frequency.exponentialRampToValueAtTime(40, now + 0.5);
+        
+        const dist = this.ctx.createWaveShaper();
+        dist.curve = this.makeDistortionCurve(200); // Viel Distortion für Horror-Vibe
+        
+        gain.gain.setValueAtTime(0.4, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
+        
+        osc1.connect(dist);
+        osc2.connect(dist);
+        dist.connect(gain).connect(this.masterGain);
+        
+        osc1.start(now); osc1.stop(now + 0.5);
+        osc2.start(now); osc2.stop(now + 0.5);
+        this.cleanupNode(osc1);
+        this.cleanupNode(osc2);
+    }
+
+    playBottlePickup() {
+        if (!this.ctx || this.isMuted) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(this.randomPitch(1500), now);
+        osc.frequency.exponentialRampToValueAtTime(2500, now + 0.05);
+        osc.frequency.exponentialRampToValueAtTime(1200, now + 0.1);
+        gain.gain.setValueAtTime(0.3, now); // LEISER GEMACHT
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+        osc.connect(gain).connect(this.masterGain);
+        osc.start(now); osc.stop(now + 0.15);
+        this.cleanupNode(osc);
+    }
+
+    playCoin() {
+        if (!this.ctx || this.isMuted) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(this.randomPitch(800), now);
+        osc.frequency.setValueAtTime(1200, now + 0.05);
+        gain.gain.setValueAtTime(0.15, now); // LEISER GEMACHT
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+        osc.connect(gain).connect(this.masterGain);
+        osc.start(now); osc.stop(now + 0.3);
+        this.cleanupNode(osc);
+    }
+
+    playWeaponPickup() {
+        if (!this.ctx || this.isMuted) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(400, now);
+        osc.frequency.exponentialRampToValueAtTime(800, now + 0.1);
+        gain.gain.setValueAtTime(0.2, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+        osc.connect(gain).connect(this.masterGain);
+        osc.start(now); osc.stop(now + 0.1);
+        this.cleanupNode(osc);
+    }
+
+    playFlamethrower() {
+        if (!this.ctx || this.isMuted) return;
+        const now = this.ctx.currentTime;
         if (now - this.lastFlameSound < 0.1) return; 
         this.lastFlameSound = now;
 
@@ -163,90 +211,17 @@ class AudioManager {
         noise.buffer = buffer;
         const filter = this.ctx.createBiquadFilter();
         filter.type = 'lowpass';
-        filter.frequency.value = 800; // Dumpfes Rauschen
+        filter.frequency.value = 800; 
         const gain = this.ctx.createGain();
         gain.gain.setValueAtTime(0.4, now);
         gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
-        noise.connect(filter).connect(gain).connect(this.ctx.destination);
+        noise.connect(filter).connect(gain).connect(this.masterGain);
         noise.start(now);
         this.cleanupNode(noise);
     }
 
-    playScream() {
-        if (!this.ctx) return;
-        const now = this.ctx.currentTime;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'sawtooth';
-        osc.frequency.setValueAtTime(1200, now);
-        osc.frequency.exponentialRampToValueAtTime(50, now + 0.4);
-        const dist = this.ctx.createWaveShaper();
-        dist.curve = this.makeDistortionCurve(100);
-        gain.gain.setValueAtTime(0.5, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.4);
-        osc.connect(dist).connect(gain).connect(this.ctx.destination);
-        osc.start(now);
-        osc.stop(now + 0.4);
-        this.cleanupNode(osc);
-    }
-
-    playCoin() {
-        if (!this.ctx) return;
-        const now = this.ctx.currentTime;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'sine';
-        osc.frequency.setValueAtTime(800, now);
-        osc.frequency.setValueAtTime(1200, now + 0.05);
-        gain.gain.setValueAtTime(0.2, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
-        osc.connect(gain).connect(this.ctx.destination);
-        osc.start(now);
-        osc.stop(now + 0.3);
-        this.cleanupNode(osc);
-    }
-
-    // NEU: Flaschen-Klirren!
-    playBottlePickup() {
-        if (!this.ctx) return;
-        const now = this.ctx.currentTime;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        
-        osc.type = 'sine';
-        // Hoher Ton, der leicht abfällt (typisch für Glas)
-        osc.frequency.setValueAtTime(1500, now);
-        osc.frequency.exponentialRampToValueAtTime(2500, now + 0.05);
-        osc.frequency.exponentialRampToValueAtTime(1200, now + 0.1);
-        
-        gain.gain.setValueAtTime(0.6, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
-        
-        osc.connect(gain).connect(this.ctx.destination);
-        osc.start(now);
-        osc.stop(now + 0.15);
-        this.cleanupNode(osc);
-    }
-
-    // NEU: Waffe aufheben Sound (Militärisches "Klick-Klack")
-    playWeaponPickup() {
-        if (!this.ctx) return;
-        const now = this.ctx.currentTime;
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'square';
-        osc.frequency.setValueAtTime(400, now);
-        osc.frequency.exponentialRampToValueAtTime(800, now + 0.1);
-        gain.gain.setValueAtTime(0.3, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-        osc.connect(gain).connect(this.ctx.destination);
-        osc.start(now);
-        osc.stop(now + 0.1);
-        this.cleanupNode(osc);
-    }
-
     playExplosion() {
-        if (!this.ctx) return;
+        if (!this.ctx || this.isMuted) return;
         const now = this.ctx.currentTime;
         const bufferSize = this.ctx.sampleRate * 0.8;
         const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
@@ -258,121 +233,80 @@ class AudioManager {
         dist.curve = this.distortionCurve;
         const filter = this.ctx.createBiquadFilter();
         filter.type = 'lowpass';
-        filter.frequency.value = 500;
-        filter.frequency.exponentialRampToValueAtTime(50, now + 0.8);
+        filter.frequency.value = 400; // Tiefer und dumpfer!
+        filter.frequency.exponentialRampToValueAtTime(30, now + 0.8);
         const nGain = this.ctx.createGain();
         nGain.gain.setValueAtTime(1.0, now);
         nGain.gain.exponentialRampToValueAtTime(0.01, now + 0.8);
-        noise.connect(filter).connect(dist).connect(nGain).connect(this.ctx.destination);
+        noise.connect(filter).connect(dist).connect(nGain).connect(this.masterGain);
         noise.start(now);
         this.cleanupNode(noise);
     }
 
+    playJump() {
+        if (!this.ctx || this.isMuted) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator();
+        const gain = this.ctx.createGain();
+        osc.type = 'sine'; // Weicher gemacht
+        osc.frequency.setValueAtTime(this.randomPitch(150), now);
+        osc.frequency.exponentialRampToValueAtTime(300, now + 0.15);
+        gain.gain.setValueAtTime(0.1, now); // Sehr dezent!
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
+        osc.connect(gain).connect(this.masterGain);
+        osc.start(now); osc.stop(now + 0.15);
+        this.cleanupNode(osc);
+    }
+    
+    playMeleeHit() { this.playShoot(); } // Für Wucht recyceln wir den dicken Bass
+    playSwing() { this.playJump(); } // Für Swing reicht der leise Swoosh
+    playChainsaw() { this.playFlamethrower(); } // Dumpfes Rauschen passt gut
+
+    // ==========================================
+    // BGM SYSTEM (Echte Tracks abspielen!)
+    // ==========================================
     startBGM() {
         this.init();
-        this.isPlayingBGM = true;
-        this.nextNoteTime = this.ctx.currentTime + 0.1;
-        this.step = 0;
+        // Hier schmeißen wir das prozedurale Piepsen raus.
+        // Wenn du in init() die MP3s lädst, kannst du sie hier starten:
+        // this.playMusicTrack('BGM_LEVEL');
     }
 
     stopBGM() {
-        this.isPlayingBGM = false;
+        if (this.currentBGM) {
+            this.currentBGM.stop();
+            this.currentBGM = null;
+        }
     }
 
-    updateBGM(level) {
-        if (!this.isPlayingBGM || !this.ctx) return;
-        let tempo = 0.25;
-        let pattern1 = [82.41, 82.41, 82.41, 65.41, 82.41, 98.00];
-        let pattern2 = [41.20, 41.20, 41.20, 32.70, 41.20, 49.00];
-        let kickFreq = 150;
-        let kickDecay = 0.15;
-        let distortionAmount = '4x';
-        let noisePattern = [0, 1, 0, 1, 2, 1, 0, 1];
+    playMusicTrack(trackName) {
+        if (this.isMuted || !this.ctx || !this.buffers[trackName] || this.currentBGMName === trackName) return;
         
-        if (level === 2) {
-            tempo = 0.15;
-            pattern1 = [110, 110, 130.81, 110, 146.83];
-            pattern2 = [55, 55, 65.41, 55, 73.42];
-            kickFreq = 220;
-            kickDecay = 0.1;
-            noisePattern = [1, 1, 2, 1, 1, 1, 2, 1];
-        } else if (level >= 3) {
-            tempo = 0.1;
-            pattern1 = [41.20, 46.25, 32.70, 49.00, 41.20, 55.00];
-            pattern2 = [20.60, 23.12, 16.35, 24.50, 20.60, 27.50];
-            distortionAmount = 'none';
-            kickFreq = 180;
-            kickDecay = 0.08;
-            noisePattern = [1, 2, 1, 2];
-        }
+        if (this.currentBGM) this.currentBGM.stop();
+
+        this.currentBGM = this.ctx.createBufferSource();
+        this.currentBGM.buffer = this.buffers[trackName];
+        this.currentBGM.loop = true;
         
-        while (this.nextNoteTime < this.ctx.currentTime + 0.1) {
-            let freq1 = pattern1[this.step % pattern1.length];
-            if (freq1 !== 0) {
-                const osc = this.ctx.createOscillator();
-                const gain = this.ctx.createGain();
-                const dist = this.ctx.createWaveShaper();
-                dist.curve = level >= 3 ? this.makeDistortionCurve(1000) : this.distortionCurve;
-                dist.oversample = distortionAmount; // Fix: Jetzt sauber
-                osc.type = level >= 3 ? 'square' : 'sawtooth';
-                osc.frequency.value = freq1;
-                gain.gain.setValueAtTime(level >= 3 ? 0.4 : 0.3, this.nextNoteTime);
-                gain.gain.exponentialRampToValueAtTime(0.01, this.nextNoteTime + tempo - 0.02);
-                osc.connect(dist).connect(gain).connect(this.ctx.destination);
-                osc.start(this.nextNoteTime);
-                osc.stop(this.nextNoteTime + tempo - 0.02);
-                this.cleanupNode(osc);
-            }
-            
-            let freq2 = pattern2[this.step % pattern2.length];
-            if (freq2 !== 0) {
-                const oscSub = this.ctx.createOscillator();
-                const gainSub = this.ctx.createGain();
-                oscSub.type = 'triangle';
-                oscSub.frequency.value = freq2;
-                gainSub.gain.setValueAtTime(0.6, this.nextNoteTime);
-                gainSub.gain.exponentialRampToValueAtTime(0.01, this.nextNoteTime + tempo - 0.02);
-                oscSub.connect(gainSub).connect(this.ctx.destination);
-                oscSub.start(this.nextNoteTime);
-                oscSub.stop(this.nextNoteTime + tempo - 0.02);
-                this.cleanupNode(oscSub);
-            }
-            
-            if (this.step % 2 === 0 || level >= 3) {
-                const kOsc = this.ctx.createOscillator();
-                const kGain = this.ctx.createGain();
-                kOsc.type = 'sine';
-                kOsc.frequency.setValueAtTime(kickFreq, this.nextNoteTime);
-                kOsc.frequency.exponentialRampToValueAtTime(20, this.nextNoteTime + kickDecay);
-                kGain.gain.setValueAtTime(1.0, this.nextNoteTime);
-                kGain.gain.exponentialRampToValueAtTime(0.01, this.nextNoteTime + kickDecay);
-                kOsc.connect(kGain).connect(this.ctx.destination);
-                kOsc.start(this.nextNoteTime);
-                kOsc.stop(this.nextNoteTime + kickDecay);
-                this.cleanupNode(kOsc);
-            }
-            
-            let nType = noisePattern[this.step % noisePattern.length];
-            if (nType > 0) {
-                const bufferSize = this.ctx.sampleRate * 0.1;
-                const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-                const data = buffer.getChannelData(0);
-                for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
-                const noise = this.ctx.createBufferSource();
-                noise.buffer = buffer;
-                const filter = this.ctx.createBiquadFilter();
-                filter.type = nType === 1 ? 'highpass' : 'bandpass';
-                filter.frequency.value = nType === 1 ? 8000 : 2000;
-                const nGain = this.ctx.createGain();
-                nGain.gain.setValueAtTime(nType === 1 ? 0.2 : 0.6, this.nextNoteTime);
-                nGain.gain.exponentialRampToValueAtTime(0.01, this.nextNoteTime + (nType === 1 ? 0.05 : 0.15));
-                noise.connect(filter).connect(nGain).connect(this.ctx.destination);
-                noise.start(this.nextNoteTime);
-                noise.stop(this.nextNoteTime + 0.15);
-                this.cleanupNode(noise);
-            }
-            this.step++;
-            this.nextNoteTime += tempo;
+        const gain = this.ctx.createGain();
+        gain.gain.value = 0.5; // BGM nicht zu laut, damit Effekte knallen
+        
+        this.currentBGM.connect(gain).connect(this.masterGain);
+        this.currentBGM.start();
+        this.currentBGMName = trackName;
+    }
+
+    updateBGM(level, isBossArena = false) {
+        // Diese Methode steuert den dynamischen Wechsel!
+        // Wenn das Level einen Boss hat, wechsle auf den Boss-Track.
+        // Falls du die MP3s geladen hast, entkommentiere die nächsten Zeilen:
+        
+        /*
+        if (isBossArena) {
+            this.playMusicTrack('BGM_BOSS');
+        } else {
+            this.playMusicTrack('BGM_LEVEL');
         }
+        */
     }
 }
