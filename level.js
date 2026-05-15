@@ -56,8 +56,7 @@ class LevelGenerator {
         return rand < 0.3 ? new SoldierEnemy(x, y, gameLevel) : (rand < 0.6 ? new GiantZombieEnemy(x, y - 50, gameLevel) : new ZombieEnemy(x, y, gameLevel));
     }
 
-    // NEU: Erstellt die Endboss-Arena
-    generateBossArena(gameLevel) {
+   generateBossArena(gameLevel) {
         this.bossSpawned = true;
         this.cursorX += 500; // Etwas Platz vor der Arena
         
@@ -73,17 +72,44 @@ class LevelGenerator {
         
         // 3. Kampf-Vorbereitungs-Items
         this.items.push(new Collectible(this.cursorX + 300, this.cursorY - 50, 'HEART'));
-        this.items.push(new Collectible(this.cursorX + 450, this.cursorY - 50, 'MINIGUN'));
+        // Das Waffen-Drop passt sich dem Level an!
+        const bossWeapon = gameLevel === 1 ? 'MINIGUN' : (gameLevel === 2 ? 'ROCKET' : 'FLAMETHROWER');
+        this.items.push(new Collectible(this.cursorX + 450, this.cursorY - 50, bossWeapon));
         this.items.push(new Collectible(this.cursorX + 2200, this.cursorY - 50, 'HEART'));
 
-        // 4. DER BOSS SPAWN
-        // Wir nehmen erstmal den GiantZombie, machen ihn 2,5x größer und geben ihm 10x so viel Leben!
-        let boss = new GiantZombieEnemy(this.cursorX + 1800, this.cursorY - 200, gameLevel);
-        boss.w *= 2.5; 
-        boss.h *= 2.5; 
-        boss.hp = 3000 * gameLevel; // Massiv Leben!
-        boss.isBoss = true; // Markierung, damit er nicht weggelöscht wird
+        // ==========================================
+        // 4. DER BOSS SPAWN (Individuell pro Level)
+        // ==========================================
+        let boss;
         
+        if (gameLevel === 1) {
+            // BOSS LEVEL 1: "Der Goliath" (Massiver mutierter Zombie)
+            boss = new GiantZombieEnemy(this.cursorX + 1800, this.cursorY - 200, gameLevel);
+            boss.w *= 2.5; 
+            boss.h *= 2.5; 
+            boss.hp = 4000; // Extrem zäh!
+            // Falls er eine speed-Eigenschaft hat, machen wir ihn leicht langsamer, aber unaufhaltsam
+            if (boss.speed) boss.speed *= 0.8; 
+            
+        } else if (gameLevel === 2) {
+            // BOSS LEVEL 2: "Cyber-Commander" (Riesiger, ballernder Elite-Soldat)
+            boss = new SoldierEnemy(this.cursorX + 1800, this.cursorY - 200, gameLevel);
+            boss.w *= 2.2; 
+            boss.h *= 2.2; 
+            boss.hp = 8000;
+            // Falls der Soldat eine Schuss-Frequenz hat, halbieren wir den Cooldown -> er ballert wie verrückt!
+            if (boss.maxShootCooldown) boss.maxShootCooldown = 0.5; 
+            
+        } else {
+            // BOSS LEVEL 3: "Apex Predator" (Der ultimative Endgegner)
+            boss = new GiantZombieEnemy(this.cursorX + 1800, this.cursorY - 200, gameLevel);
+            boss.w *= 3.5; // Gigantisch
+            boss.h *= 3.5; 
+            boss.hp = 15000;
+            if (boss.speed) boss.speed *= 1.8; // Fies schnell!
+        }
+
+        boss.isBoss = true; // Markierung, damit er beim Aufräumen der Welt nicht gelöscht wird
         this.enemies.push(boss);
 
         // Den Cursor hinter die Arena setzen
