@@ -31,14 +31,12 @@ class LevelGenerator {
     }
 
     update(camX, screenWidth, gameLevel) {
-        // ANTI-FREEZE-NOTBREMSE
         let safeLoopCounter = 0;
         while (this.cursorX < camX + screenWidth + 2000 && safeLoopCounter < 15) {
             this.generateChunk(gameLevel);
             safeLoopCounter++;
         }
 
-        // Aufräumen (Garbage Collection)
         const cleanupX = camX - 1500;
         this.platforms = this.platforms.filter(p => p.x + p.w > cleanupX); 
         this.ladders = this.ladders.filter(l => l.x + l.w > cleanupX);
@@ -47,11 +45,18 @@ class LevelGenerator {
         this.corpses = this.corpses.filter(c => c.x + c.w > cleanupX);
     }
 
-    spawnEnemy(x, y, gameLevel) {
+    // NEU: Der spawnEnemy-Methode geben wir den "progress" (Fortschritt) mit
+    spawnEnemy(x, y, gameLevel, progress = 0.5) {
         const rand = Math.random();
-        if (gameLevel === 1) return rand < 0.8 ? new ZombieEnemy(x, y, gameLevel) : new GiantZombieEnemy(x, y - 50, gameLevel);
-        if (gameLevel === 2) return rand < 0.6 ? new ZombieEnemy(x, y, gameLevel) : new GiantZombieEnemy(x, y - 50, gameLevel);
-        return rand < 0.3 ? new SoldierEnemy(x, y, gameLevel) : (rand < 0.6 ? new GiantZombieEnemy(x, y - 50, gameLevel) : new ZombieEnemy(x, y, gameLevel));
+        
+        // Je weiter wir im Level sind (progress nähert sich 1.0), desto schwerer die Gegner!
+        let hardChance = 0.2 + (progress * 0.4); // Startet bei 20%, steigt auf 60%
+        
+        if (gameLevel === 1) return rand < (1 - hardChance) ? new ZombieEnemy(x, y, gameLevel) : new GiantZombieEnemy(x, y - 50, gameLevel);
+        if (gameLevel === 2) return rand < (1 - hardChance) ? new ZombieEnemy(x, y, gameLevel) : new GiantZombieEnemy(x, y - 50, gameLevel);
+        
+        // Level 3: Soldaten oder Riesen-Zombies
+        return rand < 0.3 ? new SoldierEnemy(x, y, gameLevel) : (rand < (1 - hardChance) ? new ZombieEnemy(x, y, gameLevel) : new GiantZombieEnemy(x, y - 50, gameLevel));
     }
 
     generateBossArena(gameLevel) {
@@ -61,17 +66,26 @@ class LevelGenerator {
         const arenaWidth = 2500;
         const arenaHeight = 1500;
         
+        // Der Boden der Arena
         this.platforms.push(new Platform(this.cursorX, this.cursorY, arenaWidth, arenaHeight, true));
         
-        // Arena-Wände
-        this.platforms.push(new Platform(this.cursorX - 50, this.cursorY - 800, 50, 800, false)); 
+        // Arena-Wand (Rechts, damit man nicht flieht)
         this.platforms.push(new Platform(this.cursorX + arenaWidth, this.cursorY - 800, 50, 800, false)); 
+        
+        // ==========================================
+        // NEU: Taktische Plattformen in der Arena!
+        // ==========================================
+        this.platforms.push(new Platform(this.cursorX + 500, this.cursorY - 250, 300, 30, false)); // Links unten
+        this.platforms.push(new Platform(this.cursorX + 1700, this.cursorY - 250, 300, 30, false)); // Rechts unten
+        this.platforms.push(new Platform(this.cursorX + 1100, this.cursorY - 500, 300, 30, false)); // Mitte oben (Sniper-Spot)
         
         // Kampf-Vorbereitungs-Items
         this.items.push(new Collectible(this.cursorX + 300, this.cursorY - 50, 'HEART'));
         const bossWeapon = gameLevel === 1 ? 'MINIGUN' : (gameLevel === 2 ? 'ROCKET' : 'FLAMETHROWER');
         this.items.push(new Collectible(this.cursorX + 450, this.cursorY - 50, bossWeapon));
-        this.items.push(new Collectible(this.cursorX + 2200, this.cursorY - 50, 'HEART'));
+        
+        // Heilung auf der mittleren Plattform verstecken!
+        this.items.push(new Collectible(this.cursorX + 1250, this.cursorY - 550, 'HEART'));
 
         // BOSS SPAWN
         let boss;
@@ -96,8 +110,11 @@ class LevelGenerator {
     }
 
     generateChunk(gameLevel) {
-        // Boss-Event auslösen (nach 15.000 px)
-        if (this.cursorX > 15000 * gameLevel && !this.bossSpawned) {
+        const levelLength = 15000 * gameLevel;
+        let progress = Math.min(1.0, this.cursorX / levelLength); // 0.0 (Start) bis 1.0 (Boss)
+
+        // Boss-Event auslösen
+        if (this.cursorX > levelLength && !this.bossSpawned) {
             this.generateBossArena(gameLevel);
             return; 
         }
@@ -109,7 +126,6 @@ class LevelGenerator {
         }
         this.stateCounter--;
 
-        // Failsafe für Physik-Variablen
         const safeJumpForce = (typeof CONFIG !== 'undefined' && CONFIG.JUMP_FORCE) ? CONFIG.JUMP_FORCE : 600;
         const safeGravity = (typeof CONFIG !== 'undefined' && CONFIG.GRAVITY) ? CONFIG.GRAVITY : 2000;
         const safeSpeed = (typeof CONFIG !== 'undefined' && CONFIG.PLAYER_SPEED) ? CONFIG.PLAYER_SPEED : 400;
@@ -125,8 +141,9 @@ class LevelGenerator {
                 const w = 300 + Math.random() * 300; 
                 this.platforms.push(new Platform(this.cursorX, this.cursorY, w, 50, false));
                 
-                if (Math.random() > 0.4) {
-                    this.enemies.push(this.spawnEnemy(this.cursorX + w/2, this.cursorY - 150, gameLevel));
+                // Spawnt mehr Gegner, je weiter man im Level ist
+                if (Math.random() > (0.6 - progress * 0.3)) {
+                    this.enemies.push(this.spawnEnemy(this.cursorX + w/2, this.cursorY - 150, gameLevel, progress));
                 }
                 
                 if (Math.random() > 0.6) { 
@@ -134,13 +151,12 @@ class LevelGenerator {
                     this.platforms.push(new Platform(this.cursorX + w/2 - 100, this.cursorY - 300, 200, 50, false)); 
                 }
 
-                // NEU: Separates Spawnen von Waffen und Flaschen
-                if (Math.random() > 0.8) { // 20% Chance auf Waffe
+                // FIX: Munition seltener machen (Survival-Feeling)
+                if (Math.random() > 0.85) { 
                     const type = weaponPool[Math.floor(Math.random() * weaponPool.length)];
                     this.items.push(new Collectible(this.cursorX + w/2, this.cursorY - 200, type));
-                } else if (Math.random() > 0.4) { // Ansonsten 60% Chance auf Flaschen!
+                } else if (Math.random() > 0.6) { 
                     const dropType = Math.random() > 0.85 ? 'LIQUOR' : 'BEER';
-                    // Flasche liegt direkt auf der Plattform
                     this.items.push(new Collectible(this.cursorX + w/2 + (Math.random()*40 - 20), this.cursorY - 40, dropType));
                 }
 
@@ -158,33 +174,32 @@ class LevelGenerator {
             this.ladders.push(new Ladder(this.cursorX + 150, this.cursorY - 800, 60, 400)); 
             this.platforms.push(new Platform(this.cursorX + 50, this.cursorY - 800, 400, 50, false));
             
-            this.enemies.push(this.spawnEnemy(this.cursorX + 200, this.cursorY - 880, gameLevel)); 
+            this.enemies.push(this.spawnEnemy(this.cursorX + 200, this.cursorY - 880, gameLevel, progress)); 
             
-            // NEU: Oben auf dem Klettergerüst wartet immer eine fette Belohnung!
             this.items.push(new Collectible(this.cursorX + 300, this.cursorY - 860, 'HEART'));
-            this.items.push(new Collectible(this.cursorX + 350, this.cursorY - 860, 'LIQUOR')); // Garantiert Schnaps!
+            this.items.push(new Collectible(this.cursorX + 350, this.cursorY - 860, 'LIQUOR'));
 
             this.cursorX += 400; 
             this.cursorY -= 800;
         } else if (this.state === 'SOLID_GROUND') {
             const w = 1000 + Math.random() * 800; 
             this.platforms.push(new Platform(this.cursorX, this.cursorY, w, 1500, true));
-            for(let i=0; i<5; i++) {
+            
+            // Dynamische Gegneranzahl
+            let enemyCount = 3 + Math.floor(progress * 4); // Startet bei 3, geht hoch bis 7
+            for(let i=0; i < enemyCount; i++) {
                 if(Math.random() > 0.3) {
-                    this.enemies.push(this.spawnEnemy(this.cursorX + 300 + i*250, this.cursorY - 150, gameLevel));
+                    this.enemies.push(this.spawnEnemy(this.cursorX + 300 + (i * w/enemyCount), this.cursorY - 150, gameLevel, progress));
                 }
                 
-                // NEU: Aufteilung Waffen & Flaschen auf festem Boden
-                let itemX = this.cursorX + 300 + i*250;
-                if(Math.random() > 0.8) {
-                    // Waffe spawnt
+                let itemX = this.cursorX + 300 + (i * w/enemyCount);
+                if(Math.random() > 0.88) { // Seltener!
                     const type = weaponPool[Math.floor(Math.random() * weaponPool.length)];
                     this.items.push(new Collectible(itemX, this.cursorY - 50, type));
-                } else if(Math.random() > 0.3) {
-                    // Mehrere Flaschen spawnen nah beieinander
-                    let amount = Math.floor(Math.random() * 3) + 1; // 1 bis 3 Flaschen
+                } else if(Math.random() > 0.5) { 
+                    let amount = Math.floor(Math.random() * 2) + 1; 
                     for(let b=0; b<amount; b++) {
-                        const dropType = Math.random() > 0.9 ? 'LIQUOR' : 'BEER'; // Schnaps ist auf dem Boden seltener
+                        const dropType = Math.random() > 0.9 ? 'LIQUOR' : 'BEER'; 
                         this.items.push(new Collectible(itemX + (b*40), this.cursorY - 50, dropType));
                     }
                 }
