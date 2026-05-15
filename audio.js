@@ -13,23 +13,26 @@ class AudioManager {
         this.isMuted = false;
     }
 
-    init() {
+   init() {
         if (!this.ctx) {
-            this.ctx = new (window.AudioContext || window.webkitAudioContext)();
-            
-            // MASTER GAIN (Globale Lautstärke) - Standard auf 40% für angenehmes Hören
-            this.masterGain = this.ctx.createGain();
-            this.masterGain.gain.value = 0.4; 
-            this.masterGain.connect(this.ctx.destination);
+            try {
+                this.ctx = new (window.AudioContext || window.webkitAudioContext)();
+                this.masterGain = this.ctx.createGain();
+                this.masterGain.gain.value = 0.4; 
+                this.masterGain.connect(this.ctx.destination);
+                this.distortionCurve = this.makeDistortionCurve(400);
 
-            this.distortionCurve = this.makeDistortionCurve(400);
-
-            // HIER KANNST DU DEINE ECHTEN MP3s LADEN!
-            // Lege einfach z.B. "level_metal.mp3" in deinen Ordner und nimm die // weg.
-            // this.loadTrack('BGM_LEVEL', 'audio/level_metal.mp3');
-            // this.loadTrack('BGM_BOSS', 'audio/boss_thrash.mp3');
+                // Direktes Laden beim Spielstart triggern
+                this.loadTrack('BOSS', 'boss_thrash.mp3');
+                this.loadTrack('LEVEL_1', 'level_metal_1.mp3');
+                this.loadTrack('LEVEL_2', 'level_metal_2.mp3');
+                this.loadTrack('LEVEL_3', 'level_metal_3.mp3');
+                this.loadTrack('LEVEL_4', 'level_metal_4.mp3');
+            } catch(e) {
+                console.error("AudioContext konnte nicht gestartet werden", e);
+            }
         }
-        if (this.ctx.state === 'suspended') this.ctx.resume();
+        if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
     }
 
     // Lädt eine echte MP3/WAV in den Speicher
@@ -265,11 +268,15 @@ class AudioManager {
     // ==========================================
     // BGM SYSTEM (Echte Tracks abspielen!)
     // ==========================================
-    startBGM() {
+startBGM() {
         this.init();
-        // Hier schmeißen wir das prozedurale Piepsen raus.
-        // Wenn du in init() die MP3s lädst, kannst du sie hier starten:
-        // this.playMusicTrack('BGM_LEVEL');
+        // Wir versuchen alle 1 Sekunde die Musik zu starten, bis die Files geladen sind
+        const checkReady = setInterval(() => {
+            if (this.buffers['LEVEL_1'] || this.buffers['LEVEL_2']) {
+                this.playRandomLevelTrack();
+                clearInterval(checkReady);
+            }
+        }, 1000);
     }
 
     stopBGM() {
