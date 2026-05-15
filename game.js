@@ -125,10 +125,6 @@ setupEventListeners() {
         window.addEventListener('mouseup', () => { this.input.keys['MouseLeft'] = false; });
     }
 
-        window.addEventListener('mousedown', () => { this.input.keys['MouseLeft'] = true; });
-        window.addEventListener('mouseup', () => { this.input.keys['MouseLeft'] = false; });
-    }
-
     requestFullScreen() {
         const el = document.documentElement;
         const requestMethod = el.requestFullscreen || el.webkitRequestFullscreen || el.mozRequestFullScreen || el.msRequestFullscreen;
