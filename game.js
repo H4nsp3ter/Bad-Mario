@@ -18,7 +18,7 @@ class Game {
         this.particles = new ParticleManager(); 
         this.audio = new AudioManager();
         
-        this.state = 'MENU'; // Status: MENU, PLAYING, PAUSED, GAMEOVER
+        this.state = 'MENU'; 
         this.lastTime = 0; 
         this.camera = { x: 0, y: 0 }; 
         this.levelGen = new LevelGenerator();
@@ -33,9 +33,6 @@ class Game {
         this.transitionTimer = 0; 
         this.levelFlashTimer = 0;
         
-        // ==========================================
-        // NEUE FEATURES (Highscore, Combo, Blut)
-        // ==========================================
         this.savedHighscore = localStorage.getItem('badMarioHighscore') || 0;
         this.combo = 0;
         this.comboTimer = 0;
@@ -45,17 +42,14 @@ class Game {
         this.logicalWidth = window.innerWidth; 
         this.logicalHeight = window.innerHeight;
         
-        // Cache für UI-Werte (Optimierung)
         this.uiCache = { hp: -1, score: -1, coins: -1, level: -1, weapon: '' };
 
         this.resize(); 
         window.addEventListener('resize', () => this.resize());
-        
         this.setupEventListeners();
     }
 
     setupEventListeners() {
-        // Buttons
         const actionBtn = document.getElementById('action-button');
         if (actionBtn) actionBtn.addEventListener('click', () => { this.requestFullScreen(); this.audio.init(); this.startPlay(1); });
         
@@ -68,7 +62,6 @@ class Game {
         const mainMenuBtn = document.getElementById('main-menu-btn');
         if (mainMenuBtn) mainMenuBtn.addEventListener('click', () => { this.returnToMainMenu(); });
 
-        // Zoom Controls
         const btnZoomIn = document.getElementById('btn-zoom-in');
         const btnZoomOut = document.getElementById('btn-zoom-out');
         if (btnZoomIn) { 
@@ -80,19 +73,15 @@ class Game {
             btnZoomOut.addEventListener('mousedown', (e) => { e.preventDefault(); this.zoom = Math.max(0.2, this.zoom - 0.1); }); 
         }
 
-        // Tastatur & Maus
         window.addEventListener('keydown', (e) => {
-            // Spiel starten / Continue
             if (e.code === 'Enter') { 
                 if (this.state === 'GAMEOVER') this.continueGame(); 
                 else if (this.state === 'MENU') { this.requestFullScreen(); this.audio.init(); this.startPlay(1); } 
             }
-            // PAUSE-MENÜ (Mit ESCAPE)
             if (e.code === 'Escape') {
                 if (this.state === 'PLAYING') this.state = 'PAUSED';
                 else if (this.state === 'PAUSED') this.state = 'PLAYING';
             }
-            // Hilfe-Menü (H)
             if (e.code === 'KeyH' && this.state === 'MENU') {
                 const prompt = document.getElementById('start-screen-prompt');
                 const inst = document.getElementById('menu-instructions');
@@ -160,12 +149,10 @@ class Game {
         this.projectiles = []; 
         this.particles.particles = [];
         
-        // Reset Features
         this.screenBlood = [];
         this.combo = 0;
         this.comboTimer = 0;
         
-        // UI Cache Reset
         this.uiCache = { hp: -1, score: -1, coins: -1, level: -1, weapon: '' };
         this.updateHUD(); 
         
@@ -215,7 +202,6 @@ class Game {
         }
     }
 
-    // Heilt Mario bei 20 Münzen, statt Level Up (Level Up kommt durch Bosse)
     checkLevelUp() {
         if (this.player.coins % 20 === 0 && this.player.coins > 0) { 
             this.player.hp = Math.min(CONFIG.MAX_HP, this.player.hp + 20); 
@@ -224,7 +210,6 @@ class Game {
         this.updateHUD();
     }
 
-    // Boss besiegt!
     handleBossDefeat() {
         this.triggerShake(60, 2.0); 
         this.audio.playExplosion();
@@ -244,7 +229,6 @@ class Game {
         this.updateHUD();
     }
 
-    // Zentrale Game Over / Victory Methode
     gameOver(titleText = "WASTED", color = "#ff0000") {
         this.state = 'GAMEOVER';
         
@@ -320,13 +304,11 @@ class Game {
         if (this.transitionTimer > 0) this.transitionTimer -= dt;
         if (this.levelFlashTimer > 0) this.levelFlashTimer -= dt;
         
-        // Combo Timer
         if (this.comboTimer > 0) {
             this.comboTimer -= dt;
             if (this.comboTimer <= 0) this.combo = 0;
         }
 
-        // Screen Blood Animation
         for (let i = this.screenBlood.length - 1; i >= 0; i--) {
             this.screenBlood[i].y += 50 * dt; 
             this.screenBlood[i].alpha -= 0.5 * dt; 
@@ -337,7 +319,6 @@ class Game {
         this.levelGen.update(this.camera.x, this.logicalWidth, this.level);
         this.particles.update(dt, this.levelGen.platforms);
         
-        // Spieler updaten und schauen, ob er Schaden nimmt (für Linse-Blut)
         let oldHp = this.player.hp;
         this.player.update(dt, this.input, this);
         if (this.player.hp < oldHp) {
@@ -351,15 +332,15 @@ class Game {
             }
         }
         
-        for (let c of this.levelGen.corpses) c.update(dt, this.levelGen.platforms);
+        for (let i = 0; i < this.levelGen.corpses.length; i++) {
+            this.levelGen.corpses[i].update(dt, this.levelGen.platforms);
+        }
         
-        // Kamera
         this.camera.x += ((this.player.x - this.logicalWidth * 0.4) - this.camera.x) * 5 * dt; 
         if(this.camera.x < 0) this.camera.x = 0;
         this.camera.y += ((this.player.y - this.logicalHeight * 0.55) - this.camera.y) * 4 * dt;
         this.deathY = Math.min(this.deathY, this.camera.y + this.logicalHeight + 400);
         
-        // Lava Tod
         if (this.player.y > this.deathY + 50) {
             this.player.takeDamage(50, this);
             if (this.player.hp > 0) {
@@ -376,36 +357,46 @@ class Game {
             }
         }
         
-        // Items
         for (let i = this.levelGen.items.length - 1; i >= 0; i--) {
             let item = this.levelGen.items[i]; 
             item.update(dt);
-if (this.player.checkCollision(item)) {
+            if (this.player.checkCollision(item)) {
                 if (item.type === 'HEART') { 
                     this.player.hp = Math.min(CONFIG.MAX_HP, this.player.hp + 50); 
                     this.audio.playCoin(); 
-                    this.particles.spawn(item.x + item.w/2, item.y + item.h/2, '#FF0000', 30, 250); 
+                    this.particles.spawn(item.x + item.w/2, item.y + item.h/2, CONFIG.COLORS.POWERUP_HEART || '#FF0000', 30, 250); 
                 } 
-                // NEU: BIER (Normale Punkte)
                 else if (item.type === 'BEER') { 
                     this.player.score += 50; 
-                    this.player.coins += 1; // Wir nutzen intern weiter die Variable "coins" für den Zähler
-                    this.audio.playBottlePickup(); 
+                    this.player.coins += 1; 
+                    if (this.audio.playBottlePickup) this.audio.playBottlePickup(); else this.audio.playCoin();
                     this.particles.spawn(item.x + item.w/2, item.y + item.h/2, '#8B4513', 15, 150); 
                     this.checkLevelUp(); 
                 } 
-                // NEU: SCHNAPS (10-fache Punkte!)
                 else if (item.type === 'LIQUOR') { 
                     this.player.score += 500; 
                     this.player.coins += 1; 
-                    this.audio.playBottlePickup(); 
+                    if (this.audio.playBottlePickup) this.audio.playBottlePickup(); else this.audio.playCoin(); 
                     this.particles.spawn(item.x + item.w/2, item.y + item.h/2, '#00FFFF', 25, 200); 
+                    this.checkLevelUp(); 
+                } 
+                else if (item.type === 'COIN') { 
+                    this.player.score += 50; 
+                    this.player.coins += 1; 
+                    this.audio.playCoin(); 
+                    this.particles.spawn(item.x + item.w/2, item.y + item.h/2, CONFIG.COLORS.COIN || '#FFD700', 15, 150); 
                     this.checkLevelUp(); 
                 } 
                 else {
                     this.player.weapon = item.type;
                     if (item.type === 'UZI') this.player.ammo = 100; 
-                    // ... etc. (Dein alter Waffen-Code bleibt hier) ...
+                    else if (item.type === 'ROCKET') this.player.ammo = 15; 
+                    else if (item.type === 'PISTOL') this.player.ammo = 50; 
+                    else if (item.type === 'SHOTGUN') this.player.ammo = 20; 
+                    else if (item.type === 'ASSAULT_RIFLE') this.player.ammo = 90; 
+                    else if (item.type === 'MINIGUN') this.player.ammo = 300; 
+                    else if (item.type === 'GRENADE') this.player.ammo = 5; 
+                    else if (item.type === 'FLAMETHROWER') this.player.ammo = 250;
                     else this.player.ammo = Infinity;
                     
                     if (this.audio.playWeaponPickup) this.audio.playWeaponPickup();
@@ -414,8 +405,8 @@ if (this.player.checkCollision(item)) {
                 this.updateHUD(); 
                 this.levelGen.items.splice(i, 1);
             }
+        }
         
-        // Projektile
         for (let i = this.projectiles.length - 1; i >= 0; i--) {
             let proj = this.projectiles[i]; 
             proj.update(dt, this.particles);
@@ -449,7 +440,8 @@ if (this.player.checkCollision(item)) {
             }
             
             if (!hit) {
-                for (let p of this.levelGen.platforms) { 
+                for (let j = 0; j < this.levelGen.platforms.length; j++) {
+                    let p = this.levelGen.platforms[j];
                     if (proj.checkCollision(p)) { 
                         hit = true; 
                         if (!['GRENADE', 'ROCKET', 'FLAME'].includes(proj.type)) {
@@ -468,13 +460,11 @@ if (this.player.checkCollision(item)) {
             }
         }
         
-        // Gegner Update & Kollision
         for (let i = this.levelGen.enemies.length - 1; i >= 0; i--) {
             let enemy = this.levelGen.enemies[i];
             if (enemy.dead) { 
                 if (enemy.isBoss) this.handleBossDefeat();
                 
-                // COMBO SYSTEM
                 this.combo++;
                 this.comboTimer = 2.0; 
                 this.player.score += this.combo * 10;
@@ -494,7 +484,6 @@ if (this.player.checkCollision(item)) {
             }
         }
 
-        // Gameover Check falls man z.B. durch Beschuss stirbt
         if (this.player.hp <= 0 && this.state !== 'GAMEOVER') {
             this.gameOver();
         }
@@ -511,7 +500,8 @@ if (this.player.checkCollision(item)) {
             let layer = this.bgLayers[l];
             this.ctx.fillStyle = l === 2 ? '#000' : (this.level === 2 ? '#1A2A3A' : (this.level === 1 ? '#112200' : '#220000'));
             
-            for (let e of layer.elements) {
+            for (let i = 0; i < layer.elements.length; i++) {
+                let e = layer.elements[i];
                 let drawX = (e.x - this.camera.x * layer.speed) % 6000; 
                 if (drawX < -800) drawX += 6000;
                 let drawY = e.y - this.camera.y * (layer.speed * 0.5) + this.logicalHeight * 0.3;
@@ -542,18 +532,17 @@ if (this.player.checkCollision(item)) {
         const levelData = CONFIG.LEVELS[this.level]; 
         this.drawBackground(levelData);
         
-        for (let l of this.levelGen.ladders) l.draw(this.ctx, this.camera.x, this.camera.y, this.level);
-        for (let p of this.levelGen.platforms) p.draw(this.ctx, this.camera.x, this.camera.y, levelData, this.level);
-        for (let c of this.levelGen.corpses) c.draw(this.ctx, this.camera.x, this.camera.y);
-        for (let it of this.levelGen.items) it.draw(this.ctx, this.camera.x, this.camera.y);
-        for (let e of this.levelGen.enemies) e.draw(this.ctx, this.camera.x, this.camera.y);
-        for (let p of this.projectiles) p.draw(this.ctx, this.camera.x, this.camera.y);
+        for (let i = 0; i < this.levelGen.ladders.length; i++) this.levelGen.ladders[i].draw(this.ctx, this.camera.x, this.camera.y, this.level);
+        for (let i = 0; i < this.levelGen.platforms.length; i++) this.levelGen.platforms[i].draw(this.ctx, this.camera.x, this.camera.y, levelData, this.level);
+        for (let i = 0; i < this.levelGen.corpses.length; i++) this.levelGen.corpses[i].draw(this.ctx, this.camera.x, this.camera.y);
+        for (let i = 0; i < this.levelGen.items.length; i++) this.levelGen.items[i].draw(this.ctx, this.camera.x, this.camera.y);
+        for (let i = 0; i < this.levelGen.enemies.length; i++) this.levelGen.enemies[i].draw(this.ctx, this.camera.x, this.camera.y);
+        for (let i = 0; i < this.projectiles.length; i++) this.projectiles[i].draw(this.ctx, this.camera.x, this.camera.y);
         
         this.particles.draw(this.ctx, this.camera.x, this.camera.y);
         
         if (this.player) this.player.draw(this.ctx, this.camera.x, this.camera.y);
         
-        // Lava
         const time = performance.now() / 300;
         const startY = this.deathY - this.camera.y;
         
@@ -584,22 +573,20 @@ if (this.player.checkCollision(item)) {
             }
         }
         
-        // COMBO TEXT
         if (this.combo > 1) {
             this.ctx.fillStyle = '#FF0000';
             this.ctx.font = `bold ${30 + Math.sin(time*5)*5}px monospace`;
             this.ctx.fillText(`COMBO x${this.combo}!`, this.player.x - this.camera.x - 20, this.player.y - this.camera.y - 40);
         }
 
-        // SCREEN BLOOD (Blut auf der Kamera)
-        for (let drop of this.screenBlood) {
+        for (let i = 0; i < this.screenBlood.length; i++) {
+            let drop = this.screenBlood[i];
             this.ctx.fillStyle = `rgba(180, 0, 0, ${drop.alpha})`;
             this.ctx.beginPath();
             this.ctx.arc(drop.x, drop.y, drop.size, 0, Math.PI*2);
             this.ctx.fill();
         }
 
-        // Transition 
         if (this.transitionTimer > 0 && this.state === 'PLAYING') {
             this.ctx.fillStyle = `rgba(255, 255, 255, ${Math.min(1.0, this.transitionTimer / 1.5) * 0.8})`; 
             this.ctx.fillRect(0, 0, this.logicalWidth, this.logicalHeight);
@@ -613,7 +600,6 @@ if (this.player.checkCollision(item)) {
             this.ctx.textAlign = 'left';
         }
         
-        // PAUSE SCREEN
         if (this.state === 'PAUSED') {
             this.ctx.fillStyle = 'rgba(0, 0, 0, 0.6)'; 
             this.ctx.fillRect(0, 0, this.logicalWidth, this.logicalHeight);
@@ -626,7 +612,6 @@ if (this.player.checkCollision(item)) {
             this.ctx.textAlign = 'left';
         }
 
-        // Scanlines & Effekte
         this.ctx.fillStyle = 'rgba(0,0,0,0.3)'; 
         for (let i = 0; i < this.logicalHeight; i += 4) this.ctx.fillRect(0, i, this.logicalWidth, 2);
         
