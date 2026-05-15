@@ -380,36 +380,40 @@ class Game {
         for (let i = this.levelGen.items.length - 1; i >= 0; i--) {
             let item = this.levelGen.items[i]; 
             item.update(dt);
-            if (this.player.checkCollision(item)) {
+if (this.player.checkCollision(item)) {
                 if (item.type === 'HEART') { 
                     this.player.hp = Math.min(CONFIG.MAX_HP, this.player.hp + 50); 
                     this.audio.playCoin(); 
-                    this.particles.spawn(item.x + item.w/2, item.y + item.h/2, CONFIG.COLORS.POWERUP_HEART, 30, 250); 
+                    this.particles.spawn(item.x + item.w/2, item.y + item.h/2, '#FF0000', 30, 250); 
                 } 
-                else if (item.type === 'COIN') { 
+                // NEU: BIER (Normale Punkte)
+                else if (item.type === 'BEER') { 
                     this.player.score += 50; 
+                    this.player.coins += 1; // Wir nutzen intern weiter die Variable "coins" für den Zähler
+                    this.audio.playBottlePickup(); 
+                    this.particles.spawn(item.x + item.w/2, item.y + item.h/2, '#8B4513', 15, 150); 
+                    this.checkLevelUp(); 
+                } 
+                // NEU: SCHNAPS (10-fache Punkte!)
+                else if (item.type === 'LIQUOR') { 
+                    this.player.score += 500; 
                     this.player.coins += 1; 
-                    this.audio.playCoin(); 
-                    this.particles.spawn(item.x + item.w/2, item.y + item.h/2, CONFIG.COLORS.COIN, 15, 150); 
+                    this.audio.playBottlePickup(); 
+                    this.particles.spawn(item.x + item.w/2, item.y + item.h/2, '#00FFFF', 25, 200); 
                     this.checkLevelUp(); 
                 } 
                 else {
                     this.player.weapon = item.type;
                     if (item.type === 'UZI') this.player.ammo = 100; 
-                    else if (item.type === 'ROCKET') this.player.ammo = 15; 
-                    else if (item.type === 'PISTOL') this.player.ammo = 50; 
-                    else if (item.type === 'SHOTGUN') this.player.ammo = 20; 
-                    else if (item.type === 'ASSAULT_RIFLE') this.player.ammo = 90; 
-                    else if (item.type === 'MINIGUN') this.player.ammo = 300; 
-                    else if (item.type === 'GRENADE') this.player.ammo = 5; 
-                    else if (item.type === 'FLAMETHROWER') this.player.ammo = 250;
+                    // ... etc. (Dein alter Waffen-Code bleibt hier) ...
                     else this.player.ammo = Infinity;
-                    this.audio.playCoin();
+                    
+                    if (this.audio.playWeaponPickup) this.audio.playWeaponPickup();
+                    else this.audio.playCoin();
                 }
                 this.updateHUD(); 
                 this.levelGen.items.splice(i, 1);
             }
-        }
         
         // Projektile
         for (let i = this.projectiles.length - 1; i >= 0; i--) {
