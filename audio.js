@@ -5,7 +5,7 @@ class AudioManager {
         this.distortionCurve = null;
         this.lastFlameSound = 0;
         
-        // NEU: MP3 Buffer-Speicher
+        // MP3 Buffer-Speicher
         this.buffers = {};
         this.currentBGM = null;
         this.currentBGMName = '';
@@ -13,7 +13,7 @@ class AudioManager {
         this.isMuted = false;
     }
 
-   init() {
+    init() {
         if (!this.ctx) {
             try {
                 this.ctx = new (window.AudioContext || window.webkitAudioContext)();
@@ -35,15 +35,15 @@ class AudioManager {
         if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
     }
 
-    // Lädt eine echte MP3/WAV in den Speicher
     async loadTrack(name, url) {
         try {
             const response = await fetch(url);
+            if (!response.ok) throw new Error(`HTTP error! status: ${response.status}`);
             const arrayBuffer = await response.arrayBuffer();
             this.buffers[name] = await this.ctx.decodeAudioData(arrayBuffer);
             console.log(`Audio geladen: ${name}`);
         } catch (e) {
-            console.warn(`Konnte Audio nicht laden: ${url}`, e);
+            console.warn(`Konnte Audio nicht laden: ${url}. Prüfe ob die Datei im Hauptverzeichnis liegt.`, e);
         }
     }
 
@@ -63,19 +63,13 @@ class AudioManager {
         return curve;
     }
 
-    // PITCH RANDOMIZER: Macht Sounds organischer!
     randomPitch(baseFreq, variation = 0.1) {
         return baseFreq * (1 + (Math.random() * variation * 2 - variation));
     }
 
-    // ==========================================
-    // LAYERED SFX (Der neue, fette Waffensound)
-    // ==========================================
     playShoot() {
         if (!this.ctx || this.isMuted) return;
         const now = this.ctx.currentTime;
-        
-        // 1. Der Klick (Mechanik der Waffe)
         const clickOsc = this.ctx.createOscillator();
         const clickGain = this.ctx.createGain();
         clickOsc.type = 'square';
@@ -87,7 +81,6 @@ class AudioManager {
         clickOsc.start(now); clickOsc.stop(now + 0.05);
         this.cleanupNode(clickOsc);
 
-        // 2. Der Wumms (Druckwelle im Bauch)
         const bassOsc = this.ctx.createOscillator();
         const bassGain = this.ctx.createGain();
         bassOsc.type = 'sine';
@@ -99,7 +92,6 @@ class AudioManager {
         bassOsc.start(now); bassOsc.stop(now + 0.2);
         this.cleanupNode(bassOsc);
 
-        // 3. Das Rauschen (Zischen der Patrone)
         const bufferSize = this.ctx.sampleRate * 0.2;
         const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
         const data = buffer.getChannelData(0);
@@ -121,33 +113,23 @@ class AudioManager {
     playScream() {
         if (!this.ctx || this.isMuted) return;
         const now = this.ctx.currentTime;
-        
-        // FM Synthese für organische, eklige Schreie
-        const osc1 = this.ctx.createOscillator(); // Hauptstimme
-        const osc2 = this.ctx.createOscillator(); // Dissonanz
+        const osc1 = this.ctx.createOscillator(); 
+        const osc2 = this.ctx.createOscillator(); 
         const gain = this.ctx.createGain();
-        
         osc1.type = 'sawtooth';
         osc2.type = 'triangle';
-        
-        const baseFreq = this.randomPitch(600, 0.3); // Stark variierende Monsterstimmen
-        
+        const baseFreq = this.randomPitch(600, 0.3); 
         osc1.frequency.setValueAtTime(baseFreq, now);
         osc1.frequency.exponentialRampToValueAtTime(50, now + 0.5);
-        
-        osc2.frequency.setValueAtTime(baseFreq * 1.15, now); // Dissonanz!
+        osc2.frequency.setValueAtTime(baseFreq * 1.15, now); 
         osc2.frequency.exponentialRampToValueAtTime(40, now + 0.5);
-        
         const dist = this.ctx.createWaveShaper();
-        dist.curve = this.makeDistortionCurve(200); // Viel Distortion für Horror-Vibe
-        
+        dist.curve = this.makeDistortionCurve(200); 
         gain.gain.setValueAtTime(0.4, now);
         gain.gain.exponentialRampToValueAtTime(0.01, now + 0.5);
-        
         osc1.connect(dist);
         osc2.connect(dist);
         dist.connect(gain).connect(this.masterGain);
-        
         osc1.start(now); osc1.stop(now + 0.5);
         osc2.start(now); osc2.stop(now + 0.5);
         this.cleanupNode(osc1);
@@ -163,7 +145,7 @@ class AudioManager {
         osc.frequency.setValueAtTime(this.randomPitch(1500), now);
         osc.frequency.exponentialRampToValueAtTime(2500, now + 0.05);
         osc.frequency.exponentialRampToValueAtTime(1200, now + 0.1);
-        gain.gain.setValueAtTime(0.3, now); // LEISER GEMACHT
+        gain.gain.setValueAtTime(0.3, now); 
         gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
         osc.connect(gain).connect(this.masterGain);
         osc.start(now); osc.stop(now + 0.15);
@@ -178,7 +160,7 @@ class AudioManager {
         osc.type = 'sine';
         osc.frequency.setValueAtTime(this.randomPitch(800), now);
         osc.frequency.setValueAtTime(1200, now + 0.05);
-        gain.gain.setValueAtTime(0.15, now); // LEISER GEMACHT
+        gain.gain.setValueAtTime(0.15, now); 
         gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
         osc.connect(gain).connect(this.masterGain);
         osc.start(now); osc.stop(now + 0.3);
@@ -205,7 +187,6 @@ class AudioManager {
         const now = this.ctx.currentTime;
         if (now - this.lastFlameSound < 0.1) return; 
         this.lastFlameSound = now;
-
         const bufferSize = this.ctx.sampleRate * 0.2;
         const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
         const data = buffer.getChannelData(0);
@@ -236,7 +217,7 @@ class AudioManager {
         dist.curve = this.distortionCurve;
         const filter = this.ctx.createBiquadFilter();
         filter.type = 'lowpass';
-        filter.frequency.value = 400; // Tiefer und dumpfer!
+        filter.frequency.value = 400; 
         filter.frequency.exponentialRampToValueAtTime(30, now + 0.8);
         const nGain = this.ctx.createGain();
         nGain.gain.setValueAtTime(1.0, now);
@@ -251,26 +232,22 @@ class AudioManager {
         const now = this.ctx.currentTime;
         const osc = this.ctx.createOscillator();
         const gain = this.ctx.createGain();
-        osc.type = 'sine'; // Weicher gemacht
+        osc.type = 'sine'; 
         osc.frequency.setValueAtTime(this.randomPitch(150), now);
         osc.frequency.exponentialRampToValueAtTime(300, now + 0.15);
-        gain.gain.setValueAtTime(0.1, now); // Sehr dezent!
+        gain.gain.setValueAtTime(0.1, now); 
         gain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
         osc.connect(gain).connect(this.masterGain);
         osc.start(now); osc.stop(now + 0.15);
         this.cleanupNode(osc);
     }
     
-    playMeleeHit() { this.playShoot(); } // Für Wucht recyceln wir den dicken Bass
-    playSwing() { this.playJump(); } // Für Swing reicht der leise Swoosh
-    playChainsaw() { this.playFlamethrower(); } // Dumpfes Rauschen passt gut
+    playMeleeHit() { this.playShoot(); } 
+    playSwing() { this.playJump(); } 
+    playChainsaw() { this.playFlamethrower(); } 
 
-    // ==========================================
-    // BGM SYSTEM (Echte Tracks abspielen!)
-    // ==========================================
-startBGM() {
+    startBGM() {
         this.init();
-        // Wir versuchen alle 1 Sekunde die Musik zu starten, bis die Files geladen sind
         const checkReady = setInterval(() => {
             if (this.buffers['LEVEL_1'] || this.buffers['LEVEL_2']) {
                 this.playRandomLevelTrack();
@@ -283,37 +260,47 @@ startBGM() {
         if (this.currentBGM) {
             this.currentBGM.stop();
             this.currentBGM = null;
+            this.currentBGMName = '';
         }
     }
 
+    playRandomLevelTrack() {
+        const randomNum = Math.floor(Math.random() * 4) + 1;
+        this.playMusicTrack(`LEVEL_${randomNum}`);
+    }
+
     playMusicTrack(trackName) {
-        if (this.isMuted || !this.ctx || !this.buffers[trackName] || this.currentBGMName === trackName) return;
-        
+        if (!this.ctx || !this.buffers[trackName] || this.currentBGMName === trackName) return;
         if (this.currentBGM) this.currentBGM.stop();
 
         this.currentBGM = this.ctx.createBufferSource();
         this.currentBGM.buffer = this.buffers[trackName];
         this.currentBGM.loop = true;
-        
         const gain = this.ctx.createGain();
-        gain.gain.value = 0.5; // BGM nicht zu laut, damit Effekte knallen
-        
+        gain.gain.value = 0.5; 
         this.currentBGM.connect(gain).connect(this.masterGain);
         this.currentBGM.start();
         this.currentBGMName = trackName;
     }
 
-    updateBGM(level, isBossArena = false) {
-        // Diese Methode steuert den dynamischen Wechsel!
-        // Wenn das Level einen Boss hat, wechsle auf den Boss-Track.
-        // Falls du die MP3s geladen hast, entkommentiere die nächsten Zeilen:
-        
-        /*
-        if (isBossArena) {
-            this.playMusicTrack('BGM_BOSS');
-        } else {
-            this.playMusicTrack('BGM_LEVEL');
+    toggleMute() {
+        this.isMuted = !this.isMuted;
+        if (this.masterGain) {
+            this.masterGain.gain.value = this.isMuted ? 0 : 0.4;
         }
-        */
+        return this.isMuted;
+    }
+
+    updateBGM(level, isBossActive = false) {
+        if (!this.ctx) return;
+        if (isBossActive) {
+            if (this.currentBGMName !== 'BOSS') {
+                this.playMusicTrack('BOSS');
+            }
+        } else {
+            if (this.currentBGMName === 'BOSS' || this.currentBGMName === '') {
+                this.playRandomLevelTrack();
+            }
+        }
     }
 }
