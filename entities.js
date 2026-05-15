@@ -10,18 +10,32 @@ class Entity {
 }
 
 class Platform extends Entity {
-    constructor(x, y, w, h, isSolidGround = false) { super(x, y, w, h); this.isSolidGround = isSolidGround; }
+    constructor(x, y, w, h, isSolidGround = false) { 
+        super(x, y, w, h); 
+        this.isSolidGround = isSolidGround; 
+    }
     draw(ctx, camX, camY, levelData, levelIndex) {
         const drawX = this.x - camX, drawY = this.y - camY, now = performance.now() / 1000;
+        
+        // Boden-Gradient
         const grad = ctx.createLinearGradient(0, drawY, 0, drawY + this.h);
-        grad.addColorStop(0, levelData.PLATFORM_GRAD[0]); grad.addColorStop(1, levelData.PLATFORM_GRAD[1]);
-        ctx.fillStyle = grad; ctx.fillRect(drawX, drawY, this.w, this.h);
-        ctx.fillStyle = levelData.PLATFORM_TOP; ctx.fillRect(drawX, drawY, this.w, 24);
+        grad.addColorStop(0, levelData.PLATFORM_GRAD[0]); 
+        grad.addColorStop(1, levelData.PLATFORM_GRAD[1]);
+        ctx.fillStyle = grad; 
+        ctx.fillRect(drawX, drawY, this.w, this.h);
+        
+        // Oberkante
+        ctx.fillStyle = levelData.PLATFORM_TOP; 
+        ctx.fillRect(drawX, drawY, this.w, 24);
+        
+        // Level-Spezifische Deko
         if (levelIndex === 1) {
             ctx.fillStyle = '#2b5500';
             for (let i = 0; i < this.w - 15; i += 30) {
-                const hDrop = 15 + Math.sin(i * 0.1) * 10;
-                ctx.beginPath(); ctx.moveTo(drawX + i, drawY + 24); ctx.lineTo(drawX + i + 10, drawY + 24 + hDrop); ctx.lineTo(drawX + i + 20, drawY + 24); ctx.fill();
+                const hDrop = 15 + Math.sin(i * 0.1 + now) * 10;
+                ctx.beginPath(); ctx.moveTo(drawX + i, drawY + 24); 
+                ctx.lineTo(drawX + i + 10, drawY + 24 + hDrop); 
+                ctx.lineTo(drawX + i + 20, drawY + 24); ctx.fill();
             }
         } else if (levelIndex === 2) {
             ctx.fillStyle = '#111';
@@ -51,7 +65,7 @@ class Ladder extends Entity {
             ctx.fillStyle = '#3E2723'; ctx.fillRect(drawX + this.w/2 - 4, drawY, 8, this.h);
             ctx.fillStyle = '#2b5500';
             for (let ry = 0; ry < this.h; ry += 16) {
-                const offX = Math.sin(ry * 0.5 + drawX) * 12;
+                const offX = Math.sin(ry * 0.5 + performance.now()/200) * 12;
                 ctx.beginPath(); ctx.arc(drawX + this.w/2 + offX, drawY + ry, 6, 0, Math.PI*2); ctx.fill();
             }
         } else if (level === 2) {
@@ -65,47 +79,48 @@ class Ladder extends Entity {
 }
 
 class Collectible extends Entity {
-    constructor(x, y, type) { super(x, y, 36, 36); this.type = type; this.time = Math.random() * 10; this.startY = y; }
-    update(dt) { this.time += dt; this.y = this.startY + Math.sin(this.time * 4) * 12; }
-draw(ctx, camX, camY) {
+    constructor(x, y, type, w = 60, h = 60) { 
+        super(x, y, w, h); 
+        this.type = type; 
+        this.time = Math.random() * 10; 
+        this.startY = y; 
+    }
+    update(dt) { 
+        this.time += dt; 
+        this.y = this.startY + Math.sin(this.time * 4) * 15; 
+    }
+    draw(ctx, camX, camY) {
         const cx = this.x - camX + this.w / 2, cy = this.y - camY + this.h / 2;
-        ctx.shadowBlur = 25;
+        const pulse = Math.sin(this.time * 5) * 5;
+        
+        ctx.save();
+        ctx.translate(cx, cy);
+        ctx.scale(1.5, 1.5); // 16-Bit Zoom
+        
+        ctx.shadowBlur = 20 + pulse;
         
         if (this.type === 'BEER') {
-            // Braune Bierflasche
             ctx.shadowColor = '#8B4513'; ctx.fillStyle = '#8B4513'; 
-            ctx.fillRect(cx - 4, cy - 6, 8, 14); // Körper
-            ctx.fillRect(cx - 2, cy - 12, 4, 6); // Hals
-            ctx.fillStyle = '#DDD'; ctx.fillRect(cx - 3, cy - 12, 6, 2); // Kronkorken
-            ctx.fillStyle = '#FFF'; ctx.fillRect(cx - 3, cy, 6, 6); // Etikett
+            ctx.fillRect(-4, -6, 8, 14); ctx.fillRect(-2, -12, 4, 6);
+            ctx.fillStyle = '#DDD'; ctx.fillRect(-3, -12, 6, 2);
+            ctx.fillStyle = '#FFF'; ctx.fillRect(-3, 0, 6, 6);
         } else if (this.type === 'LIQUOR') {
-            // Heller Schnaps (gibt ordentlich Punkte!)
             ctx.shadowColor = '#00FFFF'; ctx.fillStyle = '#E0FFFF'; 
-            ctx.fillRect(cx - 6, cy - 4, 12, 12); // Breiterer Körper
-            ctx.fillRect(cx - 2, cy - 12, 4, 8); // Hals
-            ctx.fillStyle = '#FF0000'; ctx.fillRect(cx - 3, cy - 12, 6, 2); // Roter Deckel
-            ctx.fillStyle = '#FFD700'; ctx.fillRect(cx - 4, cy, 8, 6); // Goldenes Etikett
+            ctx.fillRect(-6, -4, 12, 12); ctx.fillRect(-2, -12, 4, 8);
+            ctx.fillStyle = '#FF0000'; ctx.fillRect(-3, -12, 6, 2);
+            ctx.fillStyle = '#FFD700'; ctx.fillRect(-4, 0, 8, 6);
         } else if (this.type === 'HEART') {
-            ctx.shadowColor = CONFIG.COLORS.POWERUP_HEART; ctx.fillStyle = CONFIG.COLORS.POWERUP_HEART;
-            const path = new Path2D(); path.moveTo(cx, cy + 9);
-            path.bezierCurveTo(cx - 18, cy, cx - 18, cy - 12, cx - 6, cy - 12); path.bezierCurveTo(cx, cy - 12, cx, cy - 3, cx, cy - 3);
-            path.bezierCurveTo(cx, cy - 12, cx + 6, cy - 12, cx + 18, cy - 12); path.bezierCurveTo(cx + 18, cy, cx, cy + 9, cx, cy + 9); ctx.fill(path);
+            const hCol = (CONFIG.COLORS && CONFIG.COLORS.POWERUP_HEART) ? CONFIG.COLORS.POWERUP_HEART : '#FF0000';
+            ctx.shadowColor = hCol; ctx.fillStyle = hCol;
+            const path = new Path2D(); path.moveTo(0, 8);
+            path.bezierCurveTo(-15, 0, -15, -10, -5, -10); path.bezierCurveTo(0, -10, 0, -2, 0, -2);
+            path.bezierCurveTo(0, -10, 5, -10, 15, -10); path.bezierCurveTo(15, 0, 0, 8, 0, 8); ctx.fill(path);
         } else {
-            ctx.shadowColor = '#FFF'; ctx.shadowBlur = 10;
-            if (this.type === 'PISTOL') { ctx.fillStyle = '#444'; ctx.fillRect(cx-8, cy-4, 16, 6); ctx.fillRect(cx-4, cy+2, 6, 8); }
-            else if (this.type === 'UZI') { ctx.fillStyle = '#222'; ctx.fillRect(cx-10, cy-4, 20, 6); ctx.fillRect(cx-2, cy+2, 6, 10); ctx.fillRect(cx+6, cy+2, 4, 6); }
-            else if (this.type === 'ROCKET') { ctx.fillStyle = '#345'; ctx.fillRect(cx-12, cy-6, 24, 12); ctx.fillStyle='#F00'; ctx.fillRect(cx+8, cy-5, 6, 10); }
-            else if (this.type === 'SHOTGUN') { ctx.fillStyle = '#666'; ctx.fillRect(cx-12, cy-4, 24, 4); ctx.fillRect(cx-12, cy+1, 24, 4); ctx.fillStyle = '#8B4513'; ctx.fillRect(cx-12, cy-4, 6, 9); }
-            else if (this.type === 'ASSAULT_RIFLE') { ctx.fillStyle = '#222'; ctx.fillRect(cx-15, cy-3, 30, 6); ctx.fillRect(cx-5, cy+3, 6, 8); ctx.fillRect(cx-15, cy+3, 6, 8); }
-            else if (this.type === 'MINIGUN') { ctx.fillStyle = '#444'; ctx.fillRect(cx-12, cy-5, 24, 10); ctx.fillStyle='#222'; ctx.fillRect(cx+12, cy-3, 8, 6); ctx.fillRect(cx-4, cy+5, 8, 8); }
-            else if (this.type === 'GRENADE') { ctx.fillStyle = '#006400'; ctx.beginPath(); ctx.arc(cx, cy, 8, 0, Math.PI*2); ctx.fill(); ctx.fillStyle = '#111'; ctx.fillRect(cx-2, cy-12, 4, 6); ctx.fillRect(cx-6, cy-10, 6, 2); }
-            else if (this.type === 'CHAINSAW') { ctx.fillStyle = '#F90'; ctx.fillRect(cx-10, cy-5, 20, 10); ctx.fillStyle='#999'; ctx.fillRect(cx+10, cy-2, 12, 4); }
-            else if (this.type === 'AXE') { ctx.fillStyle = '#654321'; ctx.fillRect(cx-2, cy-10, 4, 20); ctx.fillStyle='#999'; ctx.beginPath(); ctx.moveTo(cx, cy-8); ctx.lineTo(cx+10, cy-12); ctx.lineTo(cx+10, cy-2); ctx.fill(); }
-            else if (this.type === 'KNIFE') { ctx.fillStyle = '#222'; ctx.fillRect(cx-2, cy+2, 4, 8); ctx.fillStyle='#CCC'; ctx.beginPath(); ctx.moveTo(cx-2, cy+2); ctx.lineTo(cx, cy-12); ctx.lineTo(cx+2, cy+2); ctx.fill(); }
-            else if (this.type === 'BAT') { ctx.fillStyle = '#8B4513'; ctx.fillRect(cx-2, cy-12, 4, 24); ctx.fillRect(cx-3, cy-15, 6, 8); }
-            else if (this.type === 'FLAMETHROWER') { ctx.fillStyle = '#444'; ctx.fillRect(cx-10, cy-4, 20, 10); ctx.fillStyle = '#F60'; ctx.fillRect(cx+5, cy-2, 10, 6); }
+            // Waffen-Icons
+            ctx.shadowColor = '#FFF'; ctx.shadowBlur = 10 + pulse;
+            ctx.fillStyle = '#444'; ctx.fillRect(-10, -3, 20, 6);
         }
-        ctx.shadowBlur = 0;
+        ctx.restore();
     }
 }
 
@@ -115,89 +130,68 @@ class Projectile extends Entity {
         if (type === 'ROCKET') { w = 24; h = 24; }
         if (type === 'GORE') { w = 18; h = 18; }
         if (type === 'BULLET') { w = 16; h = 4; }
-        if (type === 'FLAME') { w = 20; h = 20; }
+        if (type === 'FLAME') { w = 24; h = 24; }
         super(x, y, w, h);
         this.vx = vx; this.vy = vy; this.isEnemy = isEnemy; this.type = type; this.isBallistic = isBallistic;
         
+        this.color = '#FFF';
         if (this.type === 'GORE') this.color = '#880000';
         else if (this.type === 'BULLET') this.color = '#FFD700';
         else if (this.type === 'GRENADE') this.color = '#006400';
-        else if (this.type === 'FLAME') this.color = CONFIG.COLORS.FLAME || '#FF6600';
-        else this.color = isEnemy ? CONFIG.COLORS.PROJECTILE_ENEMY : (type === 'ROCKET' ? CONFIG.COLORS.PROJECTILE_ROCKET : CONFIG.COLORS.PROJECTILE_PLAYER);
+        else if (this.type === 'FLAME') this.color = '#FF6600';
+        else if (CONFIG.COLORS) this.color = isEnemy ? CONFIG.COLORS.PROJECTILE_ENEMY : (type === 'ROCKET' ? CONFIG.COLORS.PROJECTILE_ROCKET : CONFIG.COLORS.PROJECTILE_PLAYER);
         
         this.trail = []; 
-        if (this.type === 'GRENADE') this.life = 2.0;
-        else if (this.type === 'FLAME') this.life = 0.4 + Math.random() * 0.2;
-        else this.life = 99;
+        this.life = (type === 'FLAME') ? 0.6 : 99;
     }
     update(dt, particles) {
         this.trail.push({x: this.x, y: this.y});
-        if(this.trail.length > (this.type==='ROCKET'?12:(this.type==='FLAME'?4:6))) this.trail.shift();
-        
+        if(this.trail.length > (this.type==='ROCKET'?12:6)) this.trail.shift();
         if (this.isBallistic) this.vy += CONFIG.GRAVITY * 0.4 * dt;
-        
-        // Flammen driften leicht nach oben
-        if (this.type === 'FLAME') this.vy -= 100 * dt;
-        
+        if (this.type === 'FLAME') { this.vy -= 150 * dt; this.life -= dt; }
         this.x += this.vx * dt; this.y += this.vy * dt;
         
-        if (this.type === 'GORE' && Math.random() > 0.2) { 
-            particles.spawnBlood(this.x + this.w/2, this.y + this.h/2, 1); 
-        } else if (this.type === 'FLAME') {
-            if (Math.random() > 0.5) particles.spawn(this.x, this.y, '#FFFF00', 1, 50, 0.2, true);
-        } else if (Math.random() > (this.type==='ROCKET'?0.1:0.5) && this.type !== 'GRENADE' && this.type !== 'GORE' && this.type !== 'BULLET') {
-            particles.spawn(this.x + this.w/2, this.y + this.h/2, this.color, 2, 40, 0.4, true);
-        }
+        if (this.type === 'GORE' && Math.random() > 0.2) particles.spawnBlood(this.x + this.w/2, this.y + this.h/2, 1);
+        else if (this.type === 'FLAME' && Math.random() > 0.3) particles.spawn(this.x, this.y, '#FFFF00', 1, 50, 0.2, true);
     }
     draw(ctx, camX, camY) {
-        const drawX = this.x - camX + this.w/2;
-        const drawY = this.y - camY + this.h/2;
-
-        if (this.type === 'GORE') {
-            ctx.fillStyle = this.color; ctx.beginPath(); ctx.arc(drawX, drawY, this.w/2 + Math.random()*4, 0, Math.PI*2); ctx.fill();
-            ctx.fillStyle = '#FF0000'; ctx.beginPath(); ctx.arc(drawX + 2, drawY - 2, this.w/4, 0, Math.PI*2); ctx.fill();
-        } else if (this.type === 'BULLET') {
-            ctx.fillStyle = this.color; ctx.fillRect(this.x - camX, this.y - camY, this.w, this.h);
-            ctx.fillStyle = '#FFF'; ctx.fillRect(this.x - camX + this.w - 4, this.y - camY, 4, this.h);
-        } else if (this.type === 'FLAME') {
-            ctx.shadowBlur = 15; ctx.shadowColor = this.color;
-            ctx.fillStyle = this.color;
-            // Flammen werden zum Ende hin kleiner
-            const sizeMult = this.life / 0.6;
-            ctx.beginPath(); ctx.arc(drawX, drawY, (this.w/2) * sizeMult, 0, Math.PI*2); ctx.fill();
-            ctx.fillStyle = '#FFD700'; ctx.beginPath(); ctx.arc(drawX, drawY, (this.w/4) * sizeMult, 0, Math.PI*2); ctx.fill();
-            ctx.shadowBlur = 0;
+        const drawX = this.x - camX + this.w/2, drawY = this.y - camY + this.h/2;
+        if (this.type === 'FLAME') {
+            const alpha = Math.max(0, this.life / 0.6);
+            ctx.globalAlpha = alpha;
+            ctx.shadowBlur = 20; ctx.shadowColor = '#F60';
+            ctx.fillStyle = '#F60'; ctx.beginPath(); ctx.arc(drawX, drawY, (this.w/2) * alpha, 0, Math.PI*2); ctx.fill();
+            ctx.fillStyle = '#FF0'; ctx.beginPath(); ctx.arc(drawX, drawY, (this.w/4) * alpha, 0, Math.PI*2); ctx.fill();
+            ctx.globalAlpha = 1.0; ctx.shadowBlur = 0;
         } else {
-            ctx.shadowBlur = this.type === 'ROCKET' ? 40 : 15; ctx.shadowColor = this.color; ctx.fillStyle = this.color;
-            for(let i=0; i<this.trail.length; i++) {
-                let size = (i / this.trail.length) * this.w; ctx.globalAlpha = i / this.trail.length;
-                ctx.beginPath(); ctx.arc(this.trail[i].x - camX + this.w/2, this.trail[i].y - camY + this.h/2, size/2, 0, Math.PI*2); ctx.fill();
-            }
-            ctx.globalAlpha = 1.0; ctx.fillStyle = '#FFF'; ctx.beginPath(); ctx.arc(drawX, drawY, this.w / 2, 0, Math.PI * 2); ctx.fill(); ctx.shadowBlur = 0;
+            ctx.fillStyle = this.color;
+            ctx.beginPath(); ctx.arc(drawX, drawY, this.w/2, 0, Math.PI*2); ctx.fill();
         }
     }
 }
 
 class Corpse extends Entity {
-    constructor(x, y, w, h, state) { super(x, y, w, h); this.state = state; this.vy = -100 - Math.random() * 200; }
+    constructor(x, y, w, h, state) { 
+        super(x, y, w, h); 
+        this.state = state; 
+        this.vy = -200 - Math.random() * 300; 
+        this.vx = (Math.random() - 0.5) * 200;
+    }
     update(dt, platforms) {
-        this.vy += CONFIG.GRAVITY * dt; this.y += this.vy * dt;
+        this.vy += CONFIG.GRAVITY * dt; 
+        this.x += this.vx * dt;
+        this.y += this.vy * dt;
         for (let plat of platforms) {
-            if (this.checkCollision(plat) && this.vy > 0 && this.y + this.h - this.vy * dt <= plat.y + 10) {
-                this.y = plat.y - this.h; this.vy = 0;
+            if (this.checkCollision(plat) && this.vy > 0 && this.y + this.h - this.vy * dt <= plat.y + 15) {
+                this.y = plat.y - this.h; this.vy = 0; this.vx *= 0.8;
             }
         }
     }
     draw(ctx, camX, camY) {
         const drawX = this.x - camX, drawY = this.y - camY;
         ctx.fillStyle = '#800';
-        if (this.state === 'UMGEFALLEN') {
-            ctx.fillRect(drawX, drawY + this.h - 20, this.w, 20); ctx.fillStyle = '#223322'; ctx.fillRect(drawX + 10, drawY + this.h - 15, this.w - 20, 15);
-        } else if (this.state === 'ZERTEILT') {
-            ctx.fillRect(drawX, drawY + this.h - 15, this.w / 2 - 5, 15); ctx.fillRect(drawX + this.w / 2 + 5, drawY + this.h - 15, this.w / 2 - 5, 15);
-        } else {
-            ctx.beginPath(); ctx.arc(drawX + this.w/2, drawY + this.h - 10, 20, 0, Math.PI); ctx.fill();
-            ctx.fillStyle = '#fff'; ctx.fillRect(drawX + this.w/2 - 5, drawY + this.h - 15, 10, 5);
-        }
+        if (this.state === 'UMGEFALLEN') ctx.fillRect(drawX, drawY + this.h - 20, this.w, 20);
+        else if (this.state === 'ZERTEILT') { ctx.fillRect(drawX, drawY + this.h - 15, this.w/2-5, 15); ctx.fillRect(drawX+this.w/2+5, drawY+this.h-15, this.w/2-5, 15); }
+        else { ctx.beginPath(); ctx.arc(drawX+this.w/2, drawY+this.h-10, 20, 0, Math.PI, true); ctx.fill(); }
     }
 }
