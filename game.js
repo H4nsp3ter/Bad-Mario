@@ -50,19 +50,41 @@ class Game {
         this.setupEventListeners();
     }
 
-    setupEventListeners() {
-        const actionBtn = document.getElementById('action-button');
-        if (actionBtn) actionBtn.addEventListener('click', () => { this.requestFullScreen(); this.audio.init(); this.startPlay(1); });
-        
+setupEventListeners() {
+        // Schwierigkeits-Buttons aus dem neuen HTML-Layout
+        const btnPrincess = document.getElementById('btn-princess');
+        const btnRegular = document.getElementById('btn-regular');
+        const btnBadass = document.getElementById('btn-badass');
+
+        // Hilfsfunktion für den Start mit gewählter Schwierigkeit
+        const launchWithDiff = (diff) => {
+            this.requestFullScreen();
+            this.audio.init();
+            this.startPlay(1, diff);
+        };
+
+        if (btnPrincess) btnPrincess.addEventListener('click', () => launchWithDiff('princess'));
+        if (btnRegular) btnRegular.addEventListener('click', () => launchWithDiff('regular'));
+        if (btnBadass) btnBadass.addEventListener('click', () => launchWithDiff('badass'));
+
+        // Die anderen Buttons (GameOver / Menu)
         const continueBtn = document.getElementById('continue-btn');
-        if (continueBtn) continueBtn.addEventListener('click', () => { this.requestFullScreen(); if (this.state === 'GAMEOVER') this.continueGame(); });
+        if (continueBtn) continueBtn.addEventListener('click', () => { 
+            this.requestFullScreen(); 
+            if (this.state === 'GAMEOVER') this.continueGame(); 
+        });
 
         const restartBtn = document.getElementById('restart-btn');
-        if (restartBtn) restartBtn.addEventListener('click', () => { this.requestFullScreen(); this.audio.init(); this.startPlay(1); });
+        if (restartBtn) restartBtn.addEventListener('click', () => { 
+            this.requestFullScreen(); 
+            this.audio.init(); 
+            this.startPlay(1, this.difficulty || 'regular'); 
+        });
 
         const mainMenuBtn = document.getElementById('main-menu-btn');
         if (mainMenuBtn) mainMenuBtn.addEventListener('click', () => { this.returnToMainMenu(); });
 
+        // Zoom-Funktionen (für Mobile/Desktop)
         const btnZoomIn = document.getElementById('btn-zoom-in');
         const btnZoomOut = document.getElementById('btn-zoom-out');
         if (btnZoomIn) { 
@@ -74,10 +96,11 @@ class Game {
             btnZoomOut.addEventListener('mousedown', (e) => { e.preventDefault(); this.zoom = Math.max(0.2, this.zoom - 0.1); }); 
         }
 
+        // Tastatur-Abfragen
         window.addEventListener('keydown', (e) => {
             if (e.code === 'Enter') { 
                 if (this.state === 'GAMEOVER') this.continueGame(); 
-                else if (this.state === 'MENU') { this.requestFullScreen(); this.audio.init(); this.startPlay(1); } 
+                else if (this.state === 'MENU') { launchWithDiff('regular'); } 
             }
             if (e.code === 'Escape') {
                 if (this.state === 'PLAYING') this.state = 'PAUSED';
@@ -86,13 +109,21 @@ class Game {
             if (e.code === 'KeyH' && this.state === 'MENU') {
                 const prompt = document.getElementById('start-screen-prompt');
                 const inst = document.getElementById('menu-instructions');
-                if (prompt && inst) { prompt.classList.toggle('hidden'); inst.classList.toggle('hidden'); }
+                if (prompt && inst) { 
+                    prompt.classList.toggle('hidden'); 
+                    inst.classList.toggle('hidden'); 
+                }
             }
             // Mute mit Taste M
             if (e.code === 'KeyM') {
-                this.audio.toggleMute();
+                if (this.audio.toggleMute) this.audio.toggleMute();
             }
         });
+
+        // Maus-Input für Waffenfeuer
+        window.addEventListener('mousedown', () => { this.input.keys['MouseLeft'] = true; });
+        window.addEventListener('mouseup', () => { this.input.keys['MouseLeft'] = false; });
+    }
 
         window.addEventListener('mousedown', () => { this.input.keys['MouseLeft'] = true; });
         window.addEventListener('mouseup', () => { this.input.keys['MouseLeft'] = false; });
