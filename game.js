@@ -387,17 +387,25 @@ class Game {
                     this.particles.spawn(item.x + item.w/2, item.y + item.h/2, CONFIG.COLORS.COIN || '#FFD700', 15, 150); 
                     this.checkLevelUp(); 
                 } 
-                else {
-                    this.player.weapon = item.type;
-                    if (item.type === 'UZI') this.player.ammo = 100; 
-                    else if (item.type === 'ROCKET') this.player.ammo = 15; 
-                    else if (item.type === 'PISTOL') this.player.ammo = 50; 
-                    else if (item.type === 'SHOTGUN') this.player.ammo = 20; 
-                    else if (item.type === 'ASSAULT_RIFLE') this.player.ammo = 90; 
-                    else if (item.type === 'MINIGUN') this.player.ammo = 300; 
-                    else if (item.type === 'GRENADE') this.player.ammo = 5; 
-                    else if (item.type === 'FLAMETHROWER') this.player.ammo = 250;
-                    else this.player.ammo = Infinity;
+              else {
+                    // NEU: Inventar-System - Waffe und Ammo hinzufügen!
+                    if (!this.player.inventory[item.type]) {
+                        this.player.inventory[item.type] = 0; // Neu im Inventar
+                    }
+                    
+                    // Spezifische Ammo-Menge pro Waffe
+                    let ammoAmount = 20; // Standard
+                    if (item.type === 'UZI') ammoAmount = 50; 
+                    else if (item.type === 'ROCKET') ammoAmount = 5; 
+                    else if (item.type === 'PISTOL') ammoAmount = 25; 
+                    else if (item.type === 'SHOTGUN') ammoAmount = 15; 
+                    else if (item.type === 'ASSAULT_RIFLE') ammoAmount = 60; 
+                    else if (item.type === 'MINIGUN') ammoAmount = 150; 
+                    else if (item.type === 'GRENADE') ammoAmount = 5; 
+                    else if (item.type === 'FLAMETHROWER') ammoAmount = 150;
+                    
+                    this.player.inventory[item.type] += ammoAmount;
+                    this.player.weapon = item.type; // Auto-Switch auf die neu aufgehobene Waffe
                     
                     if (this.audio.playWeaponPickup) this.audio.playWeaponPickup();
                     else this.audio.playCoin();
