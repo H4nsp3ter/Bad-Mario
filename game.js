@@ -320,7 +320,7 @@ class Game {
         }
         
         this.audio.updateBGM(this.level);
-        this.levelGen.update(this.camera.x, this.logicalWidth, this.level);
+        this.levelGen.update(this.camera.x, this.logicalWidth, this.level, this.difficulty);
         this.particles.update(dt, this.levelGen.platforms);
         
         let oldHp = this.player.hp;
