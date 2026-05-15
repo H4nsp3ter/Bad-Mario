@@ -649,3 +649,29 @@ button.menu-btn:hover {
 .princess:hover { background: #ff69b4 !important; color: #000 !important; }
 .regular:hover  { background: #00ff00 !important; color: #000 !important; }
 .badass:hover   { background: #ff0000 !important; color: #000 !important; box-shadow: 0 0 20px #ff0000; }
+
+/* Füge das in dein CSS ein für den ultimativen Look */
+.diff-btn {
+    background: #400; /* Dunkles Blutrot */
+    border: 2px solid #f00;
+    color: #fff;
+    font-family: 'Courier New', Courier, monospace;
+    cursor: pointer;
+    box-shadow: 3px 3px 0px #000;
+}
+
+.diff-btn:hover {
+    background: #f00;
+    box-shadow: 0 0 15px #f00;
+    transform: scale(1.1);
+}
+
+.badass:hover {
+    animation: shake 0.1s infinite;
+}
+
+@keyframes shake {
+    0% { transform: translate(1px, 1px); }
+    50% { transform: translate(-1px, -1px); }
+    100% { transform: translate(1px, -1px); }
+}
