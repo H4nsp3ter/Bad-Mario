@@ -23,39 +23,71 @@ class SpriteGenerator {
 
             if (type === 'PLAYER') {
                 const skin = '#E0AC69', darkSkin = '#C28E4C';
-                const shirt = '#AA0000', pants = '#222244';
+                const shirt = '#990000', pants = '#1A1A33', dirt = '#331100';
+
+                // Hinterer Arm
                 ctx.save(); ctx.translate(3, -12); ctx.rotate(armAngle);
-                ctx.fillStyle = '#770000'; ctx.fillRect(-6, 0, 12, 18);
-                ctx.fillStyle = '#DDD'; ctx.fillRect(-7, 16, 14, 12);
+                ctx.fillStyle = '#660000'; ctx.fillRect(-6, 0, 12, 18); // Ärmel
+                ctx.fillStyle = '#BBB'; ctx.fillRect(-7, 16, 14, 12);  // Handschuh
                 ctx.restore();
 
+                // Hinteres Bein
                 ctx.save(); ctx.translate(0, 8); ctx.rotate(-legAngle);
                 ctx.fillStyle = pants; ctx.fillRect(-7, 0, 14, 18);
-                ctx.fillStyle = '#331100'; ctx.fillRect(-9, 16, 18, 10);
+                ctx.fillStyle = dirt; ctx.fillRect(-9, 16, 18, 10); // Stiefel
                 ctx.restore();
 
-                ctx.fillStyle = shirt; ctx.fillRect(-18, -20, 36, 26);
-                ctx.fillStyle = pants; ctx.fillRect(-16, -2, 32, 14); ctx.fillRect(-12, -20, 8, 18); ctx.fillRect(4, -20, 8, 18);
-                ctx.fillStyle = '#FFDD00'; ctx.fillRect(-10, -8, 4, 4); ctx.fillRect(6, -8, 4, 4);
+                // Torso
+                ctx.fillStyle = shirt; ctx.fillRect(-18, -20, 36, 26); // Hemd
+                ctx.fillStyle = pants; ctx.fillRect(-16, -2, 32, 14);  // Hose
+                ctx.fillRect(-12, -20, 8, 18); ctx.fillRect(4, -20, 8, 18); // Hosenträger
+                ctx.fillStyle = '#FFDD00'; ctx.fillRect(-10, -8, 4, 4); ctx.fillRect(6, -8, 4, 4); // Knöpfe
+                
+                // NEU: Blutspritzer/Dreck auf der Hose
+                ctx.fillStyle = '#550000'; ctx.fillRect(8, 2, 6, 6); ctx.fillRect(-12, 6, 4, 4);
+                
+                // NEU: Patronengurt (Rambo-Style)
+                ctx.save();
+                ctx.rotate(-0.3);
+                ctx.fillStyle = '#333'; ctx.fillRect(-12, -20, 28, 6); // Gurt
+                ctx.fillStyle = '#FFD700'; // Patronen
+                for(let p = -10; p < 14; p += 6) ctx.fillRect(p, -21, 3, 8);
+                ctx.restore();
 
+                // Kopf
                 ctx.save(); ctx.translate(0, -26); ctx.rotate(Math.sin(cycle*2)*0.1);
-                ctx.fillStyle = skin; ctx.fillRect(-12, -12, 24, 20);
-                ctx.fillStyle = shirt; ctx.fillRect(-14, -16, 28, 8); ctx.fillRect(10, -16, 16, 4);
-                ctx.fillStyle = '#FFF'; ctx.fillRect(4, -4, 6, 6);
-                ctx.fillStyle = '#000'; ctx.fillRect(6, -2, 4, 4);
-                ctx.fillStyle = darkSkin; ctx.fillRect(12, -2, 6, 6);
-                ctx.fillStyle = '#000'; ctx.fillRect(4, 4, 18, 6);
+                ctx.fillStyle = skin; ctx.fillRect(-12, -12, 24, 20); // Gesicht
+                ctx.fillStyle = shirt; ctx.fillRect(-14, -16, 28, 8); ctx.fillRect(10, -16, 16, 4); // Mütze
+                
+                // NEU: Fiese Narbe über dem Auge
+                ctx.fillStyle = '#900';
+                ctx.beginPath(); ctx.moveTo(4, -6); ctx.lineTo(12, 2); ctx.stroke();
+                
+                ctx.fillStyle = '#FFF'; ctx.fillRect(4, -4, 6, 6); // Auge
+                ctx.fillStyle = '#000'; ctx.fillRect(6, -2, 4, 4); // Pupille
+                ctx.fillStyle = darkSkin; ctx.fillRect(12, -2, 6, 6); // Nase
+                ctx.fillStyle = '#000'; ctx.fillRect(4, 4, 18, 6); // Schnurrbart
+                
+                // NEU: Zigarre
+                ctx.fillStyle = '#5C4033'; ctx.fillRect(18, 6, 10, 3); // Zigarre
+                ctx.fillStyle = '#FF4500'; ctx.fillRect(28, 6, 3, 3);  // Glut
                 ctx.restore();
 
+                // Vorderes Bein
                 ctx.save(); ctx.translate(0, 8); ctx.rotate(legAngle);
                 ctx.fillStyle = pants; ctx.fillRect(-7, 0, 14, 18);
-                ctx.fillStyle = '#331100'; ctx.fillRect(-9, 16, 18, 10);
+                ctx.fillStyle = dirt; ctx.fillRect(-9, 16, 18, 10);
                 ctx.restore();
 
+                // Vorderer Arm
                 ctx.save(); ctx.translate(-3, -12); ctx.rotate(-armAngle);
                 ctx.fillStyle = shirt; ctx.fillRect(-6, 0, 12, 18);
                 ctx.fillStyle = '#FFF'; ctx.fillRect(-7, 16, 14, 12);
+                
+                // NEU: Blut am vorderen Handschuh
+                ctx.fillStyle = '#800'; ctx.fillRect(-5, 20, 10, 6);
                 ctx.restore();
+                
             } else if (type === 'SOLDIER') {
                 const skin = '#FFCBA4', uniform = '#4A5D23', pants = '#3A4A1A', helmet = '#2B3B23';
                 ctx.save(); ctx.translate(3, -12); ctx.rotate(armAngle);
