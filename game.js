@@ -87,6 +87,10 @@ class Game {
                 const inst = document.getElementById('menu-instructions');
                 if (prompt && inst) { prompt.classList.toggle('hidden'); inst.classList.toggle('hidden'); }
             }
+            // Mute mit Taste M
+            if (e.code === 'KeyM') {
+                this.audio.toggleMute();
+            }
         });
 
         window.addEventListener('mousedown', () => { this.input.keys['MouseLeft'] = true; });
