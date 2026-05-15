@@ -9,8 +9,6 @@ class LevelGenerator {
         this.cursorY = 500; 
         this.state = 'SOLID_GROUND'; 
         this.stateCounter = 0;
-        
-        // Boss-Tracker, damit er pro Level nur einmal spawnt
         this.bossSpawned = false; 
     }
 
@@ -45,21 +43,17 @@ class LevelGenerator {
         this.corpses = this.corpses.filter(c => c.x + c.w > cleanupX);
     }
 
-    // NEU: Der spawnEnemy-Methode geben wir den "progress" (Fortschritt) mit
     spawnEnemy(x, y, gameLevel, progress = 0.5) {
         const rand = Math.random();
-        
-        // Je weiter wir im Level sind (progress nähert sich 1.0), desto schwerer die Gegner!
-        let hardChance = 0.2 + (progress * 0.4); // Startet bei 20%, steigt auf 60%
+        let hardChance = 0.2 + (progress * 0.4); 
         
         if (gameLevel === 1) return rand < (1 - hardChance) ? new ZombieEnemy(x, y, gameLevel) : new GiantZombieEnemy(x, y - 50, gameLevel);
         if (gameLevel === 2) return rand < (1 - hardChance) ? new ZombieEnemy(x, y, gameLevel) : new GiantZombieEnemy(x, y - 50, gameLevel);
         
-        // Level 3: Soldaten oder Riesen-Zombies
         return rand < 0.3 ? new SoldierEnemy(x, y, gameLevel) : (rand < (1 - hardChance) ? new ZombieEnemy(x, y, gameLevel) : new GiantZombieEnemy(x, y - 50, gameLevel));
     }
 
-generateBossArena(gameLevel) {
+    generateBossArena(gameLevel) {
         this.bossSpawned = true;
         
         const arenaWidth = 3000;
@@ -84,26 +78,31 @@ generateBossArena(gameLevel) {
         const bossWeapon = gameLevel === 1 ? 'MINIGUN' : (gameLevel === 2 ? 'ROCKET' : 'FLAMETHROWER');
         this.items.push(new Collectible(this.cursorX + 250, this.cursorY - 60, bossWeapon));
 
-        // BOSS SPAWN
+        // BOSS SPAWN - Hier werden die Werte jetzt direkt beim Erstellen gesetzt
         let boss;
-        if (gameLevel === 1) boss = new GiantZombieEnemy(this.cursorX + 2200, this.cursorY - 200, gameLevel);
-        else if (gameLevel === 2) boss = new SoldierEnemy(this.cursorX + 2200, this.cursorY - 200, gameLevel);
-        else boss = new GiantZombieEnemy(this.cursorX + 2200, this.cursorY - 200, gameLevel);
-
-        if(gameLevel === 1) { boss.w *= 2.5; boss.h *= 2.5; boss.hp = 4000; }
-        if(gameLevel === 2) { boss.w *= 2.2; boss.h *= 2.2; boss.hp = 8000; boss.maxShootCooldown = 0.4; }
-        if(gameLevel === 3) { boss.w *= 3.5; boss.h *= 3.5; boss.hp = 15000; boss.speed *= 1.5; }
+        if (gameLevel === 1) {
+            boss = new GiantZombieEnemy(this.cursorX + 2200, this.cursorY - 200, gameLevel);
+            boss.w *= 2.5; boss.h *= 2.5; boss.hp = 4000;
+        } else if (gameLevel === 2) {
+            boss = new SoldierEnemy(this.cursorX + 2200, this.cursorY - 200, gameLevel);
+            boss.w *= 2.2; boss.h *= 2.2; boss.hp = 8000; boss.maxShootCooldown = 0.4;
+        } else {
+            boss = new GiantZombieEnemy(this.cursorX + 2200, this.cursorY - 200, gameLevel);
+            boss.w *= 3.5; boss.h *= 3.5; boss.hp = 15000; boss.speed *= 1.5;
+        }
 
         boss.isBoss = true; 
         this.enemies.push(boss);
         this.cursorX += arenaWidth + 400;
     }
-   generateChunk(gameLevel) {
+
+    generateChunk(gameLevel) {
+        // FIX: progress und levelLength ganz nach oben schieben, damit sie sofort verfügbar sind
         const levelLength = 15000 * gameLevel;
+        let progress = Math.min(1.0, this.cursorX / levelLength); 
 
         // BOSS ARENA TRIGGER
         if (this.cursorX > levelLength && !this.bossSpawned) {
-            // Wir bauen eine Sicherheits-Plattform VOR der Arena, damit keine Lücke entsteht
             this.platforms.push(new Platform(this.cursorX, this.cursorY, 600, 1000, true));
             this.cursorX += 500; 
             this.generateBossArena(gameLevel);
@@ -117,9 +116,9 @@ generateBossArena(gameLevel) {
         }
         this.stateCounter--;
 
-        const safeJumpForce = (typeof CONFIG !== 'undefined' && CONFIG.JUMP_FORCE) ? CONFIG.JUMP_FORCE : 600;
-        const safeGravity = (typeof CONFIG !== 'undefined' && CONFIG.GRAVITY) ? CONFIG.GRAVITY : 2000;
-        const safeSpeed = (typeof CONFIG !== 'undefined' && CONFIG.PLAYER_SPEED) ? CONFIG.PLAYER_SPEED : 400;
+        const safeJumpForce = 600;
+        const safeGravity = 2000;
+        const safeSpeed = 400;
 
         const maxJumpTime = (2 * safeJumpForce) / safeGravity;
         const maxGapX = safeSpeed * maxJumpTime * 0.85;
@@ -132,7 +131,6 @@ generateBossArena(gameLevel) {
                 const w = 300 + Math.random() * 300; 
                 this.platforms.push(new Platform(this.cursorX, this.cursorY, w, 50, false));
                 
-                // Spawnt mehr Gegner, je weiter man im Level ist
                 if (Math.random() > (0.6 - progress * 0.3)) {
                     this.enemies.push(this.spawnEnemy(this.cursorX + w/2, this.cursorY - 150, gameLevel, progress));
                 }
@@ -142,17 +140,16 @@ generateBossArena(gameLevel) {
                     this.platforms.push(new Platform(this.cursorX + w/2 - 100, this.cursorY - 300, 200, 50, false)); 
                 }
 
-                // FIX: Munition seltener machen (Survival-Feeling)
                 if (Math.random() > 0.85) { 
                     const type = weaponPool[Math.floor(Math.random() * weaponPool.length)];
                     this.items.push(new Collectible(this.cursorX + w/2, this.cursorY - 200, type));
-                } else if (Math.random() > 0.6) { 
+                } else if (Math.random() > 0.7) { 
                     const dropType = Math.random() > 0.85 ? 'LIQUOR' : 'BEER';
                     this.items.push(new Collectible(this.cursorX + w/2 + (Math.random()*40 - 20), this.cursorY - 40, dropType));
                 }
 
                 const yDiff = (Math.random() * 200) - 100;
-                const gapX = Math.min(Math.random() * maxGapX * 0.8, maxGapX * 0.8) || 150; 
+                const gapX = Math.min(Math.random() * maxGapX * 0.7, 180); 
                 
                 this.cursorX += w + gapX; 
                 this.cursorY += yDiff;
@@ -162,32 +159,27 @@ generateBossArena(gameLevel) {
             this.platforms.push(new Platform(this.cursorX, this.cursorY, 600, 50, false));
             this.ladders.push(new Ladder(this.cursorX + 100, this.cursorY - 400, 60, 400)); 
             this.platforms.push(new Platform(this.cursorX - 100, this.cursorY - 400, 400, 50, false));
-            this.ladders.push(new Ladder(this.cursorX + 150, this.cursorY - 800, 60, 400)); 
-            this.platforms.push(new Platform(this.cursorX + 50, this.cursorY - 800, 400, 50, false));
             
-            this.enemies.push(this.spawnEnemy(this.cursorX + 200, this.cursorY - 880, gameLevel, progress)); 
-            
-            this.items.push(new Collectible(this.cursorX + 300, this.cursorY - 860, 'HEART'));
-            this.items.push(new Collectible(this.cursorX + 350, this.cursorY - 860, 'LIQUOR'));
+            this.enemies.push(this.spawnEnemy(this.cursorX + 200, this.cursorY - 480, gameLevel, progress)); 
+            this.items.push(new Collectible(this.cursorX + 300, this.cursorY - 460, 'LIQUOR'));
 
             this.cursorX += 400; 
-            this.cursorY -= 800;
+            this.cursorY -= 400;
         } else if (this.state === 'SOLID_GROUND') {
             const w = 1000 + Math.random() * 800; 
             this.platforms.push(new Platform(this.cursorX, this.cursorY, w, 1500, true));
             
-            // Dynamische Gegneranzahl
-            let enemyCount = 3 + Math.floor(progress * 4); // Startet bei 3, geht hoch bis 7
+            let enemyCount = 3 + Math.floor(progress * 4); 
             for(let i=0; i < enemyCount; i++) {
+                let itemX = this.cursorX + 300 + (i * w/enemyCount);
                 if(Math.random() > 0.3) {
-                    this.enemies.push(this.spawnEnemy(this.cursorX + 300 + (i * w/enemyCount), this.cursorY - 150, gameLevel, progress));
+                    this.enemies.push(this.spawnEnemy(itemX, this.cursorY - 150, gameLevel, progress));
                 }
                 
-                let itemX = this.cursorX + 300 + (i * w/enemyCount);
-                if(Math.random() > 0.88) { // Seltener!
+                if(Math.random() > 0.88) { 
                     const type = weaponPool[Math.floor(Math.random() * weaponPool.length)];
                     this.items.push(new Collectible(itemX, this.cursorY - 50, type));
-                } else if(Math.random() > 0.5) { 
+                } else if(Math.random() > 0.7) { 
                     let amount = Math.floor(Math.random() * 2) + 1; 
                     for(let b=0; b<amount; b++) {
                         const dropType = Math.random() > 0.9 ? 'LIQUOR' : 'BEER'; 
@@ -198,7 +190,7 @@ generateBossArena(gameLevel) {
             this.cursorX += w + 150;
         }
         
-        if (this.cursorY < -4000) this.cursorY = -4000;
-        if (this.cursorY > 2000) this.cursorY = 2000; 
+        if (this.cursorY < -3000) this.cursorY = -3000;
+        if (this.cursorY > 1500) this.cursorY = 1500; 
     }
 }
