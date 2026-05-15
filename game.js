@@ -29,7 +29,8 @@ class Game {
         this.shakeTime = 0; 
         this.deathY = 2000;
         this.level = 1; 
-        this.maxReachedLevel = 1; 
+        this.difficulty = 'regular'; // Standardwert
+        this.maxReachedLevel = 1;
         this.transitionTimer = 0; 
         this.levelFlashTimer = 0;
         
