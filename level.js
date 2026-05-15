@@ -61,7 +61,7 @@ class LevelGenerator {
 
     generateBossArena(gameLevel) {
         this.bossSpawned = true;
-        this.cursorX += 500; 
+        this.platforms.push(new Platform(this.cursorX, this.cursorY, 3000, 1500, true)); 
         
         const arenaWidth = 2500;
         const arenaHeight = 1500;
@@ -109,12 +109,14 @@ class LevelGenerator {
         this.cursorX += arenaWidth + 200;
     }
 
-    generateChunk(gameLevel) {
+   generateChunk(gameLevel) {
         const levelLength = 15000 * gameLevel;
-        let progress = Math.min(1.0, this.cursorX / levelLength); // 0.0 (Start) bis 1.0 (Boss)
 
-        // Boss-Event auslösen
+        // BOSS ARENA TRIGGER
         if (this.cursorX > levelLength && !this.bossSpawned) {
+            // Wir bauen eine Sicherheits-Plattform VOR der Arena, damit keine Lücke entsteht
+            this.platforms.push(new Platform(this.cursorX, this.cursorY, 600, 1000, true));
+            this.cursorX += 500; 
             this.generateBossArena(gameLevel);
             return; 
         }
