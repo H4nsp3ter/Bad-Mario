@@ -34,12 +34,18 @@ class Enemy extends Entity {
             const cState = states[Math.floor(Math.random() * states.length)];
             game.levelGen.corpses.push(new Corpse(this.x, this.y + this.h - 30, this.w, 30, cState));
             
-            // Bosse droppen immer ein Herz und extrem viele Münzen
+// Bosse droppen ein Herz und 10 Flaschen!
             if (this.isBoss) {
                 game.levelGen.items.push(new Collectible(this.x + this.w/2 - 40, this.y, 'HEART'));
-                for(let i=0; i<10; i++) game.levelGen.items.push(new Collectible(this.x + Math.random()*this.w, this.y - Math.random()*50, 'COIN'));
+                for(let i=0; i<10; i++) {
+                    // 20% Chance auf Schnaps, 80% Bier
+                    let dropType = Math.random() > 0.8 ? 'LIQUOR' : 'BEER';
+                    game.levelGen.items.push(new Collectible(this.x + Math.random()*this.w, this.y - Math.random()*50, dropType));
+                }
             } else if (Math.random() > 0.4) {
-                game.levelGen.items.push(new Collectible(this.x + this.w/2 - 18, this.y, 'COIN'));
+                // Normale Gegner
+                let dropType = Math.random() > 0.9 ? 'LIQUOR' : 'BEER'; // Selten Schnaps
+                game.levelGen.items.push(new Collectible(this.x + this.w/2 - 18, this.y, dropType));
             }
             game.checkLevelUp();
         }
