@@ -6,8 +6,6 @@
     <meta name="mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <title>BAD MARIO - 16-BIT EDITION</title>
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Press+Start+2P&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="style.css">
 </head>
@@ -15,44 +13,34 @@
     <div id="game-container">
         <canvas id="gameCanvas"></canvas>
         
-        <div id="crt-overlay"></div>
         <div id="zoom-controls">
             <button id="btn-zoom-out">🔍-</button>
             <button id="btn-zoom-in">🔍+</button>
         </div>
         
         <div id="hud">
-            <div class="hud-top">
+            <!-- Top Left: Health & Level -->
+            <div class="hud-top-left">
                 <div id="hp-display">
                     <span class="hp-label">HP</span>
                     <div id="health-bar-container">
                         <div id="health-bar-fill"></div>
                     </div>
                 </div>
-                
                 <div id="level-display">LEVEL: <span id="level-value">1</span></div>
-
-                <div id="score-container">
-                    <div id="score-display">SCORE: <span id="score-value">000000</span></div>
-                    <div id="coin-display">COINS: <span id="coin-value">0</span></div>
-                </div>
             </div>
 
-            <div class="hud-bottom">
-                <div id="weapon-container">WPN: <span id="weapon-value">BAT [∞]</span></div>
-
-                <div id="powerup-section">
-                    <div id="active-powerup" class="hidden">
-                        <div class="powerup-info">
-                            <span id="powerup-icon">🩸</span>
-                            <span id="powerup-text">BLOOD RAGE</span>
-                        </div>
-                        <div class="powerup-bar-wrapper">
-                            <div id="powerup-bar-fill"></div>
-                        </div>
-                    </div>
-                </div>
+            <!-- Top Right: Score, Coins, Current Weapon -->
+            <div class="hud-top-right">
+                <div id="score-display">SCORE: <span id="score-value">000000</span></div>
+                <div id="coin-display">COINS: <span id="coin-value">0</span></div>
+                <div id="weapon-display">WPN: <span id="weapon-value">BAT [∞]</span></div>
             </div>
+        </div>
+
+        <!-- Bottom Center: Visual Inventory -->
+        <div id="hud-inventory" class="hud-bottom-center">
+            <!-- Wird von JS gefüllt -->
         </div>
 
         <div id="mobile-controls" class="hidden">
@@ -72,39 +60,31 @@
             </div>
         </div>
         
-<div id="menu-overlay">
-    <div class="menu-panel">
-        <h1 id="menu-title" class="gore-title">BAD MARIO</h1>
-        
-        <div id="menu-content">
-<div id="start-screen-prompt">
-    <p class="insert-coin-text pulsate">CHOOSE YOUR FATE</p>
-    
-    <div class="difficulty-box">
-        <button id="btn-princess" class="retro-btn diff-btn princess">PRINCESS</button>
-        <button id="btn-regular" class="retro-btn diff-btn regular">REGULAR</button>
-        <button id="btn-badass" class="retro-btn diff-btn badass">BADASS</button>
-    </div>
-
-            <div id="menu-instructions" class="hidden">
-                <p class="instruction-title">STEUERUNG:</p>
-                <div class="controls-grid">
-                    <p>BEWEGUNG: <span class="key-badge">W</span> <span class="key-badge">A</span> <span class="key-badge">S</span> <span class="key-badge">D</span></p>
-                    <p>SPRINGEN: <span class="key-badge">SPACE</span></p>
-                    <p>ANGRIFF: <span class="key-badge">F</span> / <span class="key-badge">LMB</span></p>
-                    <p>WAFFEN: <span class="key-badge">1-4</span></p>
+        <div id="menu-overlay">
+            <div class="menu-panel">
+                <h1 id="menu-title" class="gore-title">BAD MARIO</h1>
+                
+                <div id="start-screen-prompt">
+                    <p class="insert-coin-text">CHOOSE YOUR FATE</p>
+                    <div class="difficulty-box">
+                        <button id="btn-princess" class="diff-btn princess">PRINCESS</button>
+                        <button id="btn-regular" class="diff-btn regular">REGULAR</button>
+                        <button id="btn-badass" class="diff-btn badass">BADASS</button>
+                    </div>
                 </div>
-                <button onclick="document.getElementById('menu-instructions').classList.add('hidden'); document.getElementById('start-screen-prompt').classList.remove('hidden');" class="retro-btn small-btn">BACK</button>
-            </div>
 
-            <div id="game-over-stats" class="hidden">
-                <h2 class="wasted-text">WASTED</h2>
-                </div>
-        </div>
-    </div>
-</div>
-
-                    <button id="action-button" class="retro-btn main-start-btn">INSERT COIN TO START</button>
+                <div id="game-over-stats" class="hidden">
+                    <h2 class="wasted-text">WASTED</h2>
+                    <p>FINAL SCORE: <span id="final-score" style="color:#FFD700">0</span></p>
+                    <p>LEVEL REACHED: <span id="final-level" style="color:#0FF">1</span></p>
+                    
+                    <p style="margin-top:30px; color:#888;">TRY AGAIN?</p>
+                    <div class="difficulty-box">
+                        <!-- Restart Buttons direkt im Game Over Screen -->
+                        <button id="restart-princess" class="diff-btn princess">PRINCESS</button>
+                        <button id="restart-regular" class="diff-btn regular">REGULAR</button>
+                        <button id="restart-badass" class="diff-btn badass">BADASS</button>
+                    </div>
                 </div>
             </div>
         </div>
@@ -120,8 +100,5 @@
     <script src="player.js"></script>
     <script src="level.js"></script>
     <script src="game.js"></script>
-    <script src="main.js"></script>
-</body>
-</html>
 </body>
 </html>

@@ -5,209 +5,325 @@ class LevelGenerator {
         this.enemies = []; 
         this.items = []; 
         this.corpses = [];
+        
         this.cursorX = 0; 
-        this.cursorY = 500; 
-        this.state = 'SOLID_GROUND'; 
-        this.stateCounter = 0;
-        this.bossSpawned = false; 
+        this.baseY = 600; 
+        
+        this.levelPlan = [];
+        this.bossSpawned = false;
+        this.currentGeneratedLevel = 1; 
     }
 
     init(startX, startY) {
-        this.platforms = []; 
-        this.ladders = []; 
-        this.enemies = []; 
-        this.items = []; 
-        this.corpses = [];
+        this.platforms = []; this.ladders = []; this.enemies = []; this.items = []; this.corpses = [];
         this.cursorX = startX; 
-        this.cursorY = startY; 
-        this.state = 'SOLID_GROUND'; 
-        this.stateCounter = 1;
+        this.baseY = 600; 
         this.bossSpawned = false;
-        
-        // Startplattform
-        this.platforms.push(new Platform(this.cursorX - 200, this.cursorY, 1200, 1000, true)); 
-        this.cursorX += 1000;
+
+        // Feste Start-Plattform zum Ankommen
+        this.platforms.push(new Platform(this.cursorX - 500, this.baseY, 2000, 1000, true)); 
+        this.cursorX += 1500;
+        this.levelPlan = null;
+    }
+
+    loadBlueprint(level) {
+        if (level === 1) {
+            this.levelPlan = [
+                'TUTORIAL_STREET', 
+                'CRUMBLING_CHASM', 
+                'THE_SEWER', 
+                'CONSTRUCTION_SITE', 
+                'THE_APARTMENTS', 
+                'MEAT_LOCKER', 
+                'SPIDER_NEST', 
+                'PRE_BOSS_ARENA', 
+                'BOSS_GIANT'
+            ];
+        } else if (level === 2) {
+            this.levelPlan = [
+                'TUTORIAL_STREET_HARD', 
+                'SNIPER_ALLEY', 
+                'CONSTRUCTION_SITE', 
+                'THE_APARTMENTS', 
+                'MEAT_LOCKER_LONG', 
+                'PRE_BOSS_ARENA', 
+                'BOSS_SOLDIER'
+            ];
+        } else {
+            this.levelPlan = [
+                'TUTORIAL_HELL', 
+                'DEMON_ROOST', 
+                'CRUMBLING_CHASM_HARD', 
+                'SPIDER_NEST_DEEP', 
+                'SNIPER_ALLEY_HELL', 
+                'PRE_BOSS_ARENA', 
+                'BOSS_HELL'
+            ];
+        }
     }
 
     update(camX, screenWidth, gameLevel, difficulty = 'regular') {
-        let safeLoopCounter = 0;
-        // Wir generieren immer weit voraus, damit nichts aufploppt
-        while (this.cursorX < camX + screenWidth + 3000 && safeLoopCounter < 20) {
-            this.generateChunk(gameLevel, difficulty);
-            safeLoopCounter++;
+        if (this.currentGeneratedLevel !== gameLevel) {
+            this.init(camX, 600); 
+            this.currentGeneratedLevel = gameLevel; 
         }
 
-        // Speicherbereinigung
-        const cleanupX = camX - 2000;
-        this.platforms = this.platforms.filter(p => p.x + p.w > cleanupX); 
-        this.ladders = this.ladders.filter(l => l.x + l.w > cleanupX);
+        if (!this.levelPlan) this.loadBlueprint(gameLevel);
+
+        while (this.levelPlan.length > 0 && this.cursorX < camX + screenWidth + 600) {
+            let nextModule = this.levelPlan.shift(); 
+            this.buildModule(nextModule, gameLevel, difficulty);
+        }
+
+        const cleanupX = camX - 1500;
         this.enemies = this.enemies.filter(e => e.x + e.w > cleanupX || e.isBoss); 
         this.items = this.items.filter(i => i.x + i.w > cleanupX);
         this.corpses = this.corpses.filter(c => c.x + c.w > cleanupX);
     }
 
-    spawnEnemy(x, y, gameLevel, progress = 0.5, difficulty = 'regular') {
-        const rand = Math.random();
-        let diffMult = 1.0;
-        let spawnRateMod = 0;
-
-        if (difficulty === 'princess') {
-            diffMult = 0.4; // Deutlich weniger HP
-            spawnRateMod = 0.3;
-        } else if (difficulty === 'badass') {
-            diffMult = 2.5; // Panzer-Gegner
-            spawnRateMod = -0.3;
-        }
-
-        let hardChance = (0.2 + (progress * 0.5)) - spawnRateMod;
-        let enemy;
-        
-        if (gameLevel === 1) {
-            enemy = rand < (1 - hardChance) ? new ZombieEnemy(x, y, gameLevel) : new GiantZombieEnemy(x, y - 50, gameLevel);
-        } else {
-            // Soldaten erst ab Level 2
-            enemy = rand < 0.3 ? new SoldierEnemy(x, y, gameLevel) : (rand < (1 - hardChance) ? new ZombieEnemy(x, y, gameLevel) : new GiantZombieEnemy(x, y - 50, gameLevel));
-        }
-
-        enemy.hp *= diffMult;
-        if (difficulty === 'princess') enemy.speed *= 0.6; 
-        if (difficulty === 'badass') enemy.speed *= 1.4;
-
-        return enemy;
+    addFloor(width) {
+        this.platforms.push(new Platform(this.cursorX, this.baseY, width, 1500, true));
+        let oldX = this.cursorX;
+        this.cursorX += width;
+        return oldX;
     }
 
-    generateBossArena(gameLevel, difficulty) {
-        this.bossSpawned = true;
-        const arenaWidth = 3500; // Etwas breiter für mehr Action
-        const arenaHeight = 1500;
-        
-        // Den Übergang nahtlos machen
-        this.platforms.push(new Platform(this.cursorX - 100, this.cursorY, 600, 1000, true));
-        this.cursorX += 400;
-
-        // Hauptboden der Arena
-        this.platforms.push(new Platform(this.cursorX, this.cursorY, arenaWidth, arenaHeight, true));
-        
-        // Die "Todeswand" rechts
-        this.platforms.push(new Platform(this.cursorX + arenaWidth, this.cursorY - 1000, 100, 1000, true)); 
-        
-        // Plattformen für taktische Vorteile
-        this.platforms.push(new Platform(this.cursorX + 800, this.cursorY - 300, 500, 40, false));
-        this.platforms.push(new Platform(this.cursorX + 2200, this.cursorY - 300, 500, 40, false));
-        this.platforms.push(new Platform(this.cursorX + 1500, this.cursorY - 600, 500, 40, false));
-        
-        // Fette Boss-Supplies (Größe 60x60 für Sichtbarkeit)
-        this.items.push(new Collectible(this.cursorX + 200, this.cursorY - 80, 'HEART', 60, 60));
-        this.items.push(new Collectible(this.cursorX + 400, this.cursorY - 80, 'LIQUOR', 60, 60));
-        
-        const superWeapon = gameLevel === 1 ? 'MINIGUN' : (gameLevel === 2 ? 'ROCKET' : 'FLAMETHROWER');
-        this.items.push(new Collectible(this.cursorX + 1700, this.cursorY - 700, superWeapon, 60, 60));
-
-        let boss;
-        const bossX = this.cursorX + 2800;
-        const bossY = this.cursorY - 200;
-
-        if (gameLevel === 1) {
-            boss = new GiantZombieEnemy(bossX, bossY, gameLevel);
-            boss.w = 250; boss.h = 350; boss.hp = 5000;
-        } else if (gameLevel === 2) {
-            boss = new SoldierEnemy(bossX, bossY, gameLevel);
-            boss.w = 200; boss.h = 300; boss.hp = 10000; boss.maxShootCooldown = 0.3;
-        } else {
-            boss = new GiantZombieEnemy(bossX, bossY, gameLevel);
-            boss.w = 400; boss.h = 500; boss.hp = 25000; boss.speed *= 2;
-        }
-
-        let bossHpMult = (difficulty === 'princess') ? 0.4 : (difficulty === 'badass' ? 2.5 : 1.0);
-        boss.hp *= bossHpMult;
-        boss.isBoss = true; 
-        this.enemies.push(boss);
-
-        this.cursorX += arenaWidth + 500;
+    addPlatform(x, y, w, isCrumbling = false, isBouncy = false) {
+        let p = new Platform(x, y, w, 40, false);
+        p.isCrumbling = isCrumbling;
+        p.isBouncy = isBouncy;
+        this.platforms.push(p);
+        return p;
     }
 
-    generateChunk(gameLevel, difficulty = 'regular') {
-        const levelLength = 15000 * gameLevel;
-        let progress = Math.min(1.0, this.cursorX / levelLength); 
+    addHazard(width) {
+        let p = new Platform(this.cursorX, this.baseY + 150, width, 1000, true);
+        p.isHazard = true;
+        this.platforms.push(p);
+        let oldX = this.cursorX;
+        this.cursorX += width;
+        return oldX;
+    }
 
-        // Boss-Check
-        if (this.cursorX > levelLength && !this.bossSpawned) {
-            this.generateBossArena(gameLevel, difficulty);
-            return; 
-        }
+    spawn(EnemyClass, x, y, level, diff, variant = 'NORMAL') {
+        let e = new EnemyClass(x, y, level);
+        e.enemyType = variant;
+        if (diff === 'princess') { e.hp *= 0.4; if(e.speed) e.speed *= 0.6; } 
+        else if (diff === 'badass') { e.hp *= 2.5; if(e.speed) e.speed *= 1.3; }
+        this.enemies.push(e);
+        return e;
+    }
 
-        // State-Wechsel-Logik
-        if (this.stateCounter <= 0) { 
-            const states = ['SOLID_GROUND', 'PLATFORMING', 'VERTICAL_CLIMB']; 
-            this.state = states[Math.floor(Math.random() * states.length)]; 
-            this.stateCounter = (this.state === 'SOLID_GROUND') ? 1 : 2; // Boden bleibt länger stabil
-        }
-        this.stateCounter--;
+    buildModule(moduleName, lvl, diff) {
+        let sx; 
 
-        const weaponPool = ['PISTOL', 'UZI', 'ROCKET', 'KNIFE', 'AXE', 'CHAINSAW', 'SHOTGUN', 'ASSAULT_RIFLE', 'MINIGUN', 'GRENADE', 'FLAMETHROWER'];
-
-        if (this.state === 'PLATFORMING') {
-            this.cursorX += 50;
-            for (let i=0; i<3; i++) {
-                const w = 400 + Math.random() * 400; 
-                const h = 50;
-                this.platforms.push(new Platform(this.cursorX, this.cursorY, w, h, false));
-                
-                // Gegner auf Plattformen
-                if (Math.random() > (difficulty === 'princess' ? 0.8 : 0.5)) {
-                    this.enemies.push(this.spawnEnemy(this.cursorX + w/2, this.cursorY - 150, gameLevel, progress, difficulty));
-                }
-
-                // Items auf Plattformen (60x60)
-                if (Math.random() > 0.8) { 
-                    const type = weaponPool[Math.floor(Math.random() * weaponPool.length)];
-                    this.items.push(new Collectible(this.cursorX + w/2, this.cursorY - 100, type, 60, 60));
-                } else if (Math.random() > 0.5) {
-                    this.items.push(new Collectible(this.cursorX + w/2, this.cursorY - 100, Math.random() > 0.9 ? 'LIQUOR' : 'BEER', 60, 60));
-                }
-
-                const gapX = (difficulty === 'princess') ? 100 : 200 + Math.random() * 150;
-                this.cursorX += w + gapX; 
-                this.cursorY += (Math.random() * 260) - 130; // Sanftere Höhenunterschiede
-            }
-        } 
-        else if (this.state === 'VERTICAL_CLIMB') {
-            const stepH = 400;
-            for(let i=0; i<2; i++) {
-                this.platforms.push(new Platform(this.cursorX, this.cursorY, 600, 50, false));
-                this.ladders.push(new Ladder(this.cursorX + 250, this.cursorY - stepH, 80, stepH + 50)); 
-                this.cursorY -= stepH;
-                this.platforms.push(new Platform(this.cursorX - 200, this.cursorY, 600, 50, false));
-                
-                // Belohnung für den Aufstieg
-                this.items.push(new Collectible(this.cursorX, this.cursorY - 100, 'BEER', 60, 60));
-            }
-            this.enemies.push(this.spawnEnemy(this.cursorX, this.cursorY - 150, gameLevel, progress, difficulty));
-            this.cursorX += 500;
-        } 
-        else { // SOLID_GROUND
-            const w = 1200 + Math.random() * 1000; 
-            this.platforms.push(new Platform(this.cursorX, this.cursorY, w, 1500, true));
+        switch(moduleName) {
             
-            let enemyCount = (difficulty === 'princess' ? 1 : 3) + Math.floor(progress * 5); 
-            for(let i=0; i < enemyCount; i++) {
-                let spotX = this.cursorX + 400 + (i * (w-500)/enemyCount);
+            case 'TUTORIAL_STREET':
+                sx = this.addFloor(1000); 
+                let crashX = this.cursorX;
+                this.addHazard(700); // Autowrack-Zone
                 
-                if(Math.random() > 0.3) {
-                    this.enemies.push(this.spawnEnemy(spotX, this.cursorY - 150, gameLevel, progress, difficulty));
-                }
+                // Trümmerhaufen zum Drüberklettern
+                this.addPlatform(crashX - 100, this.baseY - 120, 250);
+                this.addPlatform(crashX + 200, this.baseY - 260, 300); // Das "LKW-Dach"
+                this.addPlatform(crashX + 550, this.baseY - 120, 200);
                 
-                // Boden-Loot
-                if(Math.random() > 0.85) { 
-                    this.items.push(new Collectible(spotX + 50, this.cursorY - 80, weaponPool[Math.floor(Math.random() * weaponPool.length)], 60, 60));
-                } else if(Math.random() > 0.4) { 
-                    this.items.push(new Collectible(spotX + 50, this.cursorY - 80, Math.random() > 0.9 ? 'LIQUOR' : 'BEER', 60, 60));
-                }
-            }
-            this.cursorX += w + 100;
-        }
+                this.items.push(new Collectible(crashX + 310, this.baseY - 340, 'SHOTGUN', 80, 80));
+                
+                let sx2 = this.addFloor(1200); 
+                this.spawn(ZombieEnemy, sx + 500, this.baseY - 150, lvl, diff, 'NORMAL');
+                this.spawn(ZombieEnemy, sx2 + 300, this.baseY - 150, lvl, diff, 'RUNNER');
+                this.spawn(ZombieEnemy, sx2 + 700, this.baseY - 150, lvl, diff, 'NORMAL');
+                break;
 
-        // Begrenzung, damit man nicht aus der Welt fliegt
-        this.cursorY = Math.max(-2000, Math.min(1200, this.cursorY));
-    }
+            case 'CRUMBLING_CHASM':
+                sx = this.addHazard(1800);
+                // Rhythmus-Springen: Abwechselnd Einsturz- und Trampolin-Plattformen!
+                for(let i = 0; i < 6; i++) {
+                    let crumbling = (i % 2 === 1);
+                    let bouncy = (i === 2 || i === 4);
+                    this.addPlatform(sx + 60 + (i * 280), this.baseY - (i * 30), 180, crumbling, bouncy); 
+                }
+                this.items.push(new Collectible(sx + 900, this.baseY - 250, 'STAR', 80, 80));
+                this.spawn(DemonEnemy, sx + 1100, this.baseY - 450, lvl, diff);
+                break;
+
+            case 'THE_SEWER': 
+                sx = this.addFloor(400); 
+                let sewerX = this.cursorX;
+                this.addHazard(1600); // Abwasserschacht
+                
+                // Oberes Rohrsystem
+                this.addPlatform(sewerX + 100, this.baseY - 200, 350);
+                this.addPlatform(sewerX + 550, this.baseY - 350, 500); // Haupt-Rohr
+                this.addPlatform(sewerX + 1150, this.baseY - 200, 350); 
+                
+                this.spawn(ZombieEnemy, sewerX + 500, this.baseY + 50, lvl, diff, 'CRAWLER');
+                this.spawn(ZombieEnemy, sewerX + 1000, this.baseY + 50, lvl, diff, 'CRAWLER');
+                
+                this.items.push(new Collectible(sewerX + 760, this.baseY - 430, 'MINIGUN', 80, 80));
+                this.addFloor(400); 
+                break;
+
+            case 'CONSTRUCTION_SITE': // Vertikale Action auf dem Baugerüst
+                sx = this.addFloor(500); 
+                let siteX = this.cursorX;
+                this.addHazard(2200); // Tiefe Baugrube
+                
+                // Etage 1 (Niedriges Gerüst)
+                this.addPlatform(siteX + 150, this.baseY - 160, 600);
+                this.ladders.push(new Ladder(siteX + 250, this.baseY - 160, 60, 160));
+                this.spawn(ZombieEnemy, siteX + 500, this.baseY - 260, lvl, diff, 'RUNNER');
+
+                // Etage 2 (Kran und Plattformen)
+                this.addPlatform(siteX + 650, this.baseY - 340, 650);
+                this.ladders.push(new Ladder(siteX + 1200, this.baseY - 340, 60, 180));
+                this.spawn(SoldierEnemy, siteX + 850, this.baseY - 490, lvl, diff); // Sniper auf dem Kran!
+
+                // Etage 3 (Betonpfeiler mit fettem Loot)
+                this.addPlatform(siteX + 1200, this.baseY - 520, 550);
+                this.items.push(new Collectible(siteX + 1400, this.baseY - 600, 'ROCKET', 80, 80));
+                this.spawn(ZombieEnemy, siteX + 1500, this.baseY - 670, lvl, diff, 'TANK');
+
+                // Sicherer Abstieg/Sprung zurück
+                this.addPlatform(siteX + 1850, this.baseY - 220, 300);
+
+                this.addFloor(500); 
+                break;
+
+            case 'THE_APARTMENTS':
+                sx = this.addFloor(2000);
+                
+                this.addPlatform(sx + 300, this.baseY - 250, 1400);
+                this.ladders.push(new Ladder(sx + 400, this.baseY - 250, 60, 250));
+                this.spawn(ZombieEnemy, sx + 900, this.baseY - 400, lvl, diff, 'SPITTER');
+                this.items.push(new Collectible(sx + 1500, this.baseY - 350, 'UZI', 80, 80));
+
+                this.addPlatform(sx + 500, this.baseY - 500, 1200);
+                this.ladders.push(new Ladder(sx + 1500, this.baseY - 500, 60, 250)); 
+                this.spawn(SoldierEnemy, sx + 700, this.baseY - 650, lvl, diff);
+                this.spawn(ZombieEnemy, sx + 1100, this.baseY - 650, lvl, diff, 'RUNNER');
+                
+                this.addPlatform(sx + 700, this.baseY - 750, 800);
+                this.ladders.push(new Ladder(sx + 800, this.baseY - 750, 60, 250));
+                this.items.push(new Collectible(sx + 1100, this.baseY - 850, 'HEART', 80, 80));
+                this.items.push(new Collectible(sx + 1300, this.baseY - 850, 'ROCKET', 80, 80));
+                
+                this.spawn(ZombieEnemy, sx + 1800, this.baseY - 150, lvl, diff, 'TANK');
+                break;
+
+            case 'MEAT_LOCKER':
+                sx = this.addFloor(2500);
+                this.platforms.push(new Platform(sx, this.baseY - 220, 2500, 50, false)); 
+                
+                for(let i = 0; i < 6; i++) {
+                    let type = i % 2 === 0 ? 'CRAWLER' : 'RUNNER';
+                    this.spawn(ZombieEnemy, sx + 600 + (i * 280), this.baseY - 150, lvl, diff, type);
+                }
+                break;
+
+            case 'SPIDER_NEST':
+                sx = this.addFloor(400); 
+                let nestW = 2200;
+                let nestY = this.baseY + 400;
+                
+                let sx_hazard = this.addHazard(nestW);
+                this.platforms.push(new Platform(sx_hazard, nestY, nestW, 1000, true));
+                
+                for(let i = 0; i < 5; i++) {
+                    this.spawn(SpiderEnemy, sx_hazard + 400 + (i * 350), nestY - 100, lvl, diff);
+                }
+
+                // Spinnennetze fangen dich auf und schleudern dich nach oben
+                this.addPlatform(sx_hazard + 300, nestY - 20, 200, false, true); 
+                this.addPlatform(sx_hazard + 1000, nestY - 20, 200, false, true); 
+                this.addPlatform(sx_hazard + 1700, nestY - 20, 200, false, true); 
+                
+                this.items.push(new Collectible(sx_hazard + 400, nestY - 450, 'FLAMETHROWER', 80, 80));
+                this.items.push(new Collectible(sx_hazard + 1100, nestY - 450, 'BOOSTER', 80, 80));
+
+                this.addFloor(400); 
+                break;
+
+            case 'PRE_BOSS_ARENA':
+                sx = this.addFloor(2000);
+                this.items.push(new Collectible(sx + 400, this.baseY - 100, 'HEART', 80, 80));
+                this.items.push(new Collectible(sx + 700, this.baseY - 100, 'BOOSTER', 80, 80));
+                this.items.push(new Collectible(sx + 1000, this.baseY - 100, 'ASSAULT_RIFLE', 80, 80));
+                this.items.push(new Collectible(sx + 1300, this.baseY - 100, 'ROCKET', 80, 80));
+                this.items.push(new Collectible(sx + 1600, this.baseY - 100, 'MINIGUN', 80, 80));
+                break;
+
+            case 'BOSS_GIANT':
+            case 'BOSS_SOLDIER':
+            case 'BOSS_HELL':
+                this.bossSpawned = true;
+                const arenaW = 4000; 
+                sx = this.addFloor(arenaW);
+                
+                this.addPlatform(sx + 800, this.baseY - 250, 600);
+                this.addPlatform(sx + 2500, this.baseY - 250, 600);
+                this.addPlatform(sx + 1600, this.baseY - 500, 800);
+                
+                let boss;
+                let bossX = sx + 2500; 
+                let bossY = this.baseY - 600; 
+
+                if (moduleName === 'BOSS_GIANT') {
+                    boss = new GiantZombieEnemy(bossX, bossY, lvl); 
+                    boss.isBoss = true; 
+                    boss.w = 300; boss.h = 450; boss.hp = 8000;
+                } else if (moduleName === 'BOSS_SOLDIER') {
+                    boss = new SoldierEnemy(bossX, bossY, lvl); 
+                    boss.isBoss = true; 
+                    boss.w = 250; boss.h = 400; boss.hp = 12000; boss.maxShootCooldown = 0.2;
+                } else {
+                    boss = new GiantZombieEnemy(bossX, bossY, lvl); 
+                    boss.isBoss = true; 
+                    boss.w = 400; boss.h = 600; boss.hp = 30000; boss.speed *= 2;
+                }
+
+                let hpMult = diff === 'princess' ? 0.4 : (diff === 'badass' ? 2.5 : 1.0);
+                boss.hp *= hpMult;
+                
+                this.enemies.push(boss);
+                break;
+
+            case 'SNIPER_ALLEY':
+            case 'SNIPER_ALLEY_HELL':
+                sx = this.addFloor(600); 
+                for(let i = 0; i < 4; i++) {
+                    let currentColumnX = this.cursorX;
+                    this.addHazard(400); 
+                    
+                    this.platforms.push(new Platform(currentColumnX + 50, this.baseY - 180, 300, 180, true)); 
+                    this.spawn(SoldierEnemy, currentColumnX + 100, this.baseY - 330, lvl, diff);
+                    
+                    if (i < 3) {
+                        this.addPlatform(currentColumnX + 400, this.baseY - 300, 100);
+                    }
+                }
+                this.addFloor(600); 
+                break;
+
+            case 'MEAT_LOCKER_LONG':
+            case 'TUTORIAL_STREET_HARD':
+            case 'TUTORIAL_HELL':
+            case 'DEMON_ROOST':
+            case 'CRUMBLING_CHASM_HARD':
+            case 'SPIDER_NEST_DEEP':
+                sx = this.addFloor(3000);
+                this.spawn(DemonEnemy, sx + 1000, this.baseY - 400, lvl, 'badass');
+                this.spawn(SoldierEnemy, sx + 1500, this.baseY - 150, lvl, 'badass');
+                this.spawn(ZombieEnemy, sx + 2000, this.baseY - 150, lvl, diff, 'TANK');
+                this.spawn(ZombieEnemy, sx + 2500, this.baseY - 150, lvl, diff, 'RUNNER');
+                this.items.push(new Collectible(sx + 1200, this.baseY - 100, 'MINIGUN', 80, 80));
+                break;
+
+            default:
+                this.addFloor(1000);
+                break;
+        } 
+    } 
 }

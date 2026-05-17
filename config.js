@@ -16,8 +16,10 @@ const CONFIG = {
         PROJECTILE_PLAYER: '#FFFF00',
         PROJECTILE_ROCKET: '#FF5500',
         PROJECTILE_ENEMY: '#00FFFF',
-        POWERUP_STAR: '#FFD700',
+        POWERUP_STAR: '#FFD700', // Unbesiegbarkeit
         POWERUP_HEART: '#FF0033',
+        POWERUP_BOOST: '#00FFCC', // Sprung-Booster
+        MOLOTOV_FIRE: '#FF4400',
         COIN: '#FFB800',
         LADDER: '#332211',
         FLAME: '#FF6600',
