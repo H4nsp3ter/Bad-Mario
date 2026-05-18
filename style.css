@@ -423,19 +423,40 @@ button:active {
     text-shadow: none !important;
 }
 
+// ... existing code ...
+
 /* ========================================================================= */
 /* HANDY-SKALIERUNGEN (ANPASSUNG AN LEISTEN FÜR CHROME, SAFARI, EDGE, FIREFOX)*/
 /* ========================================================================= */
 @media (max-width: 950px) {
     #hud {
-        transform: scale(0.65);
-        transform-origin: top left;
+        /* Globale Skalierung entfernen, damit Links und Rechts in den Ecken bleiben */
+        transform: none;
         top: 15px; left: 15px; right: 15px;
     }
-    #hud-inventory {
-        transform: translateX(-50%) scale(0.65);
-        bottom: 10px;
+    
+    /* Anzeigen gezielt in die Ecken skalieren, das räumt die Mitte komplett frei */
+    .hud-top-left {
+        transform: scale(0.7);
+        transform-origin: top left;
     }
+    .hud-top-right {
+        transform: scale(0.7);
+        transform-origin: top right;
+    }
+
+    /* Zoom-Controls haben jetzt Platz in der Mitte */
+    #zoom-controls {
+        top: 15px;
+        transform: translateX(-50%) scale(0.8);
+    }
+
+    /* Inventar bleibt unten zentriert und gut lesbar */
+    #hud-inventory {
+        transform: translateX(-50%) scale(0.8);
+        bottom: 15px;
+    }
+    
     #menu-overlay h1 {
         font-size: 1.8rem;
     }
@@ -446,9 +467,27 @@ button:active {
     .wasted-text { font-size: 2.2rem; }
     .diff-btn { padding: 10px !important; font-size: 0.8rem !important; }
     
-    #dpad { width: 120px; height: 120px; bottom: 15px; left: 15px; }
-    #action-pad { width: 130px; height: 130px; bottom: 15px; right: 15px; }
-    .action-btn { width: 44px; height: 44px; font-size: 0.8rem; }
+
+    /* =========================================
+       MASSIV VERGRÖSSERTE TOUCH-STEUERUNG
+       ========================================= */
+    #dpad { 
+        width: 280px;  /* Gigantisch */
+        height: 280px; 
+        bottom: 20px; 
+        left: 20px; 
+    }
+    #action-pad { 
+        width: 300px;  /* Extrem groß für perfekte Erreichbarkeit */
+        height: 300px; 
+        bottom: 20px; 
+        right: 20px; 
+    }
+    .action-btn { 
+        width: 100px;   /* Riesige Buttons */
+        height: 100px; 
+        font-size: 1.8rem; 
+    }
 }
 
 @media (min-width: 951px) {
