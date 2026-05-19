@@ -1,20 +1,30 @@
 class SpriteGenerator {
     static generate(type, variant = null, level = 1) {
-        const isItem = type === 'ITEM';
-        const W = isItem ? 128 : 256, H = isItem ? 128 : 256, FRAMES = isItem ? 1 : 8; 
+        // Player & Items bleiben auf 256, Enemies bekommen 512
+        const isEnemy = !['ITEM', 'PLAYER'].includes(type);
+        const W = isEnemy ? 512 : 256;
+        const H = isEnemy ? 512 : 256;
+        const FRAMES = type === 'ITEM' ? 1 : 8; 
         
         const cvs = document.createElement('canvas');
         cvs.width = W * FRAMES; cvs.height = H;
         const ctx = cvs.getContext('2d');
         ctx.imageSmoothingEnabled = true; 
 
-        for (let f = 0; f < FRAMES; f++) {
+                for (let f = 0; f < FRAMES; f++) {
             ctx.save();
-            ctx.translate(f * W + W / 2, H / 2 + (isItem ? 0 : 40));
-            const cycle = isItem ? 0 : (f / FRAMES) * Math.PI * 2;
+            
+            if (isEnemy) {
+                ctx.translate(f * W + W / 2, H / 2 + 80);
+                ctx.scale(2, 2); // Zeichnungen auf die 512x512 Canvas hochskalieren!
+            } else {
+                ctx.translate(f * W + W / 2, H / 2 + (type === 'ITEM' ? 0 : 40));
+            }
+            
+            const cycle = type === 'ITEM' ? 0 : (f / FRAMES) * Math.PI * 2;
             let legAngle = Math.sin(cycle) * 0.9;
             let armAngle = Math.sin(cycle + Math.PI) * 0.9;
-            let bob = isItem ? 0 : -Math.abs(Math.sin(cycle)) * 16;
+            let bob = type === 'ITEM' ? 0 : -Math.abs(Math.sin(cycle)) * 16;
 
             if (type === 'PLAYER') {
                 legAngle = Math.sin(cycle) * 1.3;
@@ -154,104 +164,150 @@ class SpriteGenerator {
                 ctx.restore();
 
                         } else if (type === 'ZOMBIE') {
-                const isGiant = variant === 'GIANT';
-                let baseColor, eyeColor, bloodColor, ribColor;
-                if (level === 1) { baseColor = '#506644'; eyeColor = '#FFF'; bloodColor = '#4A0000'; ribColor = '#8c9c80'; } 
-                else if (level === 2) { baseColor = '#4a6e4a'; eyeColor = '#39FF14'; bloodColor = '#228B22'; ribColor = '#779977'; } 
-                else { baseColor = '#3f2d24'; eyeColor = '#FF0000'; bloodColor = '#5a0303'; ribColor = '#735849'; }
+                            const isGiant = variant === 'GIANT';
                 
-                const boneColor = '#AAA';
-                const clothColor = '#1A0B05';
-
-                if (variant === 'CRAWLER') {
-                    ctx.translate(0, 40); ctx.rotate(Math.PI / 2.2);
-                }
-
-                const zombieArmFront = variant === 'RUNNER' ? -1.0 + armAngle * 0.1 : -0.3 + armAngle * 0.1;
-                const zombieArmBack = variant === 'RUNNER' ? -1.2 + armAngle * 0.1 : 0.3 + armAngle * 0.1;
-
-                ctx.save(); ctx.translate(10, -40); ctx.rotate(zombieArmBack);
-                drawMuscle(0, 20, 4, 25, baseColor); // Schlankerer Oberarm
-                if (variant === 'NORMAL' || variant === 'TANK' || isGiant) drawMuscle(0, 45, 3, 20, baseColor); // Schlankerer Unterarm
-                else { ctx.fillStyle = boneColor; ctx.fillRect(-2, 30, 4, 25); ctx.fillStyle = bloodColor; ctx.fillRect(-4, 50, 8, 8); }
-                ctx.restore();
-
-                ctx.save(); ctx.translate(-5, 20); ctx.rotate(-legAngle * (variant === 'RUNNER' ? 1.5 : 0.5)); 
-                ctx.fillStyle = clothColor; ctx.fillRect(-10, -10, 20, 25); // Zerrissene Hose kürzer
-                ctx.fillStyle = bloodColor; ctx.fillRect(-10, 10, 20, 10); 
-                drawMuscle(-2, 40, 4, 25, baseColor); // Schlankeres Bein
-                ctx.restore();
-
-                if (variant === 'TANK' || isGiant) {
-                    drawMuscle(0, -20, 35, 50, baseColor); // Torso verschlankt
-                    drawMuscle(0, -10, 38, 35, baseColor); 
-                } else if (variant === 'SPITTER') {
-                    drawMuscle(-10, -30, 20, 30, baseColor, -0.5); 
-                    drawMuscle(-15, -45, 14, 14, bloodColor); 
-                } else {
-                    // SEHR SCHLANKER KÖRPER
-                    drawMuscle(-5, -20, 12, 45, baseColor, -0.2); 
-                    ctx.fillStyle = boneColor; 
-                    // Offenliegende Wirbelsäule hinten
-                    for(let i=0; i<5; i++) ctx.fillRect(-5, -40 + i*8, 6, 3);
-                    // Rippen vorne sichtbar
-                    ctx.fillStyle = ribColor;
-                    for(let i=0; i<4; i++) {
-                        ctx.beginPath(); ctx.moveTo(0, -35 + i*7); ctx.quadraticCurveTo(8, -32 + i*7, 10, -25 + i*7);
-                        ctx.lineWidth = 2; ctx.strokeStyle = ribColor; ctx.stroke();
-                    }
-                }
+                            // Deutlich mehr Farbvariationen pro Zombie-Typ
+                            let baseColor, eyeColor, bloodColor, ribColor, clothColor;
                 
-                // Mehr Blutspritzer am Rumpf
-                ctx.fillStyle = bloodColor;
-                ctx.beginPath(); ctx.ellipse(5, 5, 10, 20, 0.5, 0, Math.PI*2); ctx.fill();
-                ctx.fillStyle = '#A44'; 
-                for(let i=0; i<4; i++) { ctx.beginPath(); ctx.ellipse(2 + i*4, -10 + i*10, 4, 4, 0, 0, Math.PI*2); ctx.fill(); }
+                            if (variant === 'RUNNER') {
+                                baseColor = '#A4907C'; // Fahl / Hautfarben
+                                eyeColor = '#FFF'; bloodColor = '#8A0500'; ribColor = '#D2C3B3'; clothColor = '#3A4D23';
+                            } else if (variant === 'CRAWLER') {
+                                baseColor = '#6d5a72'; // Violett/Lila verwesend
+                                eyeColor = '#FF0'; bloodColor = '#4A0000'; ribColor = '#8b7d8f'; clothColor = '#222';
+                            } else if (variant === 'SPITTER') {
+                                baseColor = '#506644'; // Giftgrün
+                                eyeColor = '#0F0'; bloodColor = '#006400'; ribColor = '#8c9c80'; clothColor = '#4A1B22';
+                            } else {
+                                // Normal / Tank
+                                if (level === 1) { baseColor = '#735849'; eyeColor = '#FFF'; bloodColor = '#600'; ribColor = '#947a6b'; clothColor = '#1A0B05'; } 
+                                else if (level === 2) { baseColor = '#5c636e'; eyeColor = '#0FF'; bloodColor = '#300'; ribColor = '#828a96'; clothColor = '#111'; } 
+                                else { baseColor = '#3f2d24'; eyeColor = '#FF0000'; bloodColor = '#5a0303'; ribColor = '#735849'; clothColor = '#2B1B17'; }
+                            }
+                
+                            const boneColor = '#DDCCBB';
 
-                ctx.save(); 
-                if (variant === 'SPITTER') ctx.translate(15, -60);
-                else ctx.translate(10, -75); 
-                
-                ctx.rotate(variant === 'RUNNER' ? 0.8 : 0.3); 
-                
-                if (variant === 'TANK' || isGiant) drawMuscle(0, 0, 25, 30, baseColor); 
-                else {
-                    drawMuscle(0, 0, 15, 24, baseColor); // Schädel kleiner und länglicher
-                    drawMuscle(5, 10, 18, 12, baseColor); // Unterkieferbereich verschlankt
-                }
-                
-                ctx.fillStyle = '#000'; ctx.beginPath(); ctx.ellipse(12, -5, 5, 5, 0, 0, Math.PI*2); ctx.fill();
-                ctx.shadowBlur = 20; ctx.shadowColor = eyeColor; 
-                ctx.fillStyle = eyeColor; ctx.beginPath(); ctx.ellipse(12, -5, 2, 2, 0, 0, Math.PI*2); ctx.fill();
-                ctx.shadowBlur = 0;
-                
-                const jaw = (f%4 === 0) ? 14 : 4; // Weiter aufreißender Kiefer
-                drawMuscle(5, 15 + jaw, 12, 6, baseColor, 0.3); // Hängender Kieferknochen
-                ctx.fillStyle = boneColor; 
-                for(let i=0; i<3; i++) ctx.fillRect(8+i*4, 10+jaw, 2, 5); // Kleinere, faulige Zähne
-                
-                // Fehlendes Auge / Krater
-                ctx.fillStyle = '#211'; ctx.beginPath(); ctx.ellipse(2, -2, 4, 6, 0.2, 0, Math.PI*2); ctx.fill();
-                
-                ctx.restore();
+                            if (variant === 'CRAWLER') {
+                                ctx.translate(0, 80); ctx.rotate(Math.PI / 2.2);
+                            }
 
-                ctx.save(); ctx.translate(10, 20); ctx.rotate(legAngle * (variant === 'RUNNER' ? 1.5 : 0.5));
-                ctx.fillStyle = clothColor; ctx.fillRect(-10, -10, 15, 20); // Zerrissene Hose
-                drawMuscle(-2, 35, 4, 25, baseColor); // Knochenbein
-                if (variant === 'TANK' || isGiant) drawMuscle(-2, 55, 14, 8, baseColor); 
-                else drawMuscle(-2, 55, 8, 6, boneColor); // Skelettfuß
-                ctx.restore();
+                            const zombieArmFront = variant === 'RUNNER' ? -0.8 + armAngle * 0.2 : -0.1 + armAngle * 0.1;
+                            const zombieArmBack = variant === 'RUNNER' ? -1.0 + armAngle * 0.2 : 0.4 + armAngle * 0.1;
 
-                ctx.save(); ctx.translate(0, -35); ctx.rotate(zombieArmFront);
-                drawMuscle(5, 20, 4, 25, baseColor); // Schlanker Front-Arm
-                ctx.translate(5, 35); ctx.rotate(variant === 'RUNNER' ? -0.5 : -1.0); 
-                if (variant === 'TANK' || isGiant) {
-                    drawMuscle(15, 0, 15, 25, baseColor); 
-                } else {
-                    ctx.fillStyle = boneColor; ctx.fillRect(-2, -5, 4, 30); // Nur Knochen am Unterarm
-                    drawMuscle(0, 25, 6, 8, bloodColor); // Blutiger Stumpf/Hand
-                }
-                ctx.restore();
+                            // Hinten: Arm
+                            ctx.save(); ctx.translate(10, -50); ctx.rotate(zombieArmBack);
+                            if (variant === 'CRAWLER') {
+                                drawMuscle(0, 30, 6, 40, baseColor); // Längere Arme zum Kriechen
+                                drawMuscle(0, 70, 8, 12, bloodColor);
+                            } else if (variant === 'TANK' || isGiant) {
+                                drawMuscle(0, 30, 15, 35, baseColor); 
+                                drawMuscle(0, 60, 12, 25, baseColor); 
+                            } else {
+                                drawMuscle(0, 20, 6, 30, baseColor); // Dürr
+                                ctx.fillStyle = boneColor; ctx.fillRect(-2, 40, 4, 30); // Langer Knochen
+                                ctx.fillStyle = bloodColor; ctx.fillRect(-4, 65, 8, 8);
+                            }
+                            ctx.restore();
+
+                            // Hinten: Bein
+                            ctx.save(); ctx.translate(-5, 20); ctx.rotate(-legAngle * (variant === 'RUNNER' ? 1.5 : 0.5)); 
+                            ctx.fillStyle = clothColor; ctx.fillRect(-12, -10, 24, 25); 
+                            if (variant === 'TANK' || isGiant) {
+                                drawMuscle(0, 40, 15, 30, baseColor); 
+                            } else {
+                                drawMuscle(-2, 40, 5, 35, baseColor); // Sehr dünnes Bein
+                                ctx.fillStyle = bloodColor; ctx.fillRect(-5, 5, 10, 20); 
+                            }
+                            ctx.restore();
+
+                            // Rumpf
+                            if (variant === 'TANK' || isGiant) {
+                                // Tank ist fett/breit
+                                drawMuscle(0, -20, 45, 60, baseColor); 
+                                drawMuscle(0, -10, 48, 45, baseColor); 
+                            } else if (variant === 'SPITTER') {
+                                // Spitter hat geschwollenen Hals/Brust
+                                drawMuscle(-10, -40, 25, 30, baseColor, -0.5); 
+                                drawMuscle(0, -10, 20, 35, baseColor); 
+                                drawMuscle(-15, -45, 14, 14, '#0F0'); 
+                            } else {
+                                // Extrem dürrer, gekrümmter Rumpf
+                                ctx.save(); ctx.rotate(0.2);
+                                drawMuscle(0, -30, 15, 45, baseColor); 
+                                // Offenliegende Wirbelsäule hinten
+                                ctx.fillStyle = boneColor; 
+                                for(let i=0; i<6; i++) ctx.fillRect(-15, -60 + i*10, 8, 4);
+                                // Rippen vorne
+                                ctx.fillStyle = ribColor;
+                                for(let i=0; i<5; i++) {
+                                    ctx.beginPath(); ctx.moveTo(0, -50 + i*9); ctx.quadraticCurveTo(12, -45 + i*9, 15, -35 + i*9);
+                                    ctx.lineWidth = 3; ctx.strokeStyle = ribColor; ctx.stroke();
+                                }
+                                ctx.restore();
+                            }
+                
+                            // Blutspritzer am Rumpf
+                            ctx.fillStyle = bloodColor;
+                            ctx.beginPath(); ctx.ellipse(5, 5, 12, 25, 0.5, 0, Math.PI*2); ctx.fill();
+
+                            // Kopf
+                            ctx.save(); 
+                            if (variant === 'SPITTER') ctx.translate(15, -70);
+                            else if (variant === 'CRAWLER') ctx.translate(15, -50);
+                            else ctx.translate(10, -90); 
+                
+                            ctx.rotate(variant === 'RUNNER' ? 0.8 : 0.3); 
+                
+                            if (variant === 'TANK' || isGiant) {
+                                drawMuscle(0, 0, 25, 30, baseColor); 
+                            } else {
+                                // Normaler Schädel - Länger, schmaler, oben knochig
+                                drawMuscle(2, -10, 18, 16, boneColor); // Nackte Schädeldecke
+                                drawMuscle(-5, 5, 15, 20, baseColor); // Haut unten
+                                drawMuscle(10, 10, 12, 10, baseColor); // Kiefer
+                            }
+                
+                            // Augenhöhlen
+                            ctx.fillStyle = '#111'; ctx.beginPath(); ctx.ellipse(14, -5, 6, 6, 0, 0, Math.PI*2); ctx.fill();
+                            ctx.shadowBlur = 15; ctx.shadowColor = eyeColor; 
+                            ctx.fillStyle = eyeColor; ctx.beginPath(); ctx.ellipse(14, -5, 2, 2, 0, 0, Math.PI*2); ctx.fill();
+                            ctx.shadowBlur = 0;
+                
+                            // Hängender Kiefer
+                            const jaw = (f%4 === 0 || variant === 'SPITTER') ? 18 : 6; 
+                            drawMuscle(8, 15 + jaw, 12, 6, baseColor, 0.3); 
+                            ctx.fillStyle = boneColor; 
+                            for(let i=0; i<4; i++) ctx.fillRect(10+i*4, 10+jaw, 2, 6); // Zähne
+                
+                            ctx.restore();
+
+                            // Vorne: Bein
+                            ctx.save(); ctx.translate(10, 20); ctx.rotate(legAngle * (variant === 'RUNNER' ? 1.5 : 0.5));
+                            ctx.fillStyle = clothColor; ctx.fillRect(-12, -10, 20, 25); 
+                            if (variant === 'TANK' || isGiant) {
+                                drawMuscle(-2, 45, 18, 30, baseColor); 
+                                drawMuscle(-2, 70, 16, 12, baseColor); 
+                            } else {
+                                drawMuscle(-2, 35, 5, 35, baseColor); 
+                                drawMuscle(-2, 60, 10, 6, boneColor); // Knochenfuß
+                            }
+                            ctx.restore();
+
+                            // Vorne: Arm
+                            ctx.save(); ctx.translate(0, -45); ctx.rotate(zombieArmFront);
+                            if (variant === 'TANK' || isGiant) {
+                                drawMuscle(10, 30, 18, 40, baseColor); 
+                                drawMuscle(20, 70, 16, 30, baseColor); 
+                            } else if (variant === 'CRAWLER') {
+                                drawMuscle(10, 35, 6, 45, baseColor); 
+                                drawMuscle(15, 80, 8, 15, baseColor); 
+                            } else {
+                                drawMuscle(5, 25, 5, 35, baseColor); // Dürrer Arm
+                                ctx.translate(5, 45); ctx.rotate(variant === 'RUNNER' ? -0.5 : -1.0); 
+                                ctx.fillStyle = boneColor; ctx.fillRect(-3, -5, 6, 35); // Knochen
+                                drawMuscle(0, 30, 8, 10, bloodColor); // Blut
+                            }
+                            ctx.restore();
 
             } else if (type === 'SPIDER') {
                 let legBob = Math.sin(cycle * 6) * 30; 
@@ -563,14 +619,24 @@ const Assets = {
                 this.spiderL3 = SpriteGenerator.generate('SPIDER', 'NORMAL', 3);
         this.demonL3 = SpriteGenerator.generate('DEMON', 'NORMAL', 3);
         
-        // NEU: Dreizack Dämon
+                // NEU: Dreizack Dämon
         const tridentL1 = SpriteGenerator.generate('TRIDENT_DEMON', 'NORMAL', 1);
         const tridentL2 = SpriteGenerator.generate('TRIDENT_DEMON', 'NORMAL', 2);
         const tridentL3 = SpriteGenerator.generate('TRIDENT_DEMON', 'NORMAL', 3);
         
-                this.enemies[1] = { normal: this.zombieL1['NORMAL'], runner: this.zombieL1['RUNNER'], spitter: this.zombieL1['SPITTER'], tank: this.zombieL1['TANK'], crawler: this.zombieL1['CRAWLER'], giant: this.giantZombieL1, spider: this.spiderL1, demon: this.demonL1, trident_demon: tridentL1 };
-        this.enemies[2] = { normal: this.zombieL2['NORMAL'], runner: this.zombieL2['RUNNER'], spitter: this.zombieL2['SPITTER'], tank: this.zombieL2['TANK'], crawler: this.zombieL2['CRAWLER'], giant: this.giantZombieL2, soldier: this.soldierL2, spider: this.spiderL2, demon: this.demonL2, trident_demon: tridentL2 };
-        this.enemies[3] = { normal: this.zombieL3['NORMAL'], runner: this.zombieL3['RUNNER'], spitter: this.zombieL3['SPITTER'], tank: this.zombieL3['TANK'], crawler: this.zombieL3['CRAWLER'], giant: this.giantZombieL3, soldier: this.soldierL3, spider: this.spiderL3, demon: this.demonL3, trident_demon: tridentL3,
+        this.enemies[1] = { 
+            normal: this.zombieL1['NORMAL'], runner: this.zombieL1['RUNNER'], spitter: this.zombieL1['SPITTER'], tank: this.zombieL1['TANK'], crawler: this.zombieL1['CRAWLER'], 
+            giant: this.giantZombieL1, spider: this.spiderL1, demon: this.demonL1, trident_demon: tridentL1,
+            boss_golem: SpriteGenerator.generate('BOSS', 'GOLEM') 
+        };
+        this.enemies[2] = { 
+            normal: this.zombieL2['NORMAL'], runner: this.zombieL2['RUNNER'], spitter: this.zombieL2['SPITTER'], tank: this.zombieL2['TANK'], crawler: this.zombieL2['CRAWLER'], 
+            giant: this.giantZombieL2, soldier: this.soldierL2, spider: this.spiderL2, demon: this.demonL2, trident_demon: tridentL2,
+            boss_mech: SpriteGenerator.generate('BOSS', 'MECH') 
+        };
+        this.enemies[3] = { 
+            normal: this.zombieL3['NORMAL'], runner: this.zombieL3['RUNNER'], spitter: this.zombieL3['SPITTER'], tank: this.zombieL3['TANK'], crawler: this.zombieL3['CRAWLER'], 
+            giant: this.giantZombieL3, soldier: this.soldierL3, spider: this.spiderL3, demon: this.demonL3, trident_demon: tridentL3,
             boss_golem: SpriteGenerator.generate('BOSS', 'GOLEM'), 
             boss_mech: SpriteGenerator.generate('BOSS', 'MECH'), 
             boss_hell: SpriteGenerator.generate('BOSS', 'HELL') 

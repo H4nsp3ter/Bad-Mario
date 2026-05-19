@@ -160,7 +160,7 @@ class GiantZombieEnemy extends Enemy {
             let frame = this.state === 'WALK' ? Math.floor(this.animTimer * 5) % 8 : 0;
             
             if (Assets && Assets.enemies && Assets.enemies[this.level] && Assets.enemies[this.level].giant) {
-                ctx.drawImage(Assets.enemies[this.level].giant, frame * 256, 0, 256, 256, -this.w*0.8, -this.h*0.6, this.w*1.6, this.h*1.2);
+                ctx.drawImage(Assets.enemies[this.level].giant, frame * 512, 0, 512, 512, -this.w*0.8, -this.h*0.8, this.w*1.6, this.h*1.6);
             }
             ctx.restore();
         });
@@ -176,7 +176,7 @@ class ZombieEnemy extends Enemy {
         
         if (type === 'RUNNER') { hp = 30; speed = 300 + Math.random()*150; w = 80; h = 140; }
         else if (type === 'TANK') { hp = 200; speed = 40; w = 130; h = 170; }
-        else if (type === 'CRAWLER') { hp = 40; speed = 100; w = 120; h = 80; y += 70; } 
+        else if (type === 'CRAWLER') { hp = 40; speed = 100; w = 120; h = 80; } // Y-Offset entfernt
         else if (type === 'SPITTER') { hp = 50; speed = 60; }
         
         super(x, y, w, h, hp, level, type); 
@@ -254,11 +254,11 @@ class ZombieEnemy extends Enemy {
             }
 
             if (spriteToDraw) {
+                // CRAWLER FIX: Weniger vertikaler Offset und verringerte Zeichengröße (wurde durch den Rotationspunkt im Generator verschoben)
                 if (this.enemyType === 'CRAWLER') {
-                    // CRAWLER FIX: Weniger vertikaler Offset und verringerte Zeichengröße (wurde durch den Rotationspunkt im Generator verschoben)
-                    ctx.drawImage(spriteToDraw, frame * 256, 0, 256, 256, -this.w*0.8, -this.h*0.8, this.w*1.6, this.h*2.2);
+                    ctx.drawImage(spriteToDraw, frame * 512, 0, 512, 512, -this.w*0.8, -this.h*1.2, this.w*1.6, this.h*2.2);
                 } else {
-                    ctx.drawImage(spriteToDraw, frame * 256, 0, 256, 256, -this.w*0.8, -this.h*0.6, this.w*1.6, this.h*1.2);
+                    ctx.drawImage(spriteToDraw, frame * 512, 0, 512, 512, -this.w*0.8, -this.h*0.8, this.w*1.6, this.h*1.6);
                 }
             }
             ctx.restore();
@@ -332,7 +332,7 @@ class SoldierEnemy extends Enemy {
             let frame = this.state === 'WALK' ? Math.floor(this.animTimer * 8) % 8 : 0;
             
             if (Assets && Assets.enemies && Assets.enemies[this.level] && Assets.enemies[this.level].soldier) {
-                ctx.drawImage(Assets.enemies[this.level].soldier, frame * 256, 0, 256, 256, -this.w*0.8, -this.h*0.6, this.w*1.6, this.h*1.2);
+                ctx.drawImage(Assets.enemies[this.level].soldier, frame * 512, 0, 512, 512, -this.w*0.8, -this.h*0.8, this.w*1.6, this.h*1.6);
             }
             
             // Laser-Sight
@@ -400,7 +400,7 @@ class SpiderEnemy extends Enemy {
             let frame = Math.floor(this.animTimer * 2) % 8;
             
             if (Assets && Assets.enemies && Assets.enemies[this.level] && Assets.enemies[this.level].spider) {
-                ctx.drawImage(Assets.enemies[this.level].spider, frame * 256, 0, 256, 256, -this.w*0.8, -this.h*1.5, this.w*1.6, this.h*3);
+                ctx.drawImage(Assets.enemies[this.level].spider, frame * 512, 0, 512, 512, -this.w*0.8, -this.h*1.5, this.w*1.6, this.h*3);
             }
             ctx.restore();
         });
@@ -409,7 +409,7 @@ class SpiderEnemy extends Enemy {
 
 class TridentDemonEnemy extends Enemy {
     constructor(x, y, level) { 
-        super(x, y, 120, 180, 200 + level * 50, level, 'TRIDENT_DEMON'); 
+        super(x, y, 160, 220, 200 + level * 50, level, 'TRIDENT_DEMON'); 
         this.speed = 150 + Math.random() * 50; 
         this.animTimer = 0; 
         this.facingLeft = false; 
@@ -480,7 +480,7 @@ class TridentDemonEnemy extends Enemy {
             else if (this.state === 'WALK') frame = Math.floor(this.animTimer * 8) % 8;
             
             if (Assets && Assets.enemies && Assets.enemies[this.level] && Assets.enemies[this.level].trident_demon) {
-                ctx.drawImage(Assets.enemies[this.level].trident_demon, frame * 256, 0, 256, 256, -this.w*0.8, -this.h*0.6, this.w*1.6, this.h*1.2);
+                ctx.drawImage(Assets.enemies[this.level].trident_demon, frame * 512, 0, 512, 512, -this.w*0.8, -this.h*0.8, this.w*1.6, this.h*1.6);
             }
             ctx.restore();
         });
@@ -531,7 +531,7 @@ class DemonEnemy extends Enemy {
             let frame = Math.floor(this.animTimer * 8) % 8;
 
             if (Assets && Assets.enemies && Assets.enemies[this.level] && Assets.enemies[this.level].demon) {
-                ctx.drawImage(Assets.enemies[this.level].demon, frame * 256, 0, 256, 256, -this.w*0.8, -this.h*0.6, this.w*1.6, this.h*1.2);
+                ctx.drawImage(Assets.enemies[this.level].demon, frame * 512, 0, 512, 512, -this.w*0.8, -this.h*0.8, this.w*1.6, this.h*1.6);
             }
             ctx.restore();
         });
@@ -554,7 +554,7 @@ class BossGolem extends GiantZombieEnemy {
             let frame = this.state === 'WALK' ? Math.floor(this.animTimer * 5) % 8 : 0;
             
             if (Assets && Assets.enemies && Assets.enemies[this.level] && Assets.enemies[this.level].boss_golem) {
-                ctx.drawImage(Assets.enemies[this.level].boss_golem, frame * 256, 0, 256, 256, -this.w*0.8, -this.h*0.6, this.w*1.6, this.h*1.2);
+                ctx.drawImage(Assets.enemies[this.level].boss_golem, frame * 512, 0, 512, 512, -this.w*0.8, -this.h*0.8, this.w*1.6, this.h*1.6);
             }
             ctx.restore();
         });
@@ -578,7 +578,7 @@ class BossMech extends SoldierEnemy {
             let frame = this.state === 'WALK' ? Math.floor(this.animTimer * 8) % 8 : 0;
             
             if (Assets && Assets.enemies && Assets.enemies[this.level] && Assets.enemies[this.level].boss_mech) {
-                ctx.drawImage(Assets.enemies[this.level].boss_mech, frame * 256, 0, 256, 256, -this.w*0.8, -this.h*0.6, this.w*1.6, this.h*1.2);
+                ctx.drawImage(Assets.enemies[this.level].boss_mech, frame * 512, 0, 512, 512, -this.w*0.8, -this.h*0.8, this.w*1.6, this.h*1.6);
             }
             ctx.restore();
         });
@@ -608,7 +608,7 @@ class BossHell extends GiantZombieEnemy {
             if (this.facingLeft) ctx.scale(-1, 1);
             let frame = this.state === 'WALK' ? Math.floor(this.animTimer * 5) % 8 : 0;
             if (Assets && Assets.enemies && Assets.enemies[this.level] && Assets.enemies[this.level].boss_hell) {
-                ctx.drawImage(Assets.enemies[this.level].boss_hell, frame * 256, 0, 256, 256, -this.w*0.8, -this.h*0.6, this.w*1.6, this.h*1.2);
+                ctx.drawImage(Assets.enemies[this.level].boss_hell, frame * 512, 0, 512, 512, -this.w*0.8, -this.h*0.8, this.w*1.6, this.h*1.6);
             }
             ctx.restore();
         });

@@ -159,8 +159,9 @@ class LevelGenerator {
                 this.addPlatform(sewerX + 550, this.baseY - 350, 500); // Haupt-Rohr
                 this.addPlatform(sewerX + 1150, this.baseY - 200, 350); 
                 
-                this.spawn(ZombieEnemy, sewerX + 500, this.baseY + 50, lvl, diff, 'CRAWLER');
-                this.spawn(ZombieEnemy, sewerX + 1000, this.baseY + 50, lvl, diff, 'CRAWLER');
+                // CRAWLER Fix: Wir Spawnen sie viel weiter oben, da die neuen Grafiken und die Kollisionsbox größer/anders skaliert sind
+                this.spawn(ZombieEnemy, sewerX + 500, this.baseY - 50, lvl, diff, 'CRAWLER');
+                this.spawn(ZombieEnemy, sewerX + 1000, this.baseY - 50, lvl, diff, 'CRAWLER');
                 
                 this.items.push(new Collectible(sewerX + 760, this.baseY - 430, 'MINIGUN', 80, 80));
                 this.addFloor(400); 
@@ -219,7 +220,8 @@ class LevelGenerator {
                 
                 for(let i = 0; i < 6; i++) {
                     let type = i % 2 === 0 ? 'CRAWLER' : 'RUNNER';
-                    this.spawn(ZombieEnemy, sx + 600 + (i * 280), this.baseY - 150, lvl, diff, type);
+                    // Höher Spawnen
+                    this.spawn(ZombieEnemy, sx + 600 + (i * 280), this.baseY - 250, lvl, diff, type);
                 }
                 break;
 
@@ -270,7 +272,7 @@ class LevelGenerator {
                 let bossX = sx + 2500; 
                 let bossY = this.baseY - 600; 
 
-                                if (moduleName === 'BOSS_GIANT') {
+                if (moduleName === 'BOSS_GIANT') {
                     boss = new BossGolem(bossX, bossY, lvl); 
                     boss.isBoss = true; 
                 } else if (moduleName === 'BOSS_SOLDIER') {
@@ -304,7 +306,7 @@ class LevelGenerator {
                 this.addFloor(600); 
                 break;
 
-                        case 'MEAT_LOCKER_LONG':
+            case 'MEAT_LOCKER_LONG':
             case 'TUTORIAL_STREET_HARD':
             case 'TUTORIAL_HELL':
             case 'DEMON_ROOST':
@@ -312,10 +314,18 @@ class LevelGenerator {
             case 'SPIDER_NEST_DEEP':
                 sx = this.addFloor(3000);
                 this.spawn(DemonEnemy, sx + 1000, this.baseY - 400, lvl, 'badass');
-                this.spawn(TridentDemonEnemy, sx + 1300, this.baseY - 150, lvl, 'badass'); // Dreizack Dämon Spawnt hier!
+                
+                // MEHR NEUE MONSTER
+                this.spawn(TridentDemonEnemy, sx + 1300, this.baseY - 150, lvl, 'badass'); 
+                this.spawn(TridentDemonEnemy, sx + 2000, this.baseY - 150, lvl, 'badass'); 
+                
                 this.spawn(SoldierEnemy, sx + 1800, this.baseY - 150, lvl, 'badass');
                 this.spawn(ZombieEnemy, sx + 2200, this.baseY - 150, lvl, diff, 'TANK');
                 this.spawn(ZombieEnemy, sx + 2500, this.baseY - 150, lvl, diff, 'RUNNER');
+                
+                // Crawler höher spawnen
+                this.spawn(ZombieEnemy, sx + 2700, this.baseY - 250, lvl, diff, 'CRAWLER');
+                
                 this.items.push(new Collectible(sx + 1200, this.baseY - 100, 'MINIGUN', 80, 80));
                 break;
 

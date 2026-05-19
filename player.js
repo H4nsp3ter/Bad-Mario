@@ -342,8 +342,10 @@
             ctx.filter = 'invert(1) sepia(1) saturate(5) hue-rotate(175deg)'; 
         }
 
-        let activeSprite = this.isStar ? Assets.playerStar : Assets.playerWalk;
+                let activeSprite = this.isStar ? Assets.playerStar : Assets.playerWalk;
         let drawYOffset = this.isCrouching ? -60 : -120;
+        
+        // Die Player-Sprites werden mit W=256 H=256 erstellt.
         ctx.drawImage(activeSprite, frame * 256, 0, 256, 256, -110, drawYOffset, 220, 220);
         ctx.restore();
         

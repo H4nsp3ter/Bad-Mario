@@ -6,8 +6,19 @@ class InputHandler {
         
         window.inputHandlerRef = this; // Macht das Objekt global für das Diagonal-Zielen zugänglich
         
-        window.addEventListener('keydown', e => this.keys[e.code] = true);
+        window.addEventListener('keydown', e => {
+            if (e.code === 'Space' || e.code.startsWith('Arrow')) e.preventDefault();
+            this.keys[e.code] = true;
+        });
         window.addEventListener('keyup', e => this.keys[e.code] = false);
+
+        // Firefox & Safari Gamepad Connect Events
+        window.addEventListener("gamepadconnected", (e) => {
+            console.log("Gamepad connected at index %d: %s. %d buttons, %d axes.",
+              e.gamepad.index, e.gamepad.id,
+              e.gamepad.buttons.length, e.gamepad.axes.length);
+        });
+
         this.setupMobileControls();
     }
     
@@ -42,40 +53,90 @@ class InputHandler {
         bindButton('btn-y', 'Digit2');
     }
 
-    update() {
-        this.previousKeys = { ...this.keys, ...this.gamepadKeys };
-        this.gamepadKeys = {}; 
+        update() {
+            this.previousKeys = { ...this.keys, ...this.gamepadKeys };
+            this.gamepadKeys = {}; 
 
-        const gamepads = navigator.getGamepads ? navigator.getGamepads() : [];
-        const gp = gamepads[0]; 
+            // Cross-browser gamepad fetching
+            let gamepads = [];
+            if (typeof navigator.getGamepads === 'function') {
+                gamepads = navigator.getGamepads();
+            } else if (typeof navigator.webkitGetGamepads === 'function') {
+                gamepads = navigator.webkitGetGamepads();
+            }
         
-        if (gp) {
-            const threshold = 0.4; 
-            
-            if (gp.axes[0] < -threshold || gp.buttons[14]?.pressed) this.gamepadKeys['KeyA'] = true; 
-            if (gp.axes[0] > threshold || gp.buttons[15]?.pressed) this.gamepadKeys['KeyD'] = true; 
-            if (gp.axes[1] < -threshold || gp.buttons[12]?.pressed) this.gamepadKeys['KeyW'] = true; 
-            if (gp.axes[1] > threshold || gp.buttons[13]?.pressed) this.gamepadKeys['KeyS'] = true; 
+            if (!gamepads || gamepads.length === 0) return;
 
-            if (gp.buttons[0]?.pressed) this.gamepadKeys['Space'] = true; 
+            // Loop through all gamepads to find an active one
+            for (let i = 0; i < gamepads.length; i++) {
+                const gp = gamepads[i];
             
-            if (gp.buttons[2]?.pressed || gp.buttons[5]?.pressed || gp.buttons[7]?.pressed) {
-                this.gamepadKeys['KeyF'] = true; 
-            }
+                // Skip invalid or disconnected gamepads
+                if (!gp || !gp.connected) continue;
+
+                const threshold = 0.4; 
             
-            if (gp.buttons[3]?.pressed || gp.buttons[4]?.pressed || gp.buttons[6]?.pressed) {
-                this.gamepadKeys['KeyQ'] = true; 
-            }
+                // Safe helper function to check button state
+                const isPressed = (btnIndex) => {
+                    if (!gp.buttons || btnIndex >= gp.buttons.length) return false;
+                    const b = gp.buttons[btnIndex];
+                    if (!b) return false;
+                    if (typeof b === "object") {
+                        return b.pressed || b.value > 0.5;
+                    }
+                    return b > 0.5; // Fallback for very old browsers where buttons array contains raw numbers
+                };
 
-            if (gp.buttons[9]?.pressed) this.gamepadKeys['Enter'] = true; 
-            if (gp.buttons[8]?.pressed) this.gamepadKeys['Escape'] = true; 
+                // Axes
+                if (gp.axes && gp.axes.length >= 2) {
+                    if (gp.axes[0] < -threshold) this.gamepadKeys['KeyA'] = true; 
+                    if (gp.axes[0] > threshold) this.gamepadKeys['KeyD'] = true; 
+                    if (gp.axes[1] < -threshold) this.gamepadKeys['KeyW'] = true; 
+                    if (gp.axes[1] > threshold) this.gamepadKeys['KeyS'] = true; 
+                }
 
-            if (this.gamepadKeys['Enter'] && !this.previousKeys['Enter']) {
-                window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Enter' }));
-            }
-            if (this.gamepadKeys['Escape'] && !this.previousKeys['Escape']) {
-                window.dispatchEvent(new KeyboardEvent('keydown', { code: 'Escape' }));
-            }
+                // D-Pad Fallback
+                if (isPressed(14)) this.gamepadKeys['KeyA'] = true; 
+                if (isPressed(15)) this.gamepadKeys['KeyD'] = true; 
+                if (isPressed(12)) this.gamepadKeys['KeyW'] = true; 
+                if (isPressed(13)) this.gamepadKeys['KeyS'] = true; 
+
+                // Action Buttons
+                if (isPressed(0)) this.gamepadKeys['Space'] = true; 
+            
+                // Shoot
+                if (isPressed(2) || isPressed(5) || isPressed(7)) {
+                    this.gamepadKeys['KeyF'] = true; 
+                }
+            
+                // Secondary Action
+                if (isPressed(3) || isPressed(4) || isPressed(6)) {
+                    this.gamepadKeys['KeyQ'] = true; 
+                }
+
+                // Start & Select
+                if (isPressed(9)) this.gamepadKeys['Enter'] = true; 
+                if (isPressed(8)) this.gamepadKeys['Escape'] = true; 
+
+                // Feature: JEDER Knopf auf dem Gamepad kann das Spiel im Menü starten
+                if (window.gameInstance && window.gameInstance.state !== 'PLAYING') {
+                    for (let b = 0; b < (gp.buttons ? gp.buttons.length : 0); b++) {
+                        if (isPressed(b)) {
+                            this.gamepadKeys['Enter'] = true;
+                            break;
+                        }
+                    }
+                }
+            
+                // Native Custom Events feuern anstatt KeyboardEvents zu simulieren
+                if (this.gamepadKeys['Enter'] && !this.previousKeys['Enter']) {
+                    window.dispatchEvent(new Event('gamepadStart'));
+                }
+                if (this.gamepadKeys['Escape'] && !this.previousKeys['Escape']) {
+                    window.dispatchEvent(new Event('gamepadPause'));
+                }
+            
+                break;
         }
     }
 

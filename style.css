@@ -407,19 +407,67 @@ button:active {
     pointer-events: auto;
     z-index: 50;
 }
+
 #zoom-controls button {
     background-color: rgba(0, 0, 0, 0.7) !important;
     border: 3px solid #555 !important;
-    color: white !important;
+    color: #fff !important;
     width: 60px;
     height: 60px;
-    font-size: 1.5rem;
-    border-radius: 12px !important;
+    font-size: 1.8rem;
+    font-family: "Press Start 2P", cursive;
+    border-radius: 8px !important;
     display: flex;
     justify-content: center;
     align-items: center;
-    box-shadow: none !important;
-    text-shadow: none !important;
+    box-shadow: 3px 3px 0 #000 !important;
+    text-shadow: 2px 2px 0 #000 !important;
+    pointer-events: auto;
+    position: relative;
+    padding: 0;
+    line-height: 1;
+}
+
+/* Custom Pixel-Art Icons via CSS */
+#btn-zoom-out::after {
+    content: "";
+    display: block;
+    width: 20px;
+    height: 6px;
+    background-color: #fff;
+    box-shadow: 2px 2px 0 #000;
+}
+
+#btn-zoom-in::after {
+    content: "";
+    display: block;
+    width: 20px;
+    height: 6px;
+    background-color: #fff;
+    box-shadow: 2px 2px 0 #000;
+    position: relative;
+}
+#btn-zoom-in::before {
+    content: "";
+    display: block;
+    width: 6px;
+    height: 20px;
+    background-color: #fff;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -50%);
+    box-shadow: 2px 2px 0 #000;
+}
+
+#btn-pause::after {
+    content: "";
+    display: block;
+    width: 6px;
+    height: 20px;
+    background-color: #fff;
+    box-shadow: 2px 2px 0 #000, 12px 0 0 #fff, 14px 2px 0 #000;
+    margin-right: 12px; /* Ausgleich für den rechten Balken */
 }
 
 // ... existing code ...
@@ -444,9 +492,9 @@ button:active {
         transform: scale(0.6) !important;
     }
 
-    #zoom-controls {
+        #zoom-controls {
         top: 70px !important;
-        transform: translateX(-50%) scale(1.3) !important;
+        transform: translateX(-50%) scale(1.1) !important;
     }
 
         /* MASSIVE BUTTONS FOR MOBILE */

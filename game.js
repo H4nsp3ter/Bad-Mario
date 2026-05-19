@@ -64,9 +64,13 @@ class Game {
         this.setupEventListeners();
     }
 
-    setupEventListeners() {
+        setupEventListeners() {
         const launchWithDiff = (diff) => {
-            this.requestFullScreen();
+            // Nur in Fullscreen gehen, wenn es nicht blockiert wird (z.B. Firefox Gamepad API Restriction)
+            try {
+                this.requestFullScreen();
+            } catch (e) {}
+            
             this.audio.init();
             this.startPlay(1, diff);
         };
@@ -82,8 +86,10 @@ class Game {
             }
         });
 
-        const btnZoomIn = document.getElementById('btn-zoom-in');
+                const btnZoomIn = document.getElementById('btn-zoom-in');
         const btnZoomOut = document.getElementById('btn-zoom-out');
+        const btnPause = document.getElementById('btn-pause');
+        
         if (btnZoomIn) { 
             btnZoomIn.addEventListener('touchstart', (e) => { e.preventDefault(); this.zoom = Math.min(3.0, this.zoom + 0.1); }, {passive: false}); 
             btnZoomIn.addEventListener('mousedown', (e) => { e.preventDefault(); this.zoom = Math.min(3.0, this.zoom + 0.1); }); 
@@ -92,8 +98,17 @@ class Game {
             btnZoomOut.addEventListener('touchstart', (e) => { e.preventDefault(); this.zoom = Math.max(0.2, this.zoom - 0.1); }, {passive: false}); 
             btnZoomOut.addEventListener('mousedown', (e) => { e.preventDefault(); this.zoom = Math.max(0.2, this.zoom - 0.1); }); 
         }
+        if (btnPause) {
+            const togglePause = (e) => {
+                e.preventDefault();
+                if (this.state === 'PLAYING') this.state = 'PAUSED';
+                else if (this.state === 'PAUSED') this.state = 'PLAYING';
+            };
+            btnPause.addEventListener('touchstart', togglePause, {passive: false});
+            btnPause.addEventListener('mousedown', togglePause);
+        }
 
-        window.addEventListener('keydown', (e) => {
+                window.addEventListener('keydown', (e) => {
             if (e.code === 'Enter') { 
                 if (this.state === 'GAMEOVER' && this.player && this.player.deathTimer > 4.0) this.continueGame(); 
                 else if (this.state === 'MENU') launchWithDiff('regular'); 
@@ -107,8 +122,16 @@ class Game {
             }
         });
 
-        window.addEventListener('mousedown', () => { this.input.keys['MouseLeft'] = true; });
-        window.addEventListener('mouseup', () => { this.input.keys['MouseLeft'] = false; });
+        // Eigener Event-Listener für das Gamepad, da simulierte KeyboardEvents oft blockiert werden
+        window.addEventListener('gamepadStart', () => {
+             if (this.state === 'GAMEOVER' && this.player && this.player.deathTimer > 4.0) this.continueGame(); 
+             else if (this.state === 'MENU') launchWithDiff('regular'); 
+        });
+        
+                window.addEventListener('gamepadPause', () => {
+             if (this.state === 'PLAYING') this.state = 'PAUSED';
+             else if (this.state === 'PAUSED') this.state = 'PLAYING';
+        });
     }
 
     requestFullScreen() {
