@@ -118,8 +118,14 @@ class Game {
     }
 
         resize() {
-        const isPortrait = window.matchMedia("(orientation: portrait)").matches && window.innerWidth <= 950;
-        if (isPortrait) {
+            const isPortrait = window.matchMedia("(orientation: portrait)").matches && window.innerWidth <= 950;
+        
+            // Mobile UI Force-Show
+            if (window.innerWidth <= 950) {
+                if(this.ui.mobileControls) this.ui.mobileControls.classList.remove('hidden');
+            }
+
+            if (isPortrait) {
             this.canvas.width = window.innerHeight;
             this.canvas.height = window.innerWidth;
         } else {

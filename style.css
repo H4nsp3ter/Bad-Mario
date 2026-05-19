@@ -326,8 +326,8 @@ button:active {
     left: 0; 
     width: 100%; 
     height: 100%;
-    z-index: 40; 
-    pointer-events: none; /* Klicks gehen durch leere Stellen durch aufs Spiel */
+    z-index: 9999; 
+    pointer-events: none; 
 }
 
 #mobile-controls button {
@@ -335,18 +335,17 @@ button:active {
     text-shadow: none;
     background: none;
     box-shadow: none;
+    pointer-events: auto;
 }
-#mobile-controls button:hover { transform: none; box-shadow: none; }
 
-/* D-PAD (Links fixiert) */
+/* D-PAD */
 #dpad {
     position: absolute;
-    bottom: 25px;
-    left: 25px;
-    width: 150px;
-    height: 150px;
-    pointer-events: auto;
-    opacity: 0.5;
+    bottom: 20px;
+    left: 20px;
+    width: 280px;
+    height: 280px;
+    opacity: 0.8;
 }
 .dpad-center {
     position: absolute;
@@ -357,47 +356,47 @@ button:active {
 .dpad-btn {
     position: absolute;
     background-color: #666 !important;
-    border: 3px solid #111 !important;
+    border: 4px solid #111 !important;
     box-shadow: inset 2px 2px 0px rgba(255,255,255,0.2) !important;
-    border-radius: 4px;
+    border-radius: 8px;
     z-index: 2;
+    display: block !important;
+    visibility: visible !important;
 }
-.dpad-btn.up { top: 0; left: 33.33%; width: 33.33%; height: 38%; border-radius: 6px 6px 0 0; }
-.dpad-btn.down { bottom: 0; left: 33.33%; width: 33.33%; height: 38%; border-radius: 0 0 6px 6px; }
-.dpad-btn.left { top: 33.33%; left: 0; width: 38%; height: 33.33%; border-radius: 6px 0 0 6px; }
-.dpad-btn.right { top: 33.33%; right: 0; width: 38%; height: 33.33%; border-radius: 0 6px 6px 0; }
+.dpad-btn.up { top: 0; left: 33.33%; width: 33.33%; height: 38%; border-radius: 12px 12px 0 0; }
+.dpad-btn.down { bottom: 0; left: 33.33%; width: 33.33%; height: 38%; border-radius: 0 0 12px 12px; }
+.dpad-btn.left { top: 33.33%; left: 0; width: 38%; height: 33.33%; border-radius: 12px 0 0 12px; }
+.dpad-btn.right { top: 33.33%; right: 0; width: 38%; height: 33.33%; border-radius: 0 12px 12px 0; }
 
-/* ACTION PAD (Rechts fixiert) */
+/* ACTION PAD */
 #action-pad {
     position: absolute;
-    bottom: 25px;
-    right: 25px;
-    width: 160px;
-    height: 160px;
-    pointer-events: auto;
-    opacity: 0.6;
+    bottom: 20px;
+    right: 20px;
+    width: 320px;
+    height: 320px;
+    opacity: 0.8;
 }
 .action-btn {
     position: absolute;
-    width: 55px;
-    height: 55px;
+    width: 110px;
+    height: 110px;
     border-radius: 50% !important;
-    border: 3px solid #111 !important;
+    border: 5px solid #111 !important;
     font-family: "Press Start 2P", cursive;
-    font-size: 1rem;
+    font-size: 1.8rem;
     color: #fff !important;
     display: flex;
     justify-content: center;
     align-items: center;
-    box-shadow: inset -2px -4px 0px rgba(0,0,0,0.4), 2px 3px 0px #000 !important;
-    text-shadow: 2px 2px 0 #000 !important;
+    box-shadow: 0 6px 0 #000 !important;
 }
 .action-btn.y-btn { top: 50%; left: 0; transform: translateY(-50%); background-color: #00A651 !important; } 
 .action-btn.x-btn { top: 0; left: 50%; transform: translateX(-50%); background-color: #00529B !important; } 
 .action-btn.b-btn { bottom: 0; left: 50%; transform: translateX(-50%); background-color: #FFDE00 !important; color: #000 !important; text-shadow: none !important; } 
 .action-btn.a-btn { top: 50%; right: 0; transform: translateY(-50%); background-color: #ED1C24 !important; } 
 
-/* ZOOM CONTROLS (Oben Mitte platziert, um dem HUD auszuweichen) */
+/* ZOOM CONTROLS */
 #zoom-controls {
     position: absolute;
     top: 20px;
@@ -410,12 +409,12 @@ button:active {
 }
 #zoom-controls button {
     background-color: rgba(0, 0, 0, 0.7) !important;
-    border: 2px solid #555 !important;
+    border: 3px solid #555 !important;
     color: white !important;
-    width: 45px;
-    height: 45px;
-    font-size: 1rem;
-    border-radius: 8px !important;
+    width: 60px;
+    height: 60px;
+    font-size: 1.5rem;
+    border-radius: 12px !important;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -429,82 +428,43 @@ button:active {
 /* HANDY-SKALIERUNGEN (ANPASSUNG AN LEISTEN FÜR CHROME, SAFARI, EDGE, FIREFOX)*/
 /* ========================================================================= */
 @media (max-width: 950px) {
-    #hud {
-        /* Globale Skalierung entfernen, damit Links und Rechts in den Ecken bleiben */
-        transform: none;
-        top: 15px; left: 15px; right: 15px;
-    }
-    
-    /* Anzeigen gezielt in die Ecken skalieren, das räumt die Mitte komplett frei */
-    .hud-top-left {
-        transform: scale(0.7);
-        transform-origin: top left;
-    }
-    .hud-top-right {
-        transform: scale(0.7);
-        transform-origin: top right;
-    }
-
-    /* Zoom-Controls haben jetzt Platz in der Mitte */
-    #zoom-controls {
-        top: 15px;
-        transform: translateX(-50%) scale(0.8);
-    }
-
-    /* Inventar bleibt unten zentriert und gut lesbar */
-    #hud-inventory {
-        transform: translateX(-50%) scale(0.8);
-        bottom: 15px;
-    }
-    
-    #menu-overlay h1 {
-        font-size: 1.8rem;
-    }
-    #menu-overlay p {
-        font-size: 0.75rem;
-        margin-bottom: 15px;
-    }
-        .wasted-text { font-size: 2.8rem; }
-    .diff-btn { padding: 25px !important; font-size: 1.4rem !important; max-width: 400px; }
-    
-        /* =========================================
-       MASSIV VERGRÖSSERTE TOUCH-STEUERUNG
-       ========================================= */
-    #dpad { 
-        width: 320px !important;  
-        height: 320px !important; 
-        bottom: 30px !important; 
-        left: 30px !important; 
-        opacity: 0.9 !important;
-        display: block !important;
-    }
-    #action-pad { 
-        width: 350px !important;  
-        height: 350px !important; 
-        bottom: 30px !important; 
-        right: 30px !important; 
-        opacity: 0.9 !important;
-        display: block !important;
-    }
-    .action-btn { 
-        width: 120px !important;   
-        height: 120px !important; 
-        font-size: 2.2rem !important; 
-        border-radius: 50% !important;
-    }
-    
-    .dpad-btn {
-        border-width: 5px !important;
-    }
-
-    #zoom-controls {
-        top: 20px !important;
-        transform: translateX(-50%) scale(1.6) !important;
-    }
-    
     #mobile-controls {
         display: block !important;
+        visibility: visible !important;
         opacity: 1 !important;
+    }
+    
+    #hud {
+        top: 5px !important;
+        left: 5px !important;
+        right: 5px !important;
+    }
+    
+    .hud-top-left, .hud-top-right {
+        transform: scale(0.6) !important;
+    }
+
+    #zoom-controls {
+        top: 70px !important;
+        transform: translateX(-50%) scale(1.3) !important;
+    }
+
+        /* MASSIVE BUTTONS FOR MOBILE */
+    #dpad {
+        width: 350px !important;
+        height: 350px !important;
+    }
+    #action-pad {
+        width: 380px !important;
+        height: 380px !important;
+    }
+    .action-btn {
+        width: 130px !important;
+        height: 130px !important;
+        font-size: 2.2rem !important;
+    }
+    .dpad-btn {
+        border-width: 6px !important;
     }
 }
 
