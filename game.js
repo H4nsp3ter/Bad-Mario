@@ -117,10 +117,16 @@ class Game {
         if (req) req.call(el).catch(err => console.log("Fullscreen Error:", err));
     }
 
-    resize() {
-        this.canvas.width = window.innerWidth; 
-        this.canvas.height = window.innerHeight;
-        this.zoom = window.innerWidth < 850 ? window.innerHeight / 900 : 1.0;
+        resize() {
+        const isPortrait = window.matchMedia("(orientation: portrait)").matches && window.innerWidth <= 950;
+        if (isPortrait) {
+            this.canvas.width = window.innerHeight;
+            this.canvas.height = window.innerWidth;
+        } else {
+            this.canvas.width = window.innerWidth; 
+            this.canvas.height = window.innerHeight;
+        }
+        this.zoom = this.canvas.width < 850 ? this.canvas.height / 900 : 1.0;
         this.generateParallaxLayers();
     }
 

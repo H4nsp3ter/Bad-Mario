@@ -41,7 +41,7 @@ class Enemy extends Entity {
             let corpseSpriteType = this.isBoss ? 'GIANT' : this.enemyType;
             if (this instanceof SoldierEnemy) corpseSpriteType = 'SOLDIER';
             else if (this instanceof SpiderEnemy) corpseSpriteType = 'SPIDER';
-            else if (this instanceof DemonEnemy || this instanceof TridentDemonEnemy) corpseSpriteType = 'DEMON';
+            else if (this instanceof DemonEnemy) corpseSpriteType = 'DEMON';
             
             game.levelGen.corpses.push(new Corpse(this.x, this.y + this.h - 30, this.w, 40, cState, corpseSpriteType, this.level, this.facingLeft));
             
@@ -167,6 +167,47 @@ class GiantZombieEnemy extends Enemy {
     }
 }
 
+class BossGolem extends GiantZombieEnemy {
+    constructor(x, y, level) {
+        super(x, y, level);
+        this.enemyType = 'BOSS_GOLEM';
+        this.hp = 12000;
+        this.w = 300; this.h = 450;
+    }
+    
+    draw(ctx, camX, camY) {
+        this.drawEffects(ctx, () => {
+            ctx.save(); 
+            ctx.translate(this.x - camX + this.w / 2, this.y - camY + this.h / 2);
+            if (this.facingLeft) ctx.scale(-1, 1);
+            let frame = this.state === 'WALK' ? Math.floor(this.animTimer * 5) % 8 : 0;
+            
+            if (Assets && Assets.enemies && Assets.enemies[this.level] && Assets.enemies[this.level].boss_golem) {
+                ctx.drawImage(Assets.enemies[this.level].boss_golem, frame * 256, 0, 256, 256, -this.w*0.8, -this.h*0.6, this.w*1.6, this.h*1.2);
+            }
+            ctx.restore();
+        });
+    }
+}
+
+        }
+    }
+
+    draw(ctx, camX, camY) {
+        this.drawEffects(ctx, () => {
+            ctx.save(); 
+            ctx.translate(this.x - camX + this.w / 2, this.y - camY + this.h / 2);
+            if (this.facingLeft) ctx.scale(-1, 1);
+            let frame = this.state === 'WALK' ? Math.floor(this.animTimer * 5) % 8 : 0;
+            
+            if (Assets && Assets.enemies && Assets.enemies[this.level] && Assets.enemies[this.level].boss_hell) {
+                ctx.drawImage(Assets.enemies[this.level].boss_hell, frame * 256, 0, 256, 256, -this.w*0.8, -this.h*0.6, this.w*1.6, this.h*1.2);
+            }
+            ctx.restore();
+        });
+    }
+}
+
 class ZombieEnemy extends Enemy {
     constructor(x, y, level) { 
         const types = ['NORMAL', 'RUNNER', 'SPITTER', 'TANK', 'CRAWLER'];
@@ -206,7 +247,7 @@ class ZombieEnemy extends Enemy {
                     let t = dist / 600;
                     game.projectiles.push(new Projectile(cx, this.y + 20, this.facingLeft ? -600 : 600, (p.y + p.h/2 - (this.y+20))/t - (0.5*CONFIG.GRAVITY*0.6*t), true, 'GORE', true));
                     this.cooldown = 2.0 + Math.random();
-                    if(game.audio.playShoot) game.audio.playShoot('PISTOL');
+                    game.audio.playShoot('PISTOL'); // Platzhalter
                 }
             } else {
                 let moveMod = (this.enemyType === 'NORMAL' || this.enemyType === 'TANK') && (this.animTimer % 1.5 > 1.0) ? 0.2 : 1.0;
@@ -254,7 +295,7 @@ class ZombieEnemy extends Enemy {
             }
 
             if (spriteToDraw) {
-                if (this.enemyType === 'CRAWLER') {
+                                if (this.enemyType === 'CRAWLER') {
                     // CRAWLER FIX: Weniger vertikaler Offset und verringerte Zeichengröße (wurde durch den Rotationspunkt im Generator verschoben)
                     ctx.drawImage(spriteToDraw, frame * 256, 0, 256, 256, -this.w*0.8, -this.h*0.8, this.w*1.6, this.h*2.2);
                 } else {
@@ -296,7 +337,7 @@ class SoldierEnemy extends Enemy {
                 let cx = this.facingLeft ? this.x - 20 : this.x + this.w + 20, cy = this.y + 50, t = distX / 1800;
                 game.projectiles.push(new Projectile(cx, cy, this.facingLeft ? -1800 : 1800, (p.y + p.h/2 - cy) / t, true, 'BULLET'));
                 this.cooldown = this.maxShootCooldown * (0.3 + Math.random() * 0.2); 
-                if(game.audio.playShoot) game.audio.playShoot('ASSAULT_RIFLE'); 
+                game.audio.playShoot('ASSAULT_RIFLE'); 
                 game.particles.spawn(cx, cy, '#FFFF00', 5, 100);
             }
         } else if (distX < 1600) { 
@@ -429,12 +470,13 @@ class TridentDemonEnemy extends Enemy {
         const distY = Math.abs(p.y - this.y);
 
         if (distX < 150 && distY < 100) {
+            // Nahkampf-Stich!
             this.vx *= 0.8;
             if (this.cooldown <= 0) {
-                if(game.audio.playSwing) game.audio.playSwing();
+                game.audio.playSwing();
                 this.cooldown = 1.5; 
                 this.state = 'ATTACK';
-                this.animTimer = 0; 
+                this.animTimer = 0; // Reset für Attack-Anim
                 if (!p.isStar) p.takeDamage(40, game);
             }
         } else if (distX < 1200 && distY < 300) { 
@@ -453,13 +495,13 @@ class TridentDemonEnemy extends Enemy {
                 if (this.vy > 0 && this.y + this.h - this.vy * dt <= plat.y + 10) { 
                     this.y = plat.y - this.h; this.vy = 0; this.grounded = true; 
                 } else if (this.vx !== 0 && plat.y > this.y + this.h - 40) { 
-                    this.vy = -500; 
+                    this.vy = -500; // Springt über Hindernisse
                 }
             }
         }
         
         if (this.state === 'ATTACK' && this.animTimer > 0.4) {
-            this.state = 'IDLE'; 
+            this.state = 'IDLE'; // Attacke beendet
         }
         
         if (this.state !== 'ATTACK') {
@@ -476,9 +518,10 @@ class TridentDemonEnemy extends Enemy {
             if (this.facingLeft) ctx.scale(-1, 1);
             
             let frame = 0;
-            if (this.state === 'ATTACK') frame = 3; 
+            if (this.state === 'ATTACK') frame = 3; // Spezieller Attack-Frame im Sprite
             else if (this.state === 'WALK') frame = Math.floor(this.animTimer * 8) % 8;
             
+            // Nutzt ein neues Sprite, das wir gleich in sprites.js generieren
             if (Assets && Assets.enemies && Assets.enemies[this.level] && Assets.enemies[this.level].trident_demon) {
                 ctx.drawImage(Assets.enemies[this.level].trident_demon, frame * 256, 0, 256, 256, -this.w*0.8, -this.h*0.6, this.w*1.6, this.h*1.2);
             }
@@ -486,7 +529,6 @@ class TridentDemonEnemy extends Enemy {
         });
     }
 }
-
 class DemonEnemy extends Enemy {
     constructor(x, y, level) { 
         super(x, y, 120, 160, 150 + level * 20, level, 'DEMON'); 
@@ -519,7 +561,7 @@ class DemonEnemy extends Enemy {
         if (Math.abs(p.x - this.x) < 600 && this.cooldown <= 0) {
             game.projectiles.push(new Projectile(this.x + this.w/2, this.y + this.h, (p.x - this.x)*0.5, 600, true, 'FLAME'));
             this.cooldown = 1.5;
-            if(game.audio.playFlamethrower) game.audio.playFlamethrower();
+            game.audio.playFlamethrower();
         }
     }
     
@@ -537,30 +579,6 @@ class DemonEnemy extends Enemy {
         });
     }
 }
-
-class BossGolem extends GiantZombieEnemy {
-    constructor(x, y, level) {
-        super(x, y, level);
-        this.enemyType = 'BOSS_GOLEM';
-        this.hp = 12000;
-        this.w = 300; this.h = 450;
-    }
-    
-    draw(ctx, camX, camY) {
-        this.drawEffects(ctx, () => {
-            ctx.save(); 
-            ctx.translate(this.x - camX + this.w / 2, this.y - camY + this.h / 2);
-            if (this.facingLeft) ctx.scale(-1, 1);
-            let frame = this.state === 'WALK' ? Math.floor(this.animTimer * 5) % 8 : 0;
-            
-            if (Assets && Assets.enemies && Assets.enemies[this.level] && Assets.enemies[this.level].boss_golem) {
-                ctx.drawImage(Assets.enemies[this.level].boss_golem, frame * 256, 0, 256, 256, -this.w*0.8, -this.h*0.6, this.w*1.6, this.h*1.2);
-            }
-            ctx.restore();
-        });
-    }
-}
-
 class BossMech extends SoldierEnemy {
     constructor(x, y, level) {
         super(x, y, level);
@@ -600,7 +618,6 @@ class BossHell extends GiantZombieEnemy {
             game.particles.spawn(this.x + Math.random()*this.w, this.y + Math.random()*this.h, '#FF4400', 1, 100, 0.5, true);
         }
     }
-
     draw(ctx, camX, camY) {
         this.drawEffects(ctx, () => {
             ctx.save();

@@ -37,15 +37,19 @@ class AudioManager {
         if (this.ctx && this.ctx.state === 'suspended') this.ctx.resume();
     }
 
-    async loadTrack(name, url, isBGM = true) {
+        async loadTrack(name, url, isBGM = true) {
         try {
-            const response = await fetch(url);
-            if (!response.ok) return; 
+            // Check if file exists by making a HEAD request first, or handling 404 gracefully
+            const response = await fetch(url).catch(e => null);
+            if (!response || !response.ok) {
+                console.log(`BGM Datei nicht gefunden: ${url}. Überspringe Laden.`);
+                return; 
+            }
             const arrayBuffer = await response.arrayBuffer();
             const buffer = await this.ctx.decodeAudioData(arrayBuffer);
             if (isBGM) this.bgmBuffers[name] = buffer;
         } catch (e) {
-            console.log(`Konnte BGM nicht laden: ${name}`);
+            console.log(`Konnte BGM nicht decodieren: ${name}`);
         }
     }
 

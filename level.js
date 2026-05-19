@@ -270,18 +270,15 @@ class LevelGenerator {
                 let bossX = sx + 2500; 
                 let bossY = this.baseY - 600; 
 
-                if (moduleName === 'BOSS_GIANT') {
-                    boss = new GiantZombieEnemy(bossX, bossY, lvl); 
+                                if (moduleName === 'BOSS_GIANT') {
+                    boss = new BossGolem(bossX, bossY, lvl); 
                     boss.isBoss = true; 
-                    boss.w = 300; boss.h = 450; boss.hp = 8000;
                 } else if (moduleName === 'BOSS_SOLDIER') {
-                    boss = new SoldierEnemy(bossX, bossY, lvl); 
+                    boss = new BossMech(bossX, bossY, lvl); 
                     boss.isBoss = true; 
-                    boss.w = 250; boss.h = 400; boss.hp = 12000; boss.maxShootCooldown = 0.2;
                 } else {
-                    boss = new GiantZombieEnemy(bossX, bossY, lvl); 
+                    boss = new BossHell(bossX, bossY, lvl); 
                     boss.isBoss = true; 
-                    boss.w = 400; boss.h = 600; boss.hp = 30000; boss.speed *= 2;
                 }
 
                 let hpMult = diff === 'princess' ? 0.4 : (diff === 'badass' ? 2.5 : 1.0);
@@ -307,7 +304,7 @@ class LevelGenerator {
                 this.addFloor(600); 
                 break;
 
-            case 'MEAT_LOCKER_LONG':
+                        case 'MEAT_LOCKER_LONG':
             case 'TUTORIAL_STREET_HARD':
             case 'TUTORIAL_HELL':
             case 'DEMON_ROOST':
@@ -315,8 +312,9 @@ class LevelGenerator {
             case 'SPIDER_NEST_DEEP':
                 sx = this.addFloor(3000);
                 this.spawn(DemonEnemy, sx + 1000, this.baseY - 400, lvl, 'badass');
-                this.spawn(SoldierEnemy, sx + 1500, this.baseY - 150, lvl, 'badass');
-                this.spawn(ZombieEnemy, sx + 2000, this.baseY - 150, lvl, diff, 'TANK');
+                this.spawn(TridentDemonEnemy, sx + 1300, this.baseY - 150, lvl, 'badass'); // Dreizack Dämon Spawnt hier!
+                this.spawn(SoldierEnemy, sx + 1800, this.baseY - 150, lvl, 'badass');
+                this.spawn(ZombieEnemy, sx + 2200, this.baseY - 150, lvl, diff, 'TANK');
                 this.spawn(ZombieEnemy, sx + 2500, this.baseY - 150, lvl, diff, 'RUNNER');
                 this.items.push(new Collectible(sx + 1200, this.baseY - 100, 'MINIGUN', 80, 80));
                 break;
