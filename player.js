@@ -127,9 +127,15 @@
             if (input.isJustReleased('Space') && this.vy < 0) this.vy *= 0.5;
         }
         
-        let actualH = this.isCrouching ? 100 : 160; 
-        if (this.isCrouching && this.h !== 100) { this.y += 60; this.h = 100; }
-        else if (!this.isCrouching && this.h !== 160) { this.y -= 60; this.h = 160; }
+                let actualH = this.isCrouching ? 100 : 160; 
+                if (this.isCrouching && this.h !== 100) { 
+                    this.y += 60; 
+                    this.h = 100; 
+                }
+                else if (!this.isCrouching && this.h !== 160) { 
+                    this.y -= 60; 
+                    this.h = 160; 
+                }
 
         this.x += this.vx * dt; this.handleCollisions(game.levelGen.platforms, 'x', dt, game);
         if (this.x < game.camera.x) { this.x = game.camera.x; this.vx = 0; }
@@ -166,19 +172,25 @@
         }
     }
     
-    fireWeapon(game, input) {
+        fireWeapon(game, input) {
         const dirX = this.facingRight ? 1 : -1;
         let py = this.isCrouching ? this.y + 40 : this.y + 60; 
         let px = this.facingRight ? this.x + this.w + 10 : this.x - 30;
-        let vx = dirX * 1200, vy = 0;
         
-        if (input && input.isDown('KeyW')) {
-            vy = -800; 
-            vx = dirX * 800;
-        } else if (input && input.isDown('KeyS') && !this.grounded) {
-            vy = 800; 
-            vx = dirX * 800;
-        }
+        let vx = 0, vy = 0;
+        let speed = 1200;
+
+        let up = input && (input.isDown('KeyW') || input.isDown('ArrowUp'));
+        let down = input && (input.isDown('KeyS') || input.isDown('ArrowDown'));
+        let right = input && (input.isDown('KeyD') || input.isDown('ArrowRight'));
+        let left = input && (input.isDown('KeyA') || input.isDown('ArrowLeft'));
+        let side = right || left;
+
+        if (up && side) { vx = (right ? 1 : -1) * speed * 0.7; vy = -speed * 0.7; px = this.x + this.w/2 + (right ? 20 : -20); py = this.y - 10; }
+        else if (down && side && !this.grounded) { vx = (right ? 1 : -1) * speed * 0.7; vy = speed * 0.7; px = this.x + this.w/2 + (right ? 20 : -20); py = this.y + this.h; }
+        else if (up) { vx = 0; vy = -speed; px = this.x + this.w/2; py = this.y - 20; }
+        else if (down && !this.grounded) { vx = 0; vy = speed; px = this.x + this.w/2; py = this.y + this.h + 20; }
+        else { vx = dirX * speed; vy = 0; }
 
         let isMelee = ['KNIFE', 'AXE', 'BAT', 'CHAINSAW'].includes(this.weapon);
         this.flashTimer = 0.1;
@@ -205,7 +217,7 @@
         } else {
             if (this.weapon === 'MOLOTOV') {
                 game.triggerShake(5, 0.1); game.audio.playJump();
-                game.projectiles.push(new Projectile(px, py - 20, dirX * 600, -500, false, 'MOLOTOV', true)); 
+                game.projectiles.push(new Projectile(px, py - 20, vx * 0.6, vy ? vy * 0.8 : -500, false, 'MOLOTOV', true)); 
                 this.shootCooldown = 1.0; 
                 this.inventory[this.weapon]--;
             } 
@@ -213,7 +225,7 @@
                 game.triggerShake(2, 0.02);
                 game.audio.playFlamethrower(); 
                 for(let i=0; i<3; i++) { 
-                    game.projectiles.push(new Projectile(px, py + (Math.random()-0.5)*20, vx * (0.6 + Math.random()*0.4), vy + (Math.random()-0.5)*300, false, 'FLAME'));
+                    game.projectiles.push(new Projectile(px + (Math.random()-0.5)*20, py + (Math.random()-0.5)*20, vx * (0.6 + Math.random()*0.4), vy * (0.6 + Math.random()*0.4) + (vx !== 0 ? (Math.random()-0.5)*300 : 0), false, 'FLAME'));
                 }
                 this.shootCooldown = 0.04; 
                 this.inventory[this.weapon]--;
@@ -225,16 +237,18 @@
                     spawnShells(1); this.inventory[this.weapon]--;
                 } else if (this.weapon === 'UZI') {
                     game.triggerShake(6, 0.05);
-                    game.projectiles.push(new Projectile(px, py, vy !== 0 ? (Math.random() - 0.5) * 200 : vx, vy !== 0 ? vy : (Math.random() - 0.5) * 200, false, 'PISTOL'));
+                    game.projectiles.push(new Projectile(px, py, vx + (Math.random() - 0.5) * 200, vy + (Math.random() - 0.5) * 200, false, 'PISTOL'));
                     this.shootCooldown = 0.05; this.inventory[this.weapon]--; spawnShells(1);
                 } else if (this.weapon === 'ROCKET') {
-                    this.vx = this.facingRight ? -800 : 800; this.vy = -100;
-                    game.projectiles.push(new Projectile(px, py - 10, vx !== 0 ? dirX*800 : 0, vy !== 0 ? vy : 0, false, 'ROCKET'));
+                    this.vx = vx ? -Math.sign(vx) * 800 : 0; 
+                    this.vy = vy ? -Math.sign(vy) * 400 : -100;
+                    game.projectiles.push(new Projectile(px, py, vx, vy, false, 'ROCKET'));
                     this.shootCooldown = 1.0; this.inventory[this.weapon]--; game.triggerShake(40, 0.8);
                     pushback = 200; 
                 } else if (this.weapon === 'SHOTGUN') {
-                    this.vx = this.facingRight ? -800 : 800; this.vy = -150; 
-                    for (let i = 0; i < 5; i++) game.projectiles.push(new Projectile(px, py, vx !== 0 ? vx + (Math.random() - 0.5)*400 : (Math.random() - 0.5) * 800, vy !== 0 ? vy + (Math.random() - 0.5)*400 : (Math.random() - 0.5) * 800, false, 'PISTOL'));
+                    this.vx = vx ? -Math.sign(vx) * 800 : 0; 
+                    this.vy = vy ? -Math.sign(vy) * 400 : -150; 
+                    for (let i = 0; i < 5; i++) game.projectiles.push(new Projectile(px, py, vx + (Math.random() - 0.5)*400, vy + (Math.random() - 0.5)*400, false, 'PISTOL'));
                     this.shootCooldown = 0.8; this.inventory[this.weapon]--; game.triggerShake(25, 0.3);
                     pushback = 250; 
                     spawnShells(2); 
@@ -242,11 +256,11 @@
                     game.triggerShake(8, 0.05); game.projectiles.push(new Projectile(px, py, vx * 1.5, vy * 1.5, false, 'PISTOL')); this.shootCooldown = 0.08; this.inventory[this.weapon]--; pushback = 40; spawnShells(1);
                 } else if (this.weapon === 'MINIGUN') {
                     game.triggerShake(15, 0.1);
-                    game.projectiles.push(new Projectile(px, py + (Math.random()-0.5)*20, vx * 1.8, vy * 1.8 + (Math.random() - 0.5) * 200, false, 'PISTOL'));
+                    game.projectiles.push(new Projectile(px + (Math.random()-0.5)*20, py + (Math.random()-0.5)*20, vx * 1.8 + (Math.random() - 0.5) * 200, vy * 1.8 + (Math.random() - 0.5) * 200, false, 'PISTOL'));
                     game.particles.spawn(px, py, '#FFAA00', 3, 400, 0.1, true); game.particles.spawn(this.x + this.w/2, this.y + this.h/2, '#FFFF00', 1, 300, 0.5);
                     this.shootCooldown = 0.02; this.inventory[this.weapon]--; pushback = 20; spawnShells(1);
                 } else if (this.weapon === 'GRENADE') {
-                    game.projectiles.push(new Projectile(px, py - 20, vx * 0.6, -600, false, 'GRENADE', true)); this.shootCooldown = 1.0; this.inventory[this.weapon]--;
+                    game.projectiles.push(new Projectile(px, py - 20, vx * 0.6, vy ? vy * 0.8 : -600, false, 'GRENADE', true)); this.shootCooldown = 1.0; this.inventory[this.weapon]--;
                 }
             }
             
@@ -255,8 +269,8 @@
                 this.weapon = 'BAT'; 
             }
             
-            if (vy === 0 && pushback > 0 && !this.isCrouching) {
-                this.vx -= dirX * pushback;
+            if (pushback > 0 && !this.isCrouching) {
+                if (vx) this.vx -= Math.sign(vx) * pushback;
             }
         }
         game.updateHUD();
@@ -343,112 +357,122 @@
         }
 
                 let activeSprite = this.isStar ? Assets.playerStar : Assets.playerWalk;
-        let drawYOffset = this.isCrouching ? -60 : -120;
+                let drawYOffset = this.isCrouching ? -60 : -120;
         
-        // Die Player-Sprites werden mit W=256 H=256 erstellt.
-        ctx.drawImage(activeSprite, frame * 256, 0, 256, 256, -110, drawYOffset, 220, 220);
+        // Crossover-Fix: Wenn er croucht, ziehen wir den Sprite optisch nicht nach unten, er schrumpft einfach (hitbox)
+        // Aber um das Ducken optisch darzustellen, müssen wir den Y-Draw Offset lassen, aber den Canvas etwas tiefer setzen
+                ctx.save();
+        if (this.isCrouching) {
+            ctx.scale(1, 0.6); // Staucht den Oberkörper organisch zusammen
+            ctx.translate(0, 80);
+        }
+
+        ctx.drawImage(activeSprite, frame * 256, 0, 256, 256, -110, -120, 220, 220);
+        ctx.restore();
         ctx.restore();
         
-        ctx.scale(1.5, 1.5);
+                ctx.scale(1.5, 1.5);
         
-        let cycle = (this.state === 'WALK') ? (frame / 8) * Math.PI * 2 : 0;
-        let walkArmAngle = Math.sin(cycle + Math.PI) * 0.5; 
-        let walkBob = -Math.abs(Math.sin(cycle)) * 5;
-        if (this.isCrouching) walkBob += 20; 
+                let up = window.inputHandlerRef && (window.inputHandlerRef.isDown('KeyW') || window.inputHandlerRef.isDown('ArrowUp'));
+                let down = window.inputHandlerRef && (window.inputHandlerRef.isDown('KeyS') || window.inputHandlerRef.isDown('ArrowDown'));
+                let right = window.inputHandlerRef && (window.inputHandlerRef.isDown('KeyD') || window.inputHandlerRef.isDown('ArrowRight'));
+                let left = window.inputHandlerRef && (window.inputHandlerRef.isDown('KeyA') || window.inputHandlerRef.isDown('ArrowLeft'));
+                let side = right || left;
+
+                let cycle = (this.state === 'WALK') ? (frame / 8) * Math.PI * 2 : 0;
+                let walkArmAngle = Math.sin(cycle + Math.PI) * 0.5; 
+                let walkBob = -Math.abs(Math.sin(cycle)) * 5;
+                                if (this.isCrouching) walkBob += 20; 
+
+                // Festgelegter Schulterpunkt relativ zur Körpermitte
+                let sX = 0; 
+                let sY = -15; 
+                if (this.isCrouching) {
+                    sX = -5;
+                    sY = -5; // Wieder 10px runter (von -15 auf -5)
+                }
+
+        // Das Atmen der Animation muss auf den Schulterpunkt wirken
+        sY += walkBob;
         
-        let attackRot = 0, attackX = 0, attackY = 0;
+        let attackRot = 0, distHand = 45;
 
         if (this.state === 'CLIMB') {
             attackRot = -Math.PI / 2; 
-            attackY = -40;
-            attackX = Math.sin(this.animTimer * 10) * 10; 
+            distHand = 30;
         }
         else if (isMelee) {
+            // Melee-Waffen haben ihre eigene Logik (wie bisher)
+            attackRot = walkArmAngle;
             if (this.weapon === 'KNIFE') {
                 let t = 1 - progress;
                 if (progress > 0) {
-                    if (t < 0.2) { attackX = -10 * (t/0.2); attackRot = -Math.PI/4 * (t/0.2); }
-                    else if (t < 0.4) { let thrust = (t-0.2)/0.2; attackX = -10 + 60*thrust; attackRot = -Math.PI/4 + (Math.PI/2)*thrust; }
-                    else { let rec = (t-0.4)/0.6; attackX = 50 * (1-rec); attackRot = Math.PI/4 * (1-rec); }
-                } else { attackRot = walkArmAngle; attackY = walkBob; }
+                    if (t < 0.2) { attackRot = -Math.PI/4 * (t/0.2); distHand = 30 + 10*(t/0.2); }
+                    else if (t < 0.4) { let thrust = (t-0.2)/0.2; attackRot = -Math.PI/4 + (Math.PI/2)*thrust; distHand = 40 + 40*thrust; }
+                    else { let rec = (t-0.4)/0.6; attackRot = Math.PI/4 * (1-rec); distHand = 80 * (1-rec/2); }
+                } 
             } 
             else if (this.weapon === 'AXE' || this.weapon === 'BAT') {
                 let t = 1 - progress;
                 if (progress > 0) {
-                    if (t < 0.3) { let wind = t/0.3; attackRot = -Math.PI/4 - Math.PI*0.6*wind; attackX = -15*wind; attackY = -30*wind; }
+                    if (t < 0.3) { let wind = t/0.3; attackRot = -Math.PI/4 - Math.PI*0.6*wind; distHand = 45 + 10*wind; }
                     else { 
-                        let smash = Math.min(1, (t-0.3)/0.3); attackRot = -Math.PI*0.85 + Math.PI*1.6*smash; attackX = -15 + 45*smash; attackY = -30 + 40*smash;
-                        if (t > 0.6) { let rec = (t-0.6)/0.4; attackRot -= Math.PI*0.2*rec; attackX -= 30*rec; attackY -= 10*rec; }
+                        let smash = Math.min(1, (t-0.3)/0.3); attackRot = -Math.PI*0.85 + Math.PI*1.6*smash; distHand = 55;
                     }
-                } else { attackRot = Math.PI/8 + walkArmAngle * 0.5; attackY = walkBob; }
+                } else { attackRot = Math.PI/8 + walkArmAngle * 0.5; }
             }
             else if (this.weapon === 'CHAINSAW') {
-                let bob = Math.sin(performance.now() / 50) * 3;
-                let thrust = progress > 0 ? 20 : 0;
-                attackX = thrust; attackY = bob + walkBob; attackRot = Math.PI / 12 + walkArmAngle * 0.2;
+                attackRot = Math.PI / 12 + walkArmAngle * 0.2;
+                distHand = 45 + (progress > 0 ? 20 : 0);
             }
         } else {
-            attackX = progress * -15; 
-            attackY = progress * -5 + walkBob;
+            // Fernkampfwaffen-Zielen
             attackRot = progress * -0.2 + walkArmAngle * 0.1; 
 
-            if (window.inputHandlerRef) { 
-                if (window.inputHandlerRef.isDown('KeyW') || window.inputHandlerRef.isDown('ArrowUp')) {
-                    attackRot -= Math.PI/4; 
-                } else if (!this.grounded && (window.inputHandlerRef.isDown('KeyS') || window.inputHandlerRef.isDown('ArrowDown'))) {
-                    attackRot += Math.PI/4; 
-                }
-            }
+            if (up && side) attackRot -= Math.PI / 4; 
+            else if (down && side && !this.grounded) attackRot += Math.PI / 4;
+            else if (up) attackRot -= Math.PI / 2.1; // Fast 90 Grad
+            else if (down && !this.grounded) attackRot += Math.PI / 2.1;
         }
 
-        attackX += 40;
+        // Berechne Hand-Position (Endpunkt für den Arm und Pivot für die Waffe)
+        let fhx = sX + Math.cos(attackRot) * distHand;
+        let fhy = sY + Math.sin(attackRot) * distHand;
 
-        let wx = -5 + attackX;
-        let wy = -15 + attackY;
-        let cosR = Math.cos(attackRot), sinR = Math.sin(attackRot);
-
-        let gX = 0, gY = 5;
-        if (this.weapon === 'CHAINSAW') { gX = -15; gY = 15; }
-        else if (this.weapon === 'MINIGUN') { gX = -5; gY = 15; }
-        else if (this.weapon === 'ROCKET') { gX = 0; gY = 15; }
-        else if (this.weapon === 'SHOTGUN') { gX = -10; gY = 10; }
-        else if (this.weapon === 'ASSAULT_RIFLE') { gX = -5; gY = 10; }
-        else if (this.weapon === 'AXE' || this.weapon === 'BAT') { gX = -4; gY = 20; }
-        else if (this.weapon === 'KNIFE') { gX = -5; gY = 10; }
-
-        let fhx = wx + (gX * cosR - gY * sinR);
-        let fhy = wy + (gX * sinR + gY * cosR);
+        // Waffenausrichtung (wx, wy) liegt exakt an der Hand
+        let wx = fhx;
+        let wy = fhy;
 
         const drawArm = (sx, sy, hx, hy) => {
             let dx = hx - sx, dy = hy - sy;
             let d = Math.max(0.1, Math.hypot(dx, dy));
-            let L1 = 18, L2 = 18; 
+            let L1 = 20, L2 = 20; // Arm-Glieder
             
             if (d > L1 + L2 - 0.5) { 
-                hx = sx + (dx/d)*(L1+L2 - 0.5); hy = sy + (dy/d)*(L1+L2 - 0.5); dx = hx - sx; dy = hy - sy; d = L1 + L2 - 0.5; 
+                hx = sx + (dx/d)*(L1+L2 - 0.5); dy = sy + (dy/d)*(L1+L2 - 0.5); dx = hx - sx; dy = hy - sy; d = L1 + L2 - 0.5; 
             }
 
             let a = Math.max(-1, Math.min(1, (L1*L1 + d*d - L2*L2) / (2*L1*d)));
             let angleOffset = Math.acos(a);
-            
             let angle1 = Math.atan2(dy, dx) + angleOffset; 
-            if (dy < -10) angle1 = Math.atan2(dy, dx) - angleOffset; 
 
             let ex = sx + Math.cos(angle1) * L1, ey = sy + Math.sin(angle1) * L1;
             
             ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
             if(this.isStar) ctx.filter = 'invert(1) sepia(1) saturate(5) hue-rotate(175deg)';
 
-            ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(sx + (ex-sx)*0.6, sy + (ey-sy)*0.6);
+            // Oberarm
+            ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ex, ey);
             ctx.lineWidth = 14; ctx.strokeStyle = '#8A0500'; ctx.stroke();
             ctx.lineWidth = 10; ctx.strokeStyle = '#D11100'; ctx.stroke();
             
-            ctx.beginPath(); ctx.moveTo(sx + (ex-sx)*0.5, sy + (ey-sy)*0.5); ctx.lineTo(ex, ey); ctx.lineTo(hx, hy);
+            // Unterarm
+            ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(hx, hy);
             ctx.lineWidth = 10; ctx.strokeStyle = '#C18D5D'; ctx.stroke();
             ctx.lineWidth = 6; ctx.strokeStyle = '#E8B682'; ctx.stroke();
             
+            // Hand
             ctx.fillStyle = '#FFF'; ctx.beginPath(); ctx.arc(hx, hy, 8, 0, Math.PI*2); ctx.fill();
-            ctx.fillStyle = '#DDD'; ctx.beginPath(); ctx.arc(hx-2, hy-2, 6, 0, Math.PI*2); ctx.fill();
             ctx.restore();
         };
 
@@ -460,83 +484,61 @@
             // Keine Waffe
         }
         else if (this.weapon === 'KNIFE') {
+            ctx.translate(-5, -10); // Korrektur Griff
             ctx.fillStyle = '#222'; ctx.fillRect(-5, 0, 10, 20); 
             ctx.fillStyle = '#111'; ctx.fillRect(-8, -2, 16, 4); 
             ctx.fillStyle = '#DDD'; ctx.beginPath(); ctx.moveTo(-4, -2); ctx.lineTo(-4, -35); ctx.lineTo(4, -25); ctx.lineTo(4, -2); ctx.fill(); 
             ctx.fillStyle = '#FFF'; ctx.beginPath(); ctx.moveTo(-1, -2); ctx.lineTo(-1, -30); ctx.lineTo(1, -25); ctx.lineTo(1, -2); ctx.fill(); 
-            ctx.fillStyle = '#900'; ctx.fillRect(-4, -35, 8, 12); 
         } 
-        else if (this.weapon === 'BAT') {
+                else if (this.weapon === 'BAT') {
+            ctx.translate(0, -10); // Griff weiter in die Hand schieben (fast Mitte)
             const grad = ctx.createLinearGradient(0, -60, 0, 20);
             grad.addColorStop(0, '#A0522D'); grad.addColorStop(1, '#5C3A21');
             ctx.fillStyle = grad; 
             ctx.beginPath(); ctx.moveTo(-4, 25); ctx.lineTo(-8, -70); ctx.arc(0, -70, 8, Math.PI, 0); ctx.lineTo(4, 25); ctx.fill(); 
-            ctx.fillStyle = '#333'; ctx.fillRect(-5, 25, 10, 6); 
             ctx.fillStyle = '#EEE'; ctx.fillRect(-5, 5, 10, 15); 
-            ctx.fillStyle = '#777'; ctx.fillRect(-12, -60, 24, 2); ctx.fillRect(-10, -50, 20, 2); ctx.fillRect(-11, -40, 22, 2);
             ctx.fillStyle = '#900'; ctx.fillRect(-8, -75, 16, 25); 
         }
         else if (this.weapon === 'AXE') {
+            ctx.translate(0, 20);
             ctx.fillStyle = '#654321'; ctx.fillRect(-4, -40, 8, 70); 
-            ctx.fillStyle = '#333'; ctx.fillRect(-6, 15, 12, 10); 
-            ctx.fillStyle = '#444'; ctx.fillRect(-12, -35, 24, 15);
             ctx.fillStyle = '#AAA'; ctx.beginPath(); ctx.moveTo(12, -35); ctx.quadraticCurveTo(35, -45, 35, -27); ctx.quadraticCurveTo(35, -10, 12, -20); ctx.fill();
-            ctx.fillStyle = '#FFF'; ctx.beginPath(); ctx.moveTo(30, -35); ctx.quadraticCurveTo(35, -27, 30, -20); ctx.fill(); 
             ctx.fillStyle = '#900'; ctx.beginPath(); ctx.moveTo(25, -40); ctx.quadraticCurveTo(35, -27, 25, -15); ctx.fill(); 
         }
-        else if (this.weapon === 'CHAINSAW') {
-            ctx.fillStyle = '#F90'; ctx.fillRect(-15, -10, 45, 25); 
-            ctx.fillStyle = '#333'; ctx.fillRect(-20, -15, 15, 35); 
-            ctx.fillStyle = '#111'; ctx.fillRect(5, -20, 8, 10); ctx.fillRect(-5, -20, 18, 4); 
-            ctx.fillStyle = '#666'; ctx.fillRect(30, -2, 60, 14); 
-            ctx.fillStyle = '#999'; ctx.fillRect(32, 0, 56, 10); 
-            ctx.fillStyle = '#111'; 
+                                else if (this.weapon === 'CHAINSAW') {
+            ctx.translate(-10, 0);
+            ctx.fillStyle = '#F90'; ctx.fillRect(-15, -10, 45, 20); 
+            ctx.fillStyle = '#333'; ctx.fillRect(-20, -15, 15, 30); 
+            ctx.fillStyle = '#666'; ctx.fillRect(30, -2, 60, 12); 
             let offset = (performance.now() / 20) % 8; 
-            for(let i=0; i<56; i+=8) { let x = 30 + i + (progress > 0 ? offset : 0); if (x < 85) { ctx.fillRect(x, -5, 4, 4); ctx.fillRect(x, 11, 4, 4); } }
+            ctx.fillStyle = '#111'; for(let i=0; i<56; i+=8) { let x = 30 + i + (progress > 0 ? offset : 0); if (x < 85) { ctx.fillRect(x, -5, 4, 4); ctx.fillRect(x, 11, 4, 4); } }
             ctx.fillStyle = '#900'; ctx.fillRect(60, -5, 30, 20); 
         }
         else if (this.weapon === 'PISTOL') {
             ctx.fillStyle = '#222'; ctx.fillRect(0, -8, 30, 12); 
-            ctx.fillStyle = '#444'; ctx.fillRect(0, -8, 30, 4); 
             ctx.fillStyle = '#111'; ctx.fillRect(-5, 4, 12, 15); 
-            ctx.fillStyle = '#333'; ctx.fillRect(5, 4, 8, 4); 
         } 
         else if (this.weapon === 'UZI') {
             ctx.fillStyle = '#222'; ctx.fillRect(-10, -8, 40, 16); 
             ctx.fillStyle = '#111'; ctx.fillRect(0, 8, 12, 18); 
-            ctx.fillStyle = '#333'; ctx.fillRect(25, 8, 6, 12); 
             ctx.fillStyle = '#000'; ctx.fillRect(30, -4, 15, 4); 
         } 
         else if (this.weapon === 'SHOTGUN') {
             ctx.fillStyle = '#5C3A21'; ctx.fillRect(-20, 0, 15, 12); 
             ctx.fillStyle = '#222'; ctx.fillRect(-5, -6, 20, 16); 
             ctx.fillStyle = '#444'; ctx.fillRect(15, -6, 45, 6); 
-            ctx.fillStyle = '#333'; ctx.fillRect(15, 0, 45, 6); 
-            ctx.fillStyle = '#5C3A21'; ctx.fillRect(15, 6, 20, 8); 
         } 
         else if (this.weapon === 'ASSAULT_RIFLE') {
             ctx.fillStyle = '#111'; ctx.fillRect(-15, -2, 15, 10); 
             ctx.fillStyle = '#222'; ctx.fillRect(0, -8, 45, 16); 
             ctx.fillStyle = '#111'; ctx.fillRect(5, 8, 12, 20); 
-            ctx.fillStyle = '#444'; ctx.fillRect(45, -4, 30, 6); 
-            ctx.fillStyle = '#222'; ctx.fillRect(10, -16, 20, 8); 
         } 
         else if (this.weapon === 'MINIGUN') {
             ctx.fillStyle = '#222'; ctx.fillRect(-20, -15, 50, 30); 
             ctx.fillStyle = '#111'; ctx.fillRect(30, -10, 50, 20); 
-            ctx.fillStyle = '#444'; 
-            let rotY = Math.sin(performance.now() / 20) * 4;
-            if (progress > 0) {
-                ctx.fillRect(30, -10 + rotY, 55, 4); ctx.fillRect(30, 0 - rotY, 55, 4); ctx.fillRect(30, 6 + rotY, 55, 4);
-            } else {
-                ctx.fillRect(30, -8, 55, 4); ctx.fillRect(30, 0, 55, 4); ctx.fillRect(30, 8, 55, 4);
-            }
-            ctx.fillStyle = '#B8860B'; for(let i=0; i<5; i++) ctx.fillRect(-10, 15 + i*8, 8, 6);
         } 
         else if (this.weapon === 'ROCKET') {
             ctx.fillStyle = '#456'; ctx.fillRect(-15, -12, 70, 24); 
-            ctx.fillStyle = '#234'; ctx.fillRect(55, -14, 10, 28); 
-            ctx.fillStyle = '#111'; ctx.fillRect(0, 12, 10, 18); ctx.fillRect(30, 12, 10, 18); 
             ctx.fillStyle = '#F00'; ctx.fillRect(40, -10, 15, 20); 
         }
         else if (this.weapon === 'MOLOTOV') {
@@ -544,26 +546,20 @@
         }
         else if (this.weapon === 'GRENADE') {
             ctx.fillStyle = '#004400'; ctx.beginPath(); ctx.arc(0, 0, 12, 0, Math.PI*2); ctx.fill(); 
-            ctx.fillStyle = '#002200'; for(let x=-8; x<8; x+=4) for(let y=-8; y<8; y+=4) ctx.fillRect(x, y, 3, 3); 
-            ctx.fillStyle = '#111'; ctx.fillRect(-4, -16, 8, 6); 
         }
         else if (this.weapon === 'FLAMETHROWER') {
             ctx.fillStyle = '#811'; ctx.fillRect(-15, -10, 45, 20); 
             ctx.fillStyle = '#222'; ctx.fillRect(30, -5, 30, 10); 
-            ctx.fillStyle = '#111'; ctx.fillRect(0, 10, 10, 18); 
-            ctx.fillStyle = '#444'; ctx.fillRect(20, 10, 8, 15); 
-            ctx.fillStyle = '#FF0'; ctx.beginPath(); ctx.arc(62, -5, 4, 0, Math.PI*2); ctx.fill();
         }
 
         if (!this.isDead && this.flashTimer > 0 && this.weapon !== 'GRENADE') { 
             ctx.fillStyle = '#FFFF00'; 
             let flashX = ['ROCKET', 'MINIGUN', 'ASSAULT_RIFLE', 'FLAMETHROWER', 'SHOTGUN'].includes(this.weapon) ? 70 : 35;
             ctx.beginPath(); ctx.arc(flashX, -2, 20 + Math.random()*25, 0, Math.PI*2); ctx.fill(); 
-            ctx.fillStyle = '#FFF'; ctx.beginPath(); ctx.arc(flashX, -2, 10 + Math.random()*10, 0, Math.PI*2); ctx.fill(); 
         }
         ctx.restore();
 
-        if (!this.isDead) drawArm(0, -20, fhx, fhy);
+        if (!this.isDead) drawArm(sX, sY, fhx, fhy);
         
         ctx.restore();
     }

@@ -28,8 +28,9 @@ class Game {
         this.shakeMag = 0; 
         this.shakeTime = 0; 
         this.deathY = 2000;
-        this.level = 1; 
+                this.level = 1; 
         this.difficulty = 'regular'; 
+        this.maxUnlockedLevel = parseInt(localStorage.getItem('badMarioUnlockedLevel')) || 1;
         this.maxReachedLevel = 1;
         this.transitionTimer = 0; 
         this.levelFlashTimer = 0;
@@ -55,13 +56,46 @@ class Game {
             startPrompt: document.getElementById('start-screen-prompt'),
             finalLevel: document.getElementById('final-level'),
             finalScore: document.getElementById('final-score'),
-            inventoryDiv: document.getElementById('hud-inventory')
+            inventoryDiv: document.getElementById('hud-inventory'),
+            levelSelection: document.getElementById('level-selection'),
+            levelButtons: document.getElementById('level-buttons')
         };
         this.uiCache = { hp: -1, score: -1, coins: -1, level: -1, weapon: '' };
 
         this.resize(); 
         window.addEventListener('resize', () => this.resize());
         this.setupEventListeners();
+        this.updateLevelSelection();
+    }
+
+    updateLevelSelection() {
+        if (!this.ui.levelSelection || !this.ui.levelButtons) return;
+        
+        if (this.maxUnlockedLevel > 1) {
+            this.ui.levelSelection.classList.remove('hidden');
+            this.ui.levelButtons.innerHTML = '';
+            
+            for (let i = 1; i <= this.maxUnlockedLevel; i++) {
+                const btn = document.createElement('button');
+                btn.className = 'diff-btn regular';
+                btn.style.width = '60px';
+                btn.style.minWidth = '60px';
+                                btn.innerText = i;
+                
+                if (i === this.level) {
+                    btn.style.backgroundColor = 'rgba(255, 215, 0, 0.4)';
+                    btn.style.borderColor = '#FFD700';
+                    btn.style.color = '#FFF';
+                    btn.style.boxShadow = '0 0 15px #FFD700';
+                }
+                
+                btn.onclick = () => {
+                    this.level = i;
+                    this.updateLevelSelection();
+                };
+                this.ui.levelButtons.appendChild(btn);
+            }
+        }
     }
 
         setupEventListeners() {
@@ -72,7 +106,7 @@ class Game {
             } catch (e) {}
             
             this.audio.init();
-            this.startPlay(1, diff);
+            this.startPlay(this.level, diff);
         };
 
         document.body.addEventListener('click', (e) => {
@@ -255,13 +289,18 @@ class Game {
         this.updateHUD();
     }
 
-    handleBossDefeat() {
+        handleBossDefeat() {
         this.triggerShake(60, 2.0); 
         this.audio.playExplosion();
         this.player.score += 5000; 
 
         if (this.level < 3) {
             this.level++;
+            if (this.level > this.maxUnlockedLevel) {
+                this.maxUnlockedLevel = this.level;
+                localStorage.setItem('badMarioUnlockedLevel', this.maxUnlockedLevel);
+                this.updateLevelSelection();
+            }
             this.maxReachedLevel = Math.max(this.maxReachedLevel, this.level);
             this.audio.updateBGM(this.level);
             this.transitionTimer = 4.0;
