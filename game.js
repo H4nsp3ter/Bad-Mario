@@ -228,11 +228,10 @@ class Game {
         this.maxReachedLevel = Math.max(this.maxReachedLevel, level);
         this.camera = { x: 0, y: 0 }; 
         this.player = new Player(100, 200);
-        
-        if (level === 2) this.player.score = 3000; 
-        else if (level === 3) this.player.score = 6000;
-        
-        this.levelGen.init(0, 500); 
+        this._bossWasActive = false;
+        const wasted = document.querySelector('.wasted-text'); if (wasted) wasted.innerText = 'WASTED';
+
+        this.levelGen.init(0, 500);
         this.projectiles = []; 
         this.particles.particles = [];
         this.screenBlood = [];
@@ -289,12 +288,18 @@ class Game {
         this.updateHUD();
     }
 
-        handleBossDefeat() {
-        this.triggerShake(60, 2.0); 
+    handleBossDefeat() {
+        this.triggerShake(80, 2.5);
         this.audio.playExplosion();
-        this.player.score += 5000; 
+        this.player.score += 5000;
+        this.advanceLevel();
+    }
 
-        if (this.level < 3) {
+    // Genereller Levelwechsel — durch Boss-Sieg (gerade Level) ODER Ziel-Erreichen (ungerade Level)
+    advanceLevel() {
+        this.transitionTimer = 4.0;
+        this.levelFlashTimer = 1.2;
+        if (this.level < 10) {
             this.level++;
             if (this.level > this.maxUnlockedLevel) {
                 this.maxUnlockedLevel = this.level;
@@ -302,14 +307,22 @@ class Game {
                 this.updateLevelSelection();
             }
             this.maxReachedLevel = Math.max(this.maxReachedLevel, this.level);
-            this.audio.updateBGM(this.level);
-            this.transitionTimer = 4.0;
-            this.levelFlashTimer = 1.5;
-            this.levelGen.bossSpawned = false; 
-            this.levelGen.cursorX += 1500; 
+            this.levelGen.bossSpawned = false;
+            this._bossWasActive = false;
+            this.player.hp = Math.min(CONFIG.MAX_HP, this.player.hp + 25); // kleine Heilung beim Übergang
+            // Level wird automatisch neu generiert (LevelGenerator erkennt den Levelwechsel)
         } else {
-            this.player.hp = 0;
-            this.triggerGameOver();
+            // Sieg!
+            this.state = 'GAMEOVER';
+            this.audio.stopBGM();
+            const wasted = document.querySelector('.wasted-text'); if (wasted) wasted.innerText = 'VICTORY!';
+            if (this.ui.menuOverlay) this.ui.menuOverlay.classList.remove('hidden');
+            if (this.ui.gameOverStats) this.ui.gameOverStats.classList.remove('hidden');
+            if (this.ui.startPrompt) this.ui.startPrompt.classList.add('hidden');
+            if (this.ui.finalLevel) this.ui.finalLevel.innerText = '10 — ALL CLEARED';
+            if (this.ui.finalScore) this.ui.finalScore.innerText = this.player.score;
+            if (this.player.score > this.savedHighscore) { this.savedHighscore = this.player.score; localStorage.setItem('badMarioHighscore', this.savedHighscore); }
+            if (this.ui.mobileControls) this.ui.mobileControls.classList.add('hidden');
         }
         this.updateHUD();
     }
@@ -346,8 +359,9 @@ class Game {
             this.uiCache.level = this.level;
         }
         
-        const currentWeaponStr = `${this.player.weapon} [${this.player.ammo === Infinity ? '∞' : this.player.ammo}]`;
+                const currentWeaponStr = `${this.player.weapon} [${this.player.ammo === Infinity ? '∞' : this.player.ammo}]`;
         if (this.uiCache.weapon !== currentWeaponStr) {
+            if (this.ui.weaponVal) this.ui.weaponVal.innerText = currentWeaponStr;
             this.updateInventoryUI();
             this.uiCache.weapon = currentWeaponStr;
         }
@@ -416,8 +430,9 @@ class Game {
             }
         }
         
-        this.draw(); 
-        this.input.update(); 
+        this.draw();
+        this.input.update();
+        if (this.audio.tickSustains) this.audio.tickSustains(); // Dauerfeuer-/Flammen-Loops sauber beenden
         requestAnimationFrame((t) => this.loop(t));
     }
 
@@ -440,7 +455,11 @@ class Game {
             if (this.screenBlood[i].alpha <= 0) this.screenBlood.splice(i, 1);
         }
         
-        this.audio.updateBGM(this.level);
+        // Boss-Thrash läuft, sobald ein Endboss in der Arena ist
+        const bossActive = this.levelGen.enemies.some(e => e.isBoss && !e.dead);
+        if (bossActive && !this._bossWasActive) this.audio.playRoar(); // Gebrüll beim Auftritt
+        this._bossWasActive = bossActive;
+        this.audio.updateBGM(this.level, bossActive);
         this.levelGen.update(this.camera.x, this.logicalWidth, this.level, this.difficulty);
         this.particles.update(dt, this.levelGen.platforms);
         
@@ -482,8 +501,15 @@ class Game {
             }
         }
         
+        // Level-Ende auf Nicht-Boss-Leveln: Ziel-Flagge erreicht -> nächstes Level
+        if (this.levelGen.goalX != null && this.player.x > this.levelGen.goalX) {
+            this.levelGen.goalX = null;
+            this.audio.playPickup(true);
+            this.advanceLevel();
+        }
+
         for (let i = this.levelGen.items.length - 1; i >= 0; i--) {
-            let item = this.levelGen.items[i]; 
+            let item = this.levelGen.items[i];
             item.update(dt);
             if (this.player.checkCollision(item)) {
                 
@@ -495,16 +521,18 @@ class Game {
                     this.player.hp = Math.min(CONFIG.MAX_HP, this.player.hp + 50); 
                     this.particles.spawn(item.x + item.w/2, item.y + item.h/2, CONFIG.COLORS.POWERUP_HEART || '#FF0000', 30, 250); 
                 } 
-                else if (item.type === 'BEER') { 
-                    this.player.score += 50; this.player.coins += 1; 
-                    this.particles.spawn(item.x + item.w/2, item.y + item.h/2, '#8B4513', 15, 150); 
-                    this.checkLevelUp(); 
-                } 
-                else if (item.type === 'LIQUOR') { 
-                    this.player.score += 500; this.player.coins += 1; 
-                    this.particles.spawn(item.x + item.w/2, item.y + item.h/2, '#00FFFF', 25, 200); 
-                    this.checkLevelUp(); 
-                } 
+                else if (item.type === 'BEER') {
+                    this.player.hp = Math.min(CONFIG.MAX_HP, this.player.hp + 8);    // Bier heilt ein wenig
+                    this.player.score += 50; this.player.coins += 1;
+                    this.particles.spawn(item.x + item.w/2, item.y + item.h/2, '#8B4513', 15, 150);
+                    this.checkLevelUp();
+                }
+                else if (item.type === 'LIQUOR') {
+                    this.player.hp = Math.min(CONFIG.MAX_HP, this.player.hp + 20);   // Schnaps heilt mehr
+                    this.player.score += 500; this.player.coins += 1;
+                    this.particles.spawn(item.x + item.w/2, item.y + item.h/2, '#00FFFF', 25, 200);
+                    this.checkLevelUp();
+                }
                 else if (item.type === 'STAR') { 
                     this.player.isStar = true;
                     this.player.starTimer = 10.0;
@@ -567,14 +595,28 @@ class Game {
                 hit = true; 
             }
             
-            if (!hit && !proj.isEnemy) {
+                        if (!hit && !proj.isEnemy) {
                 for (let j = this.levelGen.enemies.length - 1; j >= 0; j--) {
                     let enemy = this.levelGen.enemies[j];
                     if (!enemy.dead && proj.checkCollision(enemy)) {
                         let damage = 25;
-                        if (proj.type === 'FLAME' || proj.type === 'MOLOTOV_FIRE') damage = 5;
-                        else if (proj.type === 'ROCKET') damage = 100;
-                        
+                        if (proj.type === 'FLAME' || proj.type === 'MOLOTOV_FIRE') damage = 15;
+                        else if (proj.type === 'ROCKET') damage = 500;
+
+                        // Bosse sind schwer gepanzert: nur Kopftreffer (oberes ~28%) richten vollen Schaden an,
+                        // Körpertreffer prallen weitgehend ab -> gezieltes Zielen wird belohnt.
+                        if (enemy.isBoss) {
+                            const projCy = proj.y + proj.h / 2;
+                            if (projCy <= enemy.y + enemy.h * 0.28) {
+                                damage *= 3;
+                                this.particles.spawn(proj.x, proj.y, '#FFFF00', 8, 320, 0.4, true); // Kopftreffer-Funken
+                                this.triggerShake(6, 0.1);
+                            } else {
+                                damage *= 0.15;
+                                this.particles.spawn(proj.x, proj.y, '#AAAAAA', 4, 160, 0.25); // Abpraller am Panzer
+                            }
+                        }
+
                         enemy.takeDamage(damage, this, proj.type);
                         
                         if (proj.type !== 'FLAME' && proj.type !== 'MOLOTOV_FIRE') hit = true;
@@ -648,39 +690,55 @@ class Game {
     }
 
     drawBackground(levelData) {
+        const theme = levelData.theme || 1;
         const gradient = this.ctx.createLinearGradient(0, 0, 0, this.logicalHeight);
-        gradient.addColorStop(0, levelData.SKY_TOP); 
+        gradient.addColorStop(0, levelData.SKY_TOP);
         gradient.addColorStop(1, levelData.SKY_BOTTOM);
-        this.ctx.fillStyle = gradient; 
+        this.ctx.fillStyle = gradient;
         this.ctx.fillRect(0, 0, this.logicalWidth, this.logicalHeight);
-        
+
+        const silh = { 1: '#112200', 2: '#1A2A3A', 3: '#2A4456', 4: '#0E0810', 5: '#220000' };
         for (let l = 0; l < this.bgLayers.length; l++) {
             let layer = this.bgLayers[l];
-            this.ctx.fillStyle = l === 2 ? '#000' : (this.level === 2 ? '#1A2A3A' : (this.level === 1 ? '#112200' : '#220000'));
-            
+            this.ctx.fillStyle = l === 2 ? '#000' : (silh[theme] || '#111');
+
             for (let i = 0; i < layer.elements.length; i++) {
                 let e = layer.elements[i];
-                let drawX = (e.x - this.camera.x * layer.speed) % 6000; 
+                let drawX = (e.x - this.camera.x * layer.speed) % 6000;
                 if (drawX < -800) drawX += 6000;
                 let drawY = e.y - this.camera.y * (layer.speed * 0.5) + this.logicalHeight * 0.3;
-                
-                if (this.level === 1) { 
-                    this.ctx.beginPath(); this.ctx.moveTo(drawX + e.w/2, drawY - e.h); this.ctx.lineTo(drawX + e.w, drawY + e.h); this.ctx.lineTo(drawX, drawY + e.h); this.ctx.fill(); 
-                } 
-                else if (this.level === 2) { 
-                    this.ctx.fillRect(drawX, drawY, e.w * 0.5, e.h * 1.5); 
-                    if (e.type === 0) this.ctx.fillRect(drawX + e.w*0.5, drawY + 50, e.w*0.5, 20); 
-                } 
-                else { 
-                    this.ctx.beginPath(); this.ctx.moveTo(drawX + e.w/2, drawY); this.ctx.quadraticCurveTo(drawX + e.w, drawY + e.h/2, drawX + e.w/2, drawY + e.h); this.ctx.quadraticCurveTo(drawX, drawY + e.h/2, drawX + e.w/2, drawY); this.ctx.fill(); 
+
+                if (theme === 1) {          // Bäume
+                    this.ctx.beginPath(); this.ctx.moveTo(drawX + e.w/2, drawY - e.h); this.ctx.lineTo(drawX + e.w, drawY + e.h); this.ctx.lineTo(drawX, drawY + e.h); this.ctx.fill();
+                }
+                else if (theme === 2 || theme === 4) {  // Gebäude / Maschinen
+                    this.ctx.fillRect(drawX, drawY, e.w * 0.5, e.h * 1.5);
+                    if (e.type === 0) this.ctx.fillRect(drawX + e.w*0.5, drawY + 50, e.w*0.5, 20);
+                }
+                else if (theme === 3) {     // Eiszacken
+                    this.ctx.beginPath(); this.ctx.moveTo(drawX, drawY + e.h); this.ctx.lineTo(drawX + e.w*0.35, drawY - e.h*0.7); this.ctx.lineTo(drawX + e.w*0.7, drawY + e.h); this.ctx.fill();
+                }
+                else {                       // Theme 5: Fleisch (Kurven)
+                    this.ctx.beginPath(); this.ctx.moveTo(drawX + e.w/2, drawY); this.ctx.quadraticCurveTo(drawX + e.w, drawY + e.h/2, drawX + e.w/2, drawY + e.h); this.ctx.quadraticCurveTo(drawX, drawY + e.h/2, drawX + e.w/2, drawY); this.ctx.fill();
                 }
             }
         }
     }
 
+    drawGoal(gx) {
+        const ctx = this.ctx, x = gx - this.camera.x, groundY = 600 - this.camera.y, t = performance.now() / 200;
+        ctx.fillStyle = 'rgba(255,220,80,0.18)'; ctx.fillRect(x - 26, groundY - 360, 52, 360); // Lichtsäule
+        ctx.fillStyle = '#cfcfcf'; ctx.fillRect(x - 4, groundY - 360, 8, 360);                 // Mast
+        ctx.fillStyle = '#888'; ctx.beginPath(); ctx.arc(x, groundY - 360, 10, 0, Math.PI*2); ctx.fill();
+        ctx.fillStyle = '#d11100';                                                              // wehende Fahne
+        ctx.beginPath(); ctx.moveTo(x + 4, groundY - 352); ctx.lineTo(x + 72 + Math.sin(t)*6, groundY - 332); ctx.lineTo(x + 4, groundY - 300); ctx.fill();
+        ctx.fillStyle = '#fff'; ctx.font = 'bold 20px monospace'; ctx.textAlign = 'center';
+        ctx.fillText('EXIT', x + 30, groundY - 320); ctx.textAlign = 'left';
+    }
+
     draw() {
-        this.ctx.save(); 
-        
+        this.ctx.save();
+
         this.ctx.fillStyle = '#000';
         this.ctx.fillRect(0, 0, this.canvas.width, this.canvas.height);
 
@@ -694,8 +752,10 @@ class Game {
         const levelData = CONFIG.LEVELS[this.level]; 
         this.drawBackground(levelData);
         
-        for (let i = 0; i < this.levelGen.ladders.length; i++) this.levelGen.ladders[i].draw(this.ctx, this.camera.x, this.camera.y, this.level);
-        for (let i = 0; i < this.levelGen.platforms.length; i++) this.levelGen.platforms[i].draw(this.ctx, this.camera.x, this.camera.y, levelData, this.level);
+        const theme = levelData.theme || 1;
+        for (let i = 0; i < this.levelGen.ladders.length; i++) this.levelGen.ladders[i].draw(this.ctx, this.camera.x, this.camera.y, theme);
+        for (let i = 0; i < this.levelGen.platforms.length; i++) this.levelGen.platforms[i].draw(this.ctx, this.camera.x, this.camera.y, levelData, theme);
+        if (this.levelGen.goalX != null) this.drawGoal(this.levelGen.goalX);
         for (let i = 0; i < this.levelGen.corpses.length; i++) this.levelGen.corpses[i].draw(this.ctx, this.camera.x, this.camera.y);
         for (let i = 0; i < this.levelGen.items.length; i++) this.levelGen.items[i].draw(this.ctx, this.camera.x, this.camera.y);
         for (let i = 0; i < this.levelGen.enemies.length; i++) this.levelGen.enemies[i].draw(this.ctx, this.camera.x, this.camera.y);
@@ -709,7 +769,7 @@ class Game {
             this.ctx.shadowBlur = 0;
         }
 
-        this.particles.draw(this.ctx, this.camera.x, this.camera.y);
+        this.particles.draw(this.ctx, this.camera.x, this.camera.y, this.logicalWidth, this.logicalHeight);
         
         const time = performance.now() / 300;
         const startY = this.deathY - this.camera.y;
@@ -814,9 +874,9 @@ class Game {
         this.ctx.fillStyle = 'rgba(0,0,0,0.3)'; 
         for (let i = 0; i < this.logicalHeight; i += 4) this.ctx.fillRect(0, i, this.logicalWidth, 2);
         
-        if (this.state === 'PLAYING' && this.level === 3) { 
-            this.ctx.fillStyle = 'rgba(255,0,0,0.05)'; 
-            this.ctx.fillRect(0, 0, this.logicalWidth, this.logicalHeight); 
+        if (this.state === 'PLAYING' && this.level >= 9) {
+            this.ctx.fillStyle = 'rgba(255,0,0,0.05)';
+            this.ctx.fillRect(0, 0, this.logicalWidth, this.logicalHeight);
         }
         if (this.levelFlashTimer > 0) { 
             this.ctx.fillStyle = `rgba(255, 255, 255, ${this.levelFlashTimer})`; 

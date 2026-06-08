@@ -15,6 +15,21 @@ class Enemy extends Entity {
         this.hp -= amount; 
         this.hurtTimer = 0.2;
         
+        // Knockback-Effekt: Gegner werden zurückgeschleudert
+        const knockDir = (game.player.x < this.x ? 1 : -1);
+        this.vx = knockDir * 400;
+        if (this.grounded) this.vy = -200; 
+
+        // Blut-Effekt an der Trefferstelle
+        const hitX = this.x + Math.random() * this.w;
+        const hitY = this.y + Math.random() * this.h;
+        game.particles.spawnBlood(hitX, hitY, 15);
+        
+        // Je nach Schaden mehr Blut
+        if (amount > 50) {
+            game.particles.spawnBlood(this.x + this.w/2, this.y + this.h/2, 30);
+        }
+
         if (projType === 'FLAME' || projType === 'MOLOTOV_FIRE') {
             this.onFire = true;
             this.fireTimer = 3.0; 
@@ -25,25 +40,40 @@ class Enemy extends Entity {
             this.vx *= -0.5; 
         }
         
-        game.particles.spawnBlood(this.x + this.w/2, this.y + this.h/2, 10);
         game.audio.playDeathScream(this.isBoss ? 'GIANT' : this.enemyType);
         
         if (this.hp <= 0) {
             this.dead = true;
             game.audio.playSplatter();
-            game.particles.spawnBlood(this.x + this.w/2, this.y + this.h/2, 100);
+
+            // Zerfetzen-Logik bei hohem Schaden oder Shotgun
+            // In diesem Spiel nutzen Shotgun, Uzi etc. alle 'PISTOL' Projektile, aber mit hohem Impact
+            const isGore = amount > 150 || projType === 'ROCKET' || (projType === 'PISTOL' && Math.random() > 0.7); 
+            
+            if (isGore && !this.isBoss) {
+                // In mehrere blutige Klumpen zerlegen
+                for(let i=0; i<3; i++) {
+                    const chunkVX = (knockDir * 300) + (Math.random() - 0.5) * 400;
+                    const chunkVY = -400 - Math.random() * 400;
+                    game.levelGen.corpses.push(new Corpse(this.x, this.y, this.w*0.6, this.h*0.4, 'DEAD_MESS', 'GORE_CHUNK', this.level, this.facingLeft, chunkVX, chunkVY));
+                }
+                game.particles.spawnBlood(this.x + this.w/2, this.y + this.h/2, 150);
+            } else {
+                game.particles.spawnBlood(this.x + this.w/2, this.y + this.h/2, 100);
+                const forceX = knockDir * (400 + Math.random() * 400);
+                const forceY = -300 - Math.random() * 400;
+                
+                let corpseSpriteType = this.isBoss ? 'GIANT' : this.enemyType;
+                if (this instanceof SoldierEnemy) corpseSpriteType = 'SOLDIER';
+                else if (this instanceof SpiderEnemy) corpseSpriteType = 'SPIDER';
+                else if (this instanceof DemonEnemy || this instanceof TridentDemonEnemy) corpseSpriteType = 'DEMON';
+                
+                const cState = this.onFire ? 'ASH' : ['DEAD_WHOLE', 'DEAD_HALF', 'DEAD_MESS'][Math.floor(Math.random() * 3)];
+                game.levelGen.corpses.push(new Corpse(this.x, this.y, this.w, this.h, cState, corpseSpriteType, this.level, this.facingLeft, forceX, forceY));
+            }
             
             game.triggerShake(this.isBoss ? 40 : 15, this.isBoss ? 1.0 : 0.4);
             game.player.score += (this.isBoss) ? 1000 : (this.enemyType === 'TANK' ? 200 : 100);
-            
-            const cState = this.onFire ? 'ASH' : ['DEAD_WHOLE', 'DEAD_HALF', 'DEAD_MESS'][Math.floor(Math.random() * 3)];
-            
-            let corpseSpriteType = this.isBoss ? 'GIANT' : this.enemyType;
-            if (this instanceof SoldierEnemy) corpseSpriteType = 'SOLDIER';
-            else if (this instanceof SpiderEnemy) corpseSpriteType = 'SPIDER';
-            else if (this instanceof DemonEnemy || this instanceof TridentDemonEnemy) corpseSpriteType = 'DEMON';
-            
-            game.levelGen.corpses.push(new Corpse(this.x, this.y + this.h - 30, this.w, 40, cState, corpseSpriteType, this.level, this.facingLeft));
             
             if (this.isBoss) {
                 game.levelGen.items.push(new Collectible(this.x + this.w/2 - 40, this.y, 'HEART', 80, 80));
@@ -99,32 +129,49 @@ class GiantZombieEnemy extends Enemy {
     
     update(dt, game) {
         if (!game || !game.player) return;
-        if (this.hurtTimer > 0) this.hurtTimer -= dt;
+        const p = game.player; 
+        const dist = Math.hypot(p.x - this.x, p.y - this.y);
+
+        if (this.hurtTimer > 0) {
+            this.hurtTimer -= dt;
+            this.vx *= 0.9;
+        } else {
+            this.facingLeft = p.x < this.x;
+            
+            if (dist > 150 && dist < 1200) { 
+                this.vx = (this.facingLeft ? -1 : 1) * 80; 
+            } else { 
+                this.vx *= 0.8; 
+            }
+        }
+        
         this.updateFire(dt, game);
         this.animTimer += dt; 
         this.cooldown -= dt;
         
-        const p = game.player; 
-        this.facingLeft = p.x < this.x;
-        const dist = Math.hypot(p.x - this.x, p.y - this.y);
-        
-        if (dist > 200 && dist < 1200) { 
-            this.vx = (this.animTimer % 2.5 > 1.8) ? (this.facingLeft ? -1 : 1) * 6 : (this.facingLeft ? -1 : 1) * 80; 
-        } else { 
-            this.vx *= 0.9; 
-        }
-        
         this.vy += CONFIG.GRAVITY * dt; 
         this.x += this.vx * dt; 
+
+        // Horizontale Kollision (Wände)
+        for (let plat of game.levelGen.platforms) {
+            if (!plat.isHazard && this.checkCollision(plat)) {
+                if (this.vx > 0 && this.x + this.w > plat.x && this.y + this.h > plat.y + 10) {
+                    this.x = plat.x - this.w;
+                    if (this.grounded) this.vy = -400; 
+                } else if (this.vx < 0 && this.x < plat.x + plat.w && this.y + this.h > plat.y + 10) {
+                    this.x = plat.x + plat.w;
+                    if (this.grounded) this.vy = -400; 
+                }
+            }
+        }
+
         this.y += this.vy * dt; 
         this.grounded = false;
         
         for (let plat of game.levelGen.platforms) {
             if (this.checkCollision(plat)) {
-                if (this.vy > 0 && this.y + this.h - this.vy * dt <= plat.y + 10) { 
+                if (this.vy > 0 && this.y + this.h - this.vy * dt <= plat.y + 40) { 
                     this.y = plat.y - this.h; this.vy = 0; this.grounded = true; 
-                } else if (this.vx !== 0 && plat.y > this.y + this.h - 40) { 
-                    this.vy = -300; 
                 }
             }
         }
@@ -160,7 +207,7 @@ class GiantZombieEnemy extends Enemy {
             let frame = this.state === 'WALK' ? Math.floor(this.animTimer * 5) % 8 : 0;
             
             if (Assets && Assets.enemies && Assets.enemies[this.level] && Assets.enemies[this.level].giant) {
-                ctx.drawImage(Assets.enemies[this.level].giant, frame * 512, 0, 512, 512, -this.w*0.8, -this.h*0.8, this.w*1.6, this.h*1.6);
+                ctx.drawImage(Assets.enemies[this.level].giant, frame * 512, 0, 512, 512, -this.w*0.8, -this.h*1.0, this.w*1.6, this.h*1.6);
             }
             ctx.restore();
         });
@@ -168,9 +215,9 @@ class GiantZombieEnemy extends Enemy {
 }
 
 class ZombieEnemy extends Enemy {
-    constructor(x, y, level) { 
+    constructor(x, y, level, forcedType = null) {
         const types = ['NORMAL', 'RUNNER', 'SPITTER', 'TANK', 'CRAWLER'];
-        let type = types[Math.floor(Math.random() * types.length)];
+        let type = forcedType || types[Math.floor(Math.random() * types.length)];
         
         let hp = 60, speed = 80, w = 100, h = 150;
         
@@ -189,44 +236,60 @@ class ZombieEnemy extends Enemy {
     
     update(dt, game) {
         if (!game || !game.player) return;
-        if (this.hurtTimer > 0) this.hurtTimer -= dt;
+        
+        if (this.hurtTimer > 0) {
+            this.hurtTimer -= dt;
+            this.vx *= 0.9;
+        } else {
+            const p = game.player; 
+            this.facingLeft = p.x < this.x;
+            let dist = Math.abs(p.x - this.x);
+            
+            if (Math.abs(p.y - this.y) < 400 && dist < 1400) { 
+                if (this.enemyType === 'SPITTER' && dist < 700) {
+                    this.vx *= 0.8;
+                    this.cooldown -= dt;
+                    if (this.cooldown <= 0) {
+                        let cx = this.facingLeft ? this.x : this.x + this.w;
+                        let t = dist / 600;
+                        game.projectiles.push(new Projectile(cx, this.y + 20, this.facingLeft ? -600 : 600, (p.y + p.h/2 - (this.y+20))/t - (0.5*CONFIG.GRAVITY*0.6*t), true, 'GORE', true));
+                        this.cooldown = 2.0 + Math.random();
+                        if(game.audio.playShoot) game.audio.playShoot('PISTOL');
+                    }
+                } else {
+                    this.vx = (this.facingLeft ? -1 : 1) * this.speed; 
+                }
+            } else { 
+                this.vx *= 0.9; 
+            }
+        }
+
         this.updateFire(dt, game);
         this.animTimer += dt * (this.enemyType === 'RUNNER' ? 2 : 1); 
         
-        const p = game.player; 
-        this.facingLeft = p.x < this.x;
-        let dist = Math.abs(p.x - this.x);
-        
-        if (Math.abs(p.y - this.y) < 300 && dist < 1400) { 
-            if (this.enemyType === 'SPITTER' && dist < 700) {
-                this.vx *= 0.9;
-                this.cooldown -= dt;
-                if (this.cooldown <= 0) {
-                    let cx = this.facingLeft ? this.x : this.x + this.w;
-                    let t = dist / 600;
-                    game.projectiles.push(new Projectile(cx, this.y + 20, this.facingLeft ? -600 : 600, (p.y + p.h/2 - (this.y+20))/t - (0.5*CONFIG.GRAVITY*0.6*t), true, 'GORE', true));
-                    this.cooldown = 2.0 + Math.random();
-                    if(game.audio.playShoot) game.audio.playShoot('PISTOL');
-                }
-            } else {
-                let moveMod = (this.enemyType === 'NORMAL' || this.enemyType === 'TANK') && (this.animTimer % 1.5 > 1.0) ? 0.2 : 1.0;
-                this.vx = (this.facingLeft ? -1 : 1) * this.speed * moveMod; 
-            }
-        } else { 
-            this.vx *= 0.95; 
-        }
-        
         this.vy += CONFIG.GRAVITY * dt; 
         this.x += this.vx * dt; 
+
+        // Wand-Kollision und automatisches Springen
+        for (let plat of game.levelGen.platforms) {
+            if (!plat.isHazard && this.checkCollision(plat)) {
+                if (this.enemyType !== 'CRAWLER' && this.grounded) {
+                    if (this.vx > 0 && this.x + this.w > plat.x && this.y + this.h > plat.y + 10) {
+                        this.vy = -450; 
+                    } else if (this.vx < 0 && this.x < plat.x + plat.w && this.y + this.h > plat.y + 10) {
+                        this.vy = -450;
+                    }
+                }
+            }
+        }
+
         this.y += this.vy * dt; 
         this.grounded = false;
         
         for (let plat of game.levelGen.platforms) {
             if (this.checkCollision(plat)) {
-                if (this.vy > 0 && this.y + this.h - this.vy * dt <= plat.y + 10) { 
+                if (this.vy > 0 && this.y + this.h - this.vy * dt <= plat.y + 40) { 
                     this.y = plat.y - this.h; this.vy = 0; this.grounded = true; 
-                } else if (this.vx !== 0 && this.enemyType !== 'CRAWLER') { 
-                    this.vy = -450; 
                 }
             }
         }
@@ -258,7 +321,7 @@ class ZombieEnemy extends Enemy {
                 if (this.enemyType === 'CRAWLER') {
                     ctx.drawImage(spriteToDraw, frame * 512, 0, 512, 512, -this.w*0.8, -this.h*1.2, this.w*1.6, this.h*2.2);
                 } else {
-                    ctx.drawImage(spriteToDraw, frame * 512, 0, 512, 512, -this.w*0.8, -this.h*0.8, this.w*1.6, this.h*1.6);
+                    ctx.drawImage(spriteToDraw, frame * 512, 0, 512, 512, -this.w*0.8, -this.h*1.0, this.w*1.6, this.h*1.6);
                 }
             }
             ctx.restore();
@@ -312,9 +375,9 @@ class SoldierEnemy extends Enemy {
         
         for (let plat of game.levelGen.platforms) {
             if (this.checkCollision(plat)) {
-                if (this.vy > 0 && this.y + this.h - this.vy * dt <= plat.y + 10) { 
+                if (this.vy > 0 && this.y + this.h - this.vy * dt <= plat.y + 40) { 
                     this.y = plat.y - this.h; this.vy = 0; this.grounded = true; 
-                } else if (this.vx !== 0 && plat.y > this.y + this.h - 40) { 
+                } else if (this.vx !== 0 && plat.y > this.y + this.h - 60) { 
                     this.vy = -450; 
                 }
             }
@@ -332,7 +395,7 @@ class SoldierEnemy extends Enemy {
             let frame = this.state === 'WALK' ? Math.floor(this.animTimer * 8) % 8 : 0;
             
             if (Assets && Assets.enemies && Assets.enemies[this.level] && Assets.enemies[this.level].soldier) {
-                ctx.drawImage(Assets.enemies[this.level].soldier, frame * 512, 0, 512, 512, -this.w*0.8, -this.h*0.8, this.w*1.6, this.h*1.6);
+                ctx.drawImage(Assets.enemies[this.level].soldier, frame * 512, 0, 512, 512, -this.w*0.8, -this.h*1.0, this.w*1.6, this.h*1.6);
             }
             
             // Laser-Sight
@@ -385,7 +448,7 @@ class SpiderEnemy extends Enemy {
         
         for (let plat of game.levelGen.platforms) {
             if (this.checkCollision(plat)) {
-                if (this.vy > 0 && this.y + this.h - this.vy * dt <= plat.y + 10) { 
+                if (this.vy > 0 && this.y + this.h - this.vy * dt <= plat.y + 40) { 
                     this.y = plat.y - this.h; this.vy = 0; this.grounded = true; 
                 }
             }
@@ -450,9 +513,9 @@ class TridentDemonEnemy extends Enemy {
         
         for (let plat of game.levelGen.platforms) {
             if (this.checkCollision(plat)) {
-                if (this.vy > 0 && this.y + this.h - this.vy * dt <= plat.y + 10) { 
+                if (this.vy > 0 && this.y + this.h - this.vy * dt <= plat.y + 40) { 
                     this.y = plat.y - this.h; this.vy = 0; this.grounded = true; 
-                } else if (this.vx !== 0 && plat.y > this.y + this.h - 40) { 
+                } else if (this.vx !== 0 && plat.y > this.y + this.h - 60) { 
                     this.vy = -500; 
                 }
             }
@@ -480,7 +543,7 @@ class TridentDemonEnemy extends Enemy {
             else if (this.state === 'WALK') frame = Math.floor(this.animTimer * 8) % 8;
             
             if (Assets && Assets.enemies && Assets.enemies[this.level] && Assets.enemies[this.level].trident_demon) {
-                ctx.drawImage(Assets.enemies[this.level].trident_demon, frame * 512, 0, 512, 512, -this.w*0.8, -this.h*0.8, this.w*1.6, this.h*1.6);
+                ctx.drawImage(Assets.enemies[this.level].trident_demon, frame * 512, 0, 512, 512, -this.w*0.8, -this.h*1.0, this.w*1.6, this.h*1.6);
             }
             ctx.restore();
         });
@@ -531,8 +594,98 @@ class DemonEnemy extends Enemy {
             let frame = Math.floor(this.animTimer * 8) % 8;
 
             if (Assets && Assets.enemies && Assets.enemies[this.level] && Assets.enemies[this.level].demon) {
-                ctx.drawImage(Assets.enemies[this.level].demon, frame * 512, 0, 512, 512, -this.w*0.8, -this.h*0.8, this.w*1.6, this.h*1.6);
+                ctx.drawImage(Assets.enemies[this.level].demon, frame * 512, 0, 512, 512, -this.w*0.8, -this.h*1.0, this.w*1.6, this.h*1.6);
             }
+            ctx.restore();
+        });
+    }
+}
+
+// NEU: Höllenhund — schneller, bodennaher Vierbeiner-Stürmer
+class HellhoundEnemy extends Enemy {
+    constructor(x, y, level) {
+        super(x, y, 160, 90, 45 + level * 10, level, 'HELLHOUND');
+        this.speed = 360 + Math.random() * 120;
+        this.animTimer = Math.random() * 5; this.facingLeft = false; this.grounded = false;
+    }
+    update(dt, game) {
+        if (!game || !game.player) return;
+        if (this.hurtTimer > 0) this.hurtTimer -= dt;
+        this.updateFire(dt, game);
+        const p = game.player;
+        this.facingLeft = p.x < this.x;
+        const dist = Math.abs(p.x - this.x);
+        if (dist < 1400 && Math.abs(p.y - this.y) < 320) {
+            this.vx = (this.facingLeft ? -1 : 1) * this.speed;
+            if (this.grounded && dist < 500 && Math.random() > 0.985) this.vy = -480; // gelegentlicher Satz
+        } else { this.vx *= 0.9; }
+        this.animTimer += dt * 2.2;
+        this.vy += CONFIG.GRAVITY * dt;
+        this.x += this.vx * dt; this.y += this.vy * dt; this.grounded = false;
+        for (let plat of game.levelGen.platforms) {
+            if (this.checkCollision(plat) && this.vy > 0 && this.y + this.h - this.vy * dt <= plat.y + 40) {
+                this.y = plat.y - this.h; this.vy = 0; this.grounded = true;
+            }
+        }
+    }
+    draw(ctx, camX, camY) {
+        this.drawEffects(ctx, () => {
+            ctx.save(); ctx.translate(this.x - camX + this.w / 2, this.y - camY + this.h / 2);
+            if (this.facingLeft) ctx.scale(-1, 1);
+            let frame = Math.floor(this.animTimer * 8) % 8;
+            let s = Assets.enemies[this.level] && Assets.enemies[this.level].hellhound;
+            if (s) ctx.drawImage(s, frame * 512, 0, 512, 512, -this.w * 0.8, -this.h * 1.05, this.w * 1.6, this.h * 2.4);
+            ctx.restore();
+        });
+    }
+}
+
+// NEU: Bloater — langsamer Pest-Wanst, explodiert beim Tod in eine giftige Gaswolke
+class BloaterEnemy extends Enemy {
+    constructor(x, y, level) {
+        super(x, y, 130, 150, 110 + level * 20, level, 'BLOATER');
+        this.speed = 45 + Math.random() * 20;
+        this.animTimer = Math.random() * 5; this.facingLeft = false; this.grounded = false;
+    }
+    update(dt, game) {
+        if (!game || !game.player) return;
+        if (this.hurtTimer > 0) this.hurtTimer -= dt;
+        this.updateFire(dt, game);
+        const p = game.player;
+        this.facingLeft = p.x < this.x;
+        if (Math.abs(p.x - this.x) < 1200) this.vx = (this.facingLeft ? -1 : 1) * this.speed; else this.vx *= 0.9;
+        this.animTimer += dt;
+        this.vy += CONFIG.GRAVITY * dt;
+        this.x += this.vx * dt; this.y += this.vy * dt; this.grounded = false;
+        for (let plat of game.levelGen.platforms) {
+            if (this.checkCollision(plat) && this.vy > 0 && this.y + this.h - this.vy * dt <= plat.y + 40) {
+                this.y = plat.y - this.h; this.vy = 0; this.grounded = true;
+            }
+        }
+    }
+    takeDamage(amount, game, projType = 'NORMAL') {
+        const wasDead = this.dead;
+        super.takeDamage(amount, game, projType);
+        if (!wasDead && this.dead) {
+            const cx = this.x + this.w / 2, cy = this.y + this.h / 2;
+            game.particles.spawn(cx, cy, '#7faf3a', 70, 320, 1.6, true);   // Gaswolke
+            game.particles.spawn(cx, cy, '#cfe85a', 30, 200, 1.2, true);
+            if (game.audio.playExplosion) game.audio.playExplosion();
+            game.triggerShake(16, 0.3);
+            const p = game.player;
+            if (p && !p.isStar && Math.hypot((p.x + p.w / 2) - cx, (p.y + p.h / 2) - cy) < 230) p.takeDamage(28, game);
+            for (let e of game.levelGen.enemies) {
+                if (e !== this && !e.dead && Math.hypot((e.x + e.w / 2) - cx, (e.y + e.h / 2) - cy) < 200) e.takeDamage(70, game, 'FLAME');
+            }
+        }
+    }
+    draw(ctx, camX, camY) {
+        this.drawEffects(ctx, () => {
+            ctx.save(); ctx.translate(this.x - camX + this.w / 2, this.y - camY + this.h / 2);
+            if (this.facingLeft) ctx.scale(-1, 1);
+            let frame = Math.floor(this.animTimer * 4) % 8;
+            let s = Assets.enemies[this.level] && Assets.enemies[this.level].bloater;
+            if (s) ctx.drawImage(s, frame * 512, 0, 512, 512, -this.w * 0.8, -this.h * 0.82, this.w * 1.6, this.h * 1.6);
             ctx.restore();
         });
     }
@@ -542,19 +695,38 @@ class BossGolem extends GiantZombieEnemy {
     constructor(x, y, level) {
         super(x, y, level);
         this.enemyType = 'BOSS_GOLEM';
-        this.hp = 12000;
-        this.w = 300; this.h = 450;
+        this.hp = 4500;
+        this.w = 210; this.h = 330;
+        this.phase = 1;
     }
     
+    update(dt, game) {
+        super.update(dt, game);
+        if (this.hp < 2250 && this.phase === 1) {
+            this.phase = 2;
+            this.speed *= 2;
+        }
+        if (this.phase === 2 && Math.random() > 0.98) {
+            game.projectiles.push(new Projectile(this.x + this.w/2, this.y, (Math.random()-0.5)*1000, -800, true, 'GORE', true));
+        }
+    }
+
     draw(ctx, camX, camY) {
         this.drawEffects(ctx, () => {
             ctx.save(); 
             ctx.translate(this.x - camX + this.w / 2, this.y - camY + this.h / 2);
             if (this.facingLeft) ctx.scale(-1, 1);
-            let frame = this.state === 'WALK' ? Math.floor(this.animTimer * 5) % 8 : 0;
+            let frame = Math.floor(this.animTimer * 5) % 8;
             
-            if (Assets && Assets.enemies && Assets.enemies[this.level] && Assets.enemies[this.level].boss_golem) {
-                ctx.drawImage(Assets.enemies[this.level].boss_golem, frame * 512, 0, 512, 512, -this.w*0.8, -this.h*0.8, this.w*1.6, this.h*1.6);
+            if (this.phase === 2) {
+                ctx.filter = 'hue-rotate(90deg) brightness(1.5) contrast(1.2)';
+                // Rage-Aura
+                ctx.shadowBlur = 40; ctx.shadowColor = '#F00';
+            }
+
+            let sprite = Assets && Assets.enemies && Assets.enemies[this.level] && Assets.enemies[this.level].boss_golem;
+            if (sprite) {
+                ctx.drawImage(sprite, frame * 512, 0, 512, 512, -this.w*0.8, -this.h*1.0, this.w*1.6, this.h*1.6);
             }
             ctx.restore();
         });
@@ -565,8 +737,8 @@ class BossMech extends SoldierEnemy {
     constructor(x, y, level) {
         super(x, y, level);
         this.enemyType = 'BOSS_MECH';
-        this.hp = 18000;
-        this.w = 300; this.h = 400;
+        this.hp = 9000;
+        this.w = 210; this.h = 300;
         this.maxShootCooldown = 0.15;
     }
     
@@ -577,8 +749,10 @@ class BossMech extends SoldierEnemy {
             if (this.facingLeft) ctx.scale(-1, 1);
             let frame = this.state === 'WALK' ? Math.floor(this.animTimer * 8) % 8 : 0;
             
-            if (Assets && Assets.enemies && Assets.enemies[this.level] && Assets.enemies[this.level].boss_mech) {
-                ctx.drawImage(Assets.enemies[this.level].boss_mech, frame * 512, 0, 512, 512, -this.w*0.8, -this.h*0.8, this.w*1.6, this.h*1.6);
+            let sprite = Assets && Assets.enemies && Assets.enemies[this.level] && Assets.enemies[this.level].boss_mech;
+            if (sprite) {
+                // Mech Boss Fix: Korrekte Skalierung
+                ctx.drawImage(sprite, frame * 512, 0, 512, 512, -this.w*0.8, -this.h*1.0, this.w*1.6, this.h*1.6);
             }
             ctx.restore();
         });
@@ -589,8 +763,8 @@ class BossHell extends GiantZombieEnemy {
     constructor(x, y, level) {
         super(x, y, level);
         this.enemyType = 'BOSS_HELL';
-        this.hp = 35000;
-        this.w = 400; this.h = 600;
+        this.hp = 18000;
+        this.w = 300; this.h = 440;
         this.speed = 150;
     }
     
@@ -608,7 +782,7 @@ class BossHell extends GiantZombieEnemy {
             if (this.facingLeft) ctx.scale(-1, 1);
             let frame = this.state === 'WALK' ? Math.floor(this.animTimer * 5) % 8 : 0;
             if (Assets && Assets.enemies && Assets.enemies[this.level] && Assets.enemies[this.level].boss_hell) {
-                ctx.drawImage(Assets.enemies[this.level].boss_hell, frame * 512, 0, 512, 512, -this.w*0.8, -this.h*0.8, this.w*1.6, this.h*1.6);
+                ctx.drawImage(Assets.enemies[this.level].boss_hell, frame * 512, 0, 512, 512, -this.w*0.8, -this.h*1.0, this.w*1.6, this.h*1.6);
             }
             ctx.restore();
         });

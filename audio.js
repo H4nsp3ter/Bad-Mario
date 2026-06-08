@@ -7,6 +7,9 @@ class AudioManager {
         this.lastFlameSound = 0;
         
         this.bgmBuffers = {};
+        this.sfxBuffers = {};
+        this.lastSfx = {};
+        this.sustains = {}; // dauerhafte Loop-Sounds (Dauerfeuer / Flammenwerfer / Kettensäge)
         this.currentBGM = null;
         this.currentBGMName = '';
         this.isMuted = false;
@@ -25,11 +28,24 @@ class AudioManager {
                 this.distortionCurve = this.makeDistortionCurve(400); 
                 this.heavyDistortionCurve = this.makeDistortionCurve(2000); 
 
-                this.loadTrack('BOSS', 'boss_thrash.mp3', true);
-                this.loadTrack('LEVEL_1', 'level_metal_1.mp3', true);
-                this.loadTrack('LEVEL_2', 'level_metal_2.mp3', true);
-                this.loadTrack('LEVEL_3', 'level_metal_3.mp3', true);
-                this.loadTrack('LEVEL_4', 'level_metal_4.mp3', true);
+                const SF = 'sound%20files/'; // Ordner "sound files" (Leerzeichen URL-kodiert)
+                // Musik
+                this.loadTrack('BOSS',    SF + 'boss_thrash.mp3', true);
+                this.loadTrack('LEVEL_1', SF + 'level_metal_1.mp3', true);
+                this.loadTrack('LEVEL_2', SF + 'level_metal_2.mp3', true);
+                this.loadTrack('LEVEL_3', SF + 'level_metal_3.mp3', true);
+                this.loadTrack('LEVEL_4', SF + 'level_metal_4.mp3', true);
+                // Waffen- & Effekt-Samples
+                this.loadTrack('SFX_PISTOL',    SF + 'pistol-shot.mp3',     false);
+                this.loadTrack('SFX_UZI',       SF + 'uzi.mp3',             false);
+                this.loadTrack('SFX_AR',        SF + 'assault-rifle.mp3',   false);
+                this.loadTrack('SFX_SHOTGUN',   SF + 'doom-shotgun.mp3',    false);
+                this.loadTrack('SFX_MINIGUN',   SF + 'minigun.mp3',         false);
+                this.loadTrack('SFX_ROCKET',    SF + 'rocket-launcher.mp3', false);
+                this.loadTrack('SFX_FLAME',     SF + 'flamethrower.mp3',    false);
+                this.loadTrack('SFX_CHAINSAW',  SF + 'chainsaw.mp3',        false);
+                this.loadTrack('SFX_EXPLOSION', SF + 'bomb-explosion.mp3',  false);
+                this.loadTrack('SFX_ROAR',      SF + 'low-monster-roar.mp3',false);
             } catch(e) {
                 console.error("AudioContext Error:", e);
             }
@@ -47,11 +63,70 @@ class AudioManager {
             }
             const arrayBuffer = await response.arrayBuffer();
             const buffer = await this.ctx.decodeAudioData(arrayBuffer);
-            if (isBGM) this.bgmBuffers[name] = buffer;
+            if (isBGM) this.bgmBuffers[name] = buffer; else this.sfxBuffers[name] = buffer;
         } catch (e) {
-            console.log(`Konnte BGM nicht decodieren: ${name}`);
+            console.log(`Konnte Audio nicht decodieren: ${name}`);
         }
     }
+
+    // Einmaliges Sample (Schuss, Explosion, Brüllen ...)
+    playSfx(name, volume = 1, rate = 1, throttle = 0) {
+        if (!this.ctx || this.isMuted) return;
+        const buf = this.sfxBuffers[name];
+        if (!buf) return;
+        const now = this.ctx.currentTime;
+        if (throttle > 0) {
+            if (this.lastSfx[name] && now - this.lastSfx[name] < throttle) return;
+            this.lastSfx[name] = now;
+        }
+        const src = this.ctx.createBufferSource(); src.buffer = buf;
+        src.playbackRate.value = rate;
+        const g = this.ctx.createGain(); g.gain.value = volume;
+        src.connect(g).connect(this.masterGain);
+        src.start(now);
+        src.onended = () => { try { src.disconnect(); g.disconnect(); } catch(e){} };
+        return src;
+    }
+
+    // Dauer-Loop: läuft, solange er angefordert wird; stoppt ~0.13s nach dem letzten Aufruf (siehe tickSustains)
+    playLoop(name, volume = 0.7) {
+        if (!this.ctx || this.isMuted) return;
+        const buf = this.sfxBuffers[name];
+        if (!buf) return;
+        const now = this.ctx.currentTime;
+        let s = this.sustains[name];
+        if (!s || !s.src) {
+            const src = this.ctx.createBufferSource(); src.buffer = buf; src.loop = true;
+            const g = this.ctx.createGain(); g.gain.value = volume;
+            src.connect(g).connect(this.masterGain); src.start(now);
+            s = this.sustains[name] = { src, g };
+        }
+        s.until = now + 0.13;
+    }
+
+    // Jeden Frame aufrufen: beendet Loops, die nicht mehr nachgefeuert werden
+    tickSustains() {
+        if (!this.ctx) return;
+        const now = this.ctx.currentTime;
+        for (const name in this.sustains) {
+            const s = this.sustains[name];
+            if (s && s.src && now > s.until) {
+                try { s.src.stop(); } catch(e){}
+                try { s.src.disconnect(); s.g.disconnect(); } catch(e){}
+                this.sustains[name] = null;
+            }
+        }
+    }
+
+    stopAllSustains() {
+        for (const name in this.sustains) {
+            const s = this.sustains[name];
+            if (s && s.src) { try { s.src.stop(); } catch(e){} try { s.src.disconnect(); s.g.disconnect(); } catch(e){} }
+            this.sustains[name] = null;
+        }
+    }
+
+    playRoar() { this.playSfx('SFX_ROAR', 0.95, 0.95 + Math.random() * 0.1); }
 
     makeDistortionCurve(amount) {
         const k = amount;
@@ -76,192 +151,36 @@ class AudioManager {
         return baseFreq * (1 + (Math.random() * variation * 2 - variation));
     }
 
-    // --- REALISTISCHE, WUCHTIGE WAFFEN SOUNDS ---
+    // --- SCHUSS-SOUNDS (echte Samples) ---
+    // Halbautomatik (Pistole/Shotgun) & Einzelschüsse als One-Shot, Dauerfeuer als Loop.
     playShoot(weaponType = 'PISTOL') {
         if (!this.ctx || this.isMuted) return;
-        const now = this.ctx.currentTime;
-        
-        // Wir mischen drei Signale: Den "Körper" (Sub-Bass), den "Schlag" (hoher Pitch-Drop) und das Rauschen (Gase)
-        const subOsc = this.ctx.createOscillator();
-        const punchOsc = this.ctx.createOscillator();
-        const noise = this.ctx.createBufferSource();
-        
-        const subGain = this.ctx.createGain();
-        const punchGain = this.ctx.createGain();
-        const noiseGain = this.ctx.createGain();
-
-        // Brutales Weißes Rauschen
-        const bufferSize = this.ctx.sampleRate * 0.5; 
-        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-        const data = buffer.getChannelData(0);
-        for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
-        noise.buffer = buffer;
-
-        const noiseFilter = this.ctx.createBiquadFilter();
-        const dist = this.ctx.createWaveShaper();
-
-        let subFreq = 80, punchFreq = 800, decay = 0.2, noiseCutoff = 3000, vol = 1.0;
-        subOsc.type = 'sine'; punchOsc.type = 'square';
-        dist.curve = this.heavyDistortionCurve;
-
-        if (weaponType === 'SHOTGUN') {
-            subFreq = 40; punchFreq = 1000; decay = 0.4; noiseCutoff = 800; vol = 2.5;
-            subOsc.type = 'triangle'; punchOsc.type = 'sawtooth';
-        } else if (weaponType === 'ROCKET' || weaponType === 'GRENADE') {
-            subFreq = 30; punchFreq = 400; decay = 0.7; noiseCutoff = 400; vol = 3.0;
-            subOsc.type = 'sine'; punchOsc.type = 'triangle';
-        } else if (weaponType === 'ASSAULT_RIFLE') {
-            subFreq = 120; punchFreq = 2000; decay = 0.12; noiseCutoff = 5000; vol = 1.5;
-            subOsc.type = 'square'; punchOsc.type = 'square';
-        } else if (weaponType === 'MINIGUN') {
-            subFreq = 150; punchFreq = 3000; decay = 0.08; noiseCutoff = 6000; vol = 1.2;
-            subOsc.type = 'sawtooth'; punchOsc.type = 'square';
-        } else if (weaponType === 'UZI') {
-            subFreq = 200; punchFreq = 4000; decay = 0.08; noiseCutoff = 7000; vol = 1.0;
-            subOsc.type = 'triangle'; punchOsc.type = 'square';
-        } else {
-            // Pistol
-            subFreq = 180; punchFreq = 2500; decay = 0.15; noiseCutoff = 4000; vol = 1.2;
-            subOsc.type = 'triangle'; punchOsc.type = 'square';
+        const r = () => 0.95 + Math.random() * 0.1; // minimale Tonhöhen-Variation gegen "Maschinengewehr-Klone"
+        switch (weaponType) {
+            case 'PISTOL':        this.playSfx('SFX_PISTOL', 0.9, r()); break;
+            case 'SHOTGUN':       this.playSfx('SFX_SHOTGUN', 1.0, r()); break;
+            case 'ROCKET':        this.playSfx('SFX_ROCKET', 1.0, 1.0); break;
+            case 'GRENADE':       this.playSfx('SFX_ROCKET', 0.8, 1.12); break;
+            // Dauerfeuer als sauberer Loop statt gestapelter Einzel-Samples
+            case 'UZI':           this.playLoop('SFX_UZI', 0.55); break;
+            case 'ASSAULT_RIFLE': this.playLoop('SFX_AR', 0.65); break;
+            case 'MINIGUN':       this.playLoop('SFX_MINIGUN', 0.6); break;
+            default:              this.playSfx('SFX_PISTOL', 0.9, r());
         }
-
-        // 1. SUB BASS (Der fette Druck in der Brust)
-        subOsc.frequency.setValueAtTime(subFreq, now);
-        subOsc.frequency.exponentialRampToValueAtTime(10, now + decay);
-        subGain.gain.setValueAtTime(vol * 1.5, now);
-        subGain.gain.exponentialRampToValueAtTime(0.01, now + decay);
-        subOsc.connect(dist).connect(subGain).connect(this.masterGain);
-        subOsc.start(now); subOsc.stop(now + decay);
-
-        // 2. PUNCH (Der harte mechanische Knall)
-        punchOsc.frequency.setValueAtTime(this.randomPitch(punchFreq), now);
-        punchOsc.frequency.exponentialRampToValueAtTime(50, now + decay * 0.5); // Fällt doppelt so schnell ab
-        punchGain.gain.setValueAtTime(vol * 0.8, now);
-        punchGain.gain.exponentialRampToValueAtTime(0.01, now + decay * 0.5);
-        punchOsc.connect(dist).connect(punchGain).connect(this.masterGain);
-        punchOsc.start(now); punchOsc.stop(now + decay * 0.5);
-        
-        // 3. NOISE (Das Pulver/Gas Zischen)
-        noiseFilter.type = 'lowpass';
-        noiseFilter.frequency.setValueAtTime(noiseCutoff, now);
-        noiseFilter.frequency.exponentialRampToValueAtTime(100, now + decay);
-        noiseGain.gain.setValueAtTime(vol * 1.5, now);
-        noiseGain.gain.exponentialRampToValueAtTime(0.01, now + decay); 
-        noise.connect(noiseFilter).connect(dist).connect(noiseGain).connect(this.masterGain);
-        noise.start(now); noise.stop(now + decay);
-
-        // Spezielles Shotgun Pump-Action Echo
-        if (weaponType === 'SHOTGUN') {
-            const echoNoise = this.ctx.createBufferSource();
-            echoNoise.buffer = buffer;
-            const echoFilter = this.ctx.createBiquadFilter();
-            echoFilter.type = 'bandpass'; echoFilter.frequency.value = 1500;
-            const echoGain = this.ctx.createGain();
-            echoGain.gain.setValueAtTime(0, now);
-            echoGain.gain.setValueAtTime(0.5, now + 0.25); // "Klack"
-            echoGain.gain.exponentialRampToValueAtTime(0.01, now + 0.35);
-            echoNoise.connect(echoFilter).connect(echoGain).connect(this.masterGain);
-            echoNoise.start(now); echoNoise.stop(now + 0.35);
-        }
-        
-        setTimeout(() => { this.cleanupNode(subOsc); this.cleanupNode(punchOsc); this.cleanupNode(noise); }, decay * 1000 + 100);
     }
 
-    // --- MASSIVE EXPLOSION ---
+    // --- EXPLOSION (Sample) ---
     playExplosion() {
-        if (!this.ctx || this.isMuted) return;
-        const now = this.ctx.currentTime;
-        
-        // Fetter Sub-Bass Wumms + Langes Rauschen
-        const subOsc = this.ctx.createOscillator();
-        const noise = this.ctx.createBufferSource();
-        const subGain = this.ctx.createGain();
-        const noiseGain = this.ctx.createGain();
-
-        const bufferSize = this.ctx.sampleRate * 2.0;
-        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-        const data = buffer.getChannelData(0);
-        for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
-        noise.buffer = buffer;
-
-        const dist = this.ctx.createWaveShaper();
-        dist.curve = this.heavyDistortionCurve; 
-        
-        // Tiefer, bebenartiger Bass
-        subOsc.type = 'sine';
-        subOsc.frequency.setValueAtTime(80, now);
-        subOsc.frequency.exponentialRampToValueAtTime(5, now + 1.5);
-        subGain.gain.setValueAtTime(4.0, now); // Beben!
-        subGain.gain.exponentialRampToValueAtTime(0.01, now + 1.5);
-        
-        subOsc.connect(dist).connect(subGain).connect(this.masterGain);
-        subOsc.start(now); subOsc.stop(now + 1.5);
-
-        // Reißendes Explosions-Rauschen
-        const filter = this.ctx.createBiquadFilter();
-        filter.type = 'lowpass';
-        filter.frequency.setValueAtTime(1000, now); 
-        filter.frequency.exponentialRampToValueAtTime(20, now + 2.0);
-        
-        noiseGain.gain.setValueAtTime(3.0, now); 
-        noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 2.0);
-        
-        noise.connect(filter).connect(dist).connect(noiseGain).connect(this.masterGain);
-        noise.start(now); noise.stop(now + 2.0);
-        
-        setTimeout(() => { this.cleanupNode(subOsc); this.cleanupNode(noise); }, 2100);
+        this.playSfx('SFX_EXPLOSION', 1.0, 0.92 + Math.random() * 0.16);
     }
-    
-    // --- KETTENSÄGE (Tief und Knatternd) ---
+
+    // Kettensäge & Flammenwerfer laufen als Loop, solange weitergefeuert wird
     playChainsaw() {
-        if (!this.ctx || this.isMuted) return;
-        const now = this.ctx.currentTime;
-        if (now - this.lastChainsaw < 0.05) return; 
-        this.lastChainsaw = now;
-
-        const osc = this.ctx.createOscillator();
-        const gain = this.ctx.createGain();
-        osc.type = 'sawtooth';
-        // Extrem tiefe Frequenz, moduliert leicht
-        osc.frequency.setValueAtTime(40, now);
-        osc.frequency.linearRampToValueAtTime(80, now + 0.05);
-        
-        gain.gain.setValueAtTime(2.0, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
-
-        const dist = this.ctx.createWaveShaper();
-        dist.curve = this.heavyDistortionCurve;
-
-        osc.connect(dist).connect(gain).connect(this.masterGain);
-        osc.start(now); osc.stop(now + 0.1);
-        setTimeout(() => { this.cleanupNode(osc); }, 100);
+        this.playLoop('SFX_CHAINSAW', 0.7);
     }
 
     playFlamethrower() {
-        if (!this.ctx || this.isMuted) return;
-        const now = this.ctx.currentTime;
-        if (now - this.lastFlameSound < 0.1) return; 
-        this.lastFlameSound = now;
-        
-        const noise = this.ctx.createBufferSource();
-        const bufferSize = this.ctx.sampleRate * 0.3;
-        const buffer = this.ctx.createBuffer(1, bufferSize, this.ctx.sampleRate);
-        const data = buffer.getChannelData(0);
-        for (let i = 0; i < bufferSize; i++) data[i] = Math.random() * 2 - 1;
-        noise.buffer = buffer;
-        
-        const filter = this.ctx.createBiquadFilter();
-        filter.type = 'bandpass';
-        filter.frequency.setValueAtTime(400, now); // Tieferes Rauschen für fettes Feuer
-        filter.frequency.exponentialRampToValueAtTime(100, now + 0.3);
-        
-        const gain = this.ctx.createGain();
-        gain.gain.setValueAtTime(1.5, now);
-        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
-        
-        noise.connect(filter).connect(gain).connect(this.masterGain);
-        noise.start(now); noise.stop(now + 0.3);
-        setTimeout(() => { this.cleanupNode(noise); }, 350);
+        this.playLoop('SFX_FLAME', 0.7);
     }
 
     // --- NAHKAMPF & GEGNER TREFFER (Splatters) ---
@@ -415,15 +334,18 @@ class AudioManager {
     // --- BGM LOGIK ---
     startBGM() {
         this.init();
+        let tries = 0;
         const checkReady = setInterval(() => {
-            if (this.bgmBuffers['LEVEL_1'] || this.bgmBuffers['LEVEL_2']) {
-                this.playRandomLevelTrack();
+            const ready = ['LEVEL_1','LEVEL_2','LEVEL_3','LEVEL_4'].some(n => this.bgmBuffers[n]);
+            if (ready || ++tries > 30) {
+                if (ready) this.playRandomLevelTrack();
                 clearInterval(checkReady);
             }
-        }, 1000);
+        }, 500);
     }
 
     stopBGM() {
+        this.stopAllSustains();
         if (this.currentBGM) {
             this.currentBGM.stop();
             this.currentBGM = null;
@@ -432,8 +354,10 @@ class AudioManager {
     }
 
     playRandomLevelTrack() {
-        const randomNum = Math.floor(Math.random() * 4) + 1;
-        this.playMusicTrack(`LEVEL_${randomNum}`);
+        // nur tatsächlich geladene Level-Tracks wählen (LEVEL_1 ist leer)
+        const avail = ['LEVEL_1','LEVEL_2','LEVEL_3','LEVEL_4'].filter(n => this.bgmBuffers[n]);
+        if (avail.length === 0) return;
+        this.playMusicTrack(avail[Math.floor(Math.random() * avail.length)]);
     }
 
     playMusicTrack(trackName) {

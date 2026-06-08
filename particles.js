@@ -44,7 +44,7 @@ class ParticleManager {
     }
 
     spawnBlood(x, y, count) {
-        for (let i = 0; i < count * 8; i++) {
+        for (let i = 0; i < count * 3; i++) {
             const angle = Math.random() * Math.PI * 2;
             const vel = Math.random() * 600; // Spritzt viel weiter
             this.particles.push({
@@ -79,10 +79,10 @@ class ParticleManager {
 
     spawnExplosion(x, y, game) {
         // MASSIVE EXPLOSION!
-        this.spawn(x, y, '#FF4400', 150, 2000, 2.0, true); // Riesen Feuerkugel
-        this.spawn(x, y, '#FFFF00', 80, 1200, 1.5, true);  // Greller Kern
-        this.spawn(x, y, '#111111', 150, 1000, 3.0, false); // Gewaltige schwarze Rauchwolke
-        this.spawn(x, y, '#FFFFFF', 50, 2500, 0.5, true);   // Initialer Lichtblitz
+        this.spawn(x, y, '#FF4400', 70, 2000, 2.0, true);  // Riesen Feuerkugel
+        this.spawn(x, y, '#FFFF00', 40, 1200, 1.5, true);  // Greller Kern
+        this.spawn(x, y, '#111111', 70, 1000, 3.0, false); // Gewaltige schwarze Rauchwolke
+        this.spawn(x, y, '#FFFFFF', 25, 2500, 0.5, true);   // Initialer Lichtblitz
         
         // Mehrere Schockwellen
         this.particles.push({ type: 'SHOCKWAVE', x: x, y: y, size: 10, maxSize: 1000, life: 0.5, maxLife: 0.5 });
@@ -116,15 +116,20 @@ class ParticleManager {
     }
 
     update(dt, platforms) {
-        // Limit leicht anheben, damit die massiven Effekte nicht sofort verschwinden
-        if (this.particles.length > 2500) {
-            this.particles.splice(0, this.particles.length - 2500);
+        // Harte Obergrenze, damit die Zeichenkosten über lange Level beschränkt bleiben
+        if (this.particles.length > 1500) {
+            this.particles.splice(0, this.particles.length - 1500);
         }
 
         for (let i = this.particles.length - 1; i >= 0; i--) {
             let p = this.particles[i];
 
-            if (p.isBlood && p.stopped) continue;
+            // Liegengebliebenes Blut altert langsam aus, statt ewig zu leben (Performance)
+            if (p.isBlood && p.stopped) {
+                p.life -= dt;
+                if (p.life <= 0) this.particles.splice(i, 1);
+                continue;
+            }
 
             p.life -= dt;
             if (p.life <= 0) { 
@@ -174,7 +179,7 @@ class ParticleManager {
                 if (platforms && p.vy > 0) {
                     for (let plat of platforms) {
                         if (p.x > plat.x && p.x < plat.x + plat.w && p.y > plat.y && p.y < plat.y + plat.h) {
-                            p.y = plat.y; p.vy = 0; p.vx = 0; p.stopped = true; p.life = 9999; 
+                            p.y = plat.y; p.vy = 0; p.vx = 0; p.stopped = true; p.life = 14; p.maxLife = 1;
                             break;
                         }
                     }
@@ -188,8 +193,11 @@ class ParticleManager {
         }
     }
 
-    draw(ctx, camX, camY) {
+    draw(ctx, camX, camY, viewW = Infinity, viewH = Infinity) {
+        const m = 120;
         for (let p of this.particles) {
+            // Off-Screen-Culling — größter Performance-Gewinn, wenn Blut/Trümmer übers ganze Level verteilt sind
+            if (p.type !== 'SHOCKWAVE' && (p.x < camX - m || p.x > camX + viewW + m || p.y < camY - m || p.y > camY + viewH + m)) continue;
             ctx.globalAlpha = p.life / p.maxLife > 1 ? 1 : p.life / p.maxLife;
             
             if (p.type === 'SHOCKWAVE') {

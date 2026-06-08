@@ -18,9 +18,20 @@ class Platform extends Entity {
         this.isCrumbling = false;
         this.crumbleTimer = 1.0; 
         this.isHazard = false; 
+        this.angle = 0; 
+
+        // Neue Gimmicks
+        this.isSpiky = false; 
+        this.isMoving = false;
+        this.moveRange = 200;
+        this.moveSpeed = 2;
+        this.startX = x;
+        this.startY = y;
+        this.isFireTrap = false;
+        this.fireTimer = 0;
     }
     
-    update(dt) {
+        update(dt) {
         if (this.isCrumbling && this.touched) {
             this.crumbleTimer -= dt;
             this.x += (Math.random() - 0.5) * 10;
@@ -28,23 +39,97 @@ class Platform extends Entity {
                 this.y += 1000 * dt; 
             }
         }
+
+        if (this.isMoving) {
+            this.y = this.startY + Math.sin(performance.now() / 1000 * this.moveSpeed) * this.moveRange;
+        }
+
+        if (this.isFireTrap) {
+            this.fireTimer += dt;
+            if (Math.floor(this.fireTimer * 2) % 2 === 0 && Math.random() > 0.7) {
+                if (window.gameInstance) {
+                    // Mächtigere Flammen!
+                    for(let i=0; i<3; i++) {
+                        window.gameInstance.projectiles.push(new Projectile(this.x + this.w/2 + (Math.random()-0.5)*40, this.y, (Math.random()-0.5)*100, -800 - Math.random()*400, true, 'FLAME'));
+                    }
+                }
+            }
+        }
     }
 
     draw(ctx, camX, camY, levelData, levelIndex) {
         const drawX = this.x - camX, drawY = this.y - camY, now = performance.now() / 1000;
         
-        if (this.isBouncy) {
-            ctx.fillStyle = '#FF0055'; 
-            ctx.fillRect(drawX, drawY, this.w, this.h);
-            ctx.fillStyle = '#FFF'; 
-            for(let i=10; i<this.w; i+=40) {
-                ctx.beginPath(); ctx.moveTo(drawX+i, drawY+this.h); ctx.lineTo(drawX+i+10, drawY); ctx.lineTo(drawX+i+20, drawY+this.h); ctx.stroke();
+        if (this.isSpiky) {
+            ctx.fillStyle = '#666';
+            for(let i=0; i<this.w; i+=40) {
+                ctx.beginPath();
+                ctx.moveTo(drawX + i, drawY + this.h);
+                ctx.lineTo(drawX + i + 20, drawY);
+                ctx.lineTo(drawX + i + 40, drawY + this.h);
+                ctx.fill();
             }
             return;
         }
 
+                if (this.isFireTrap) {
+            ctx.fillStyle = '#333';
+            ctx.fillRect(drawX, drawY, this.w, this.h);
+            ctx.fillStyle = '#666';
+            ctx.fillRect(drawX + 10, drawY + 10, this.w - 20, this.h - 20);
+            
+            // Glüheffekt
+            let glow = (Math.sin(performance.now() / 100) + 1) / 2;
+            ctx.fillStyle = `rgba(255, 68, 0, ${0.3 + glow * 0.7})`;
+            ctx.fillRect(drawX + 15, drawY + 5, this.w - 30, 5);
+            return;
+        }
+
+        if (this.isBouncy) {
+            // Trampolin: dunkler Rahmen + elastische, leuchtende Sprungfläche
+            ctx.fillStyle = '#1a1a1a';
+            ctx.fillRect(drawX, drawY + this.h - 10, this.w, 10);
+            ctx.fillRect(drawX + 4, drawY + 6, 12, this.h - 6);
+            ctx.fillRect(drawX + this.w - 16, drawY + 6, 12, this.h - 6);
+            const bt = performance.now() / 140;
+            ctx.strokeStyle = '#00FFAA'; ctx.lineWidth = 9;
+            ctx.shadowBlur = 18; ctx.shadowColor = '#00FFAA';
+            ctx.beginPath();
+            ctx.moveTo(drawX + 6, drawY + 8);
+            ctx.quadraticCurveTo(drawX + this.w / 2, drawY + 14 + Math.sin(bt) * 4, drawX + this.w - 6, drawY + 8);
+            ctx.stroke();
+            ctx.shadowBlur = 0;
+            return;
+        }
+
+                if (this.angle !== 0) {
+            ctx.save();
+            ctx.translate(drawX, drawY);
+            // Optik-Fix: Wir zeichnen ein Polygon, das die Schräge füllt
+            ctx.fillStyle = levelData.PLATFORM_GRAD[1];
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            let endY = -Math.tan(this.angle) * this.w;
+            ctx.lineTo(this.w, endY);
+            ctx.lineTo(this.w, endY + this.h);
+            ctx.lineTo(0, this.h);
+            ctx.closePath();
+            ctx.fill();
+            
+            // Top-Line der Schräge
+            ctx.strokeStyle = levelData.PLATFORM_TOP;
+            ctx.lineWidth = 10;
+            ctx.beginPath();
+            ctx.moveTo(0, 0);
+            ctx.lineTo(this.w, endY);
+            ctx.stroke();
+            
+            ctx.restore();
+            return;
+        }
+
         if (this.isHazard) {
-            ctx.fillStyle = levelIndex === 2 ? '#33cc33' : '#FF2200'; 
+            ctx.fillStyle = ({1:'#FF2200',2:'#33cc33',3:'#2AA6E0',4:'#FF6A00',5:'#FF2200'})[levelIndex] || '#FF2200';
             ctx.shadowBlur = 20; ctx.shadowColor = ctx.fillStyle;
             ctx.beginPath();
             ctx.moveTo(drawX, drawY + 20);
@@ -99,6 +184,18 @@ class Platform extends Entity {
                 ctx.fillStyle = '#883300'; ctx.beginPath(); ctx.arc(0, 0, 8, 0, Math.PI*2); ctx.fill(); ctx.restore();
             }
         } else if (levelIndex === 3) {
+            // Frost: Schneekante + Eiszapfen
+            ctx.fillStyle = '#eef7ff';
+            for (let i = 0; i < this.w; i += 26) ctx.fillRect(drawX + i, drawY, 16, 6);
+            ctx.fillStyle = '#bfe0f0';
+            for (let i = 12; i < this.w; i += 44) { ctx.beginPath(); ctx.moveTo(drawX + i, drawY + 24); ctx.lineTo(drawX + i + 5, drawY + 24 + 13); ctx.lineTo(drawX + i + 10, drawY + 24); ctx.fill(); }
+        } else if (levelIndex === 4) {
+            // Burning City: Beton-Fugen, Risse, rostige Bewehrung
+            ctx.fillStyle = '#1c1c22'; for (let by = 24; by < this.h; by += 40) ctx.fillRect(drawX, drawY + by, this.w, 3);
+            ctx.fillStyle = '#6a3416'; for (let i = 8; i < this.w; i += 52) ctx.fillRect(drawX + i, drawY + 6, 3, 15);
+            ctx.strokeStyle = 'rgba(0,0,0,0.6)'; ctx.lineWidth = 1.5;
+            for (let i = 34; i < this.w; i += 76) { ctx.beginPath(); ctx.moveTo(drawX + i, drawY + 24); ctx.lineTo(drawX + i + 16, drawY + this.h * 0.55); ctx.stroke(); }
+        } else if (levelIndex === 5) {
             ctx.strokeStyle = '#880000'; ctx.lineWidth = 3 + Math.sin(now * 5) * 1.5;
             for (let i = 20; i < this.w; i += 60) {
                 ctx.beginPath(); ctx.moveTo(drawX + i, drawY + 24);
@@ -119,12 +216,13 @@ class Ladder extends Entity {
                 const offX = Math.sin(ry * 0.5 + performance.now()/200) * 12;
                 ctx.beginPath(); ctx.arc(drawX + this.w/2 + offX, drawY + ry, 6, 0, Math.PI*2); ctx.fill();
             }
-        } else if (level === 2) {
-            ctx.fillStyle = '#556677'; ctx.fillRect(drawX, drawY, 12, this.h); ctx.fillRect(drawX + this.w - 12, drawY, 12, this.h);
-            for (let ry = 20; ry < this.h; ry += 40) { ctx.fillStyle = '#778899'; ctx.fillRect(drawX + 12, drawY + ry, this.w - 24, 8); }
-        } else {
+        } else if (level === 5) {
             ctx.strokeStyle = '#4A0808'; ctx.lineWidth = 6;
             for (let ry = 0; ry < this.h; ry += 30) { ctx.beginPath(); ctx.ellipse(drawX + this.w/2, drawY + ry + 15, 12, 8, 0, 0, Math.PI*2); ctx.stroke(); }
+        } else {
+            // Metall-Leiter (Scrap / Frost / City)
+            ctx.fillStyle = '#556677'; ctx.fillRect(drawX, drawY, 12, this.h); ctx.fillRect(drawX + this.w - 12, drawY, 12, this.h);
+            for (let ry = 20; ry < this.h; ry += 40) { ctx.fillStyle = '#778899'; ctx.fillRect(drawX + 12, drawY + ry, this.w - 24, 8); }
         }
     }
 }
@@ -136,20 +234,21 @@ class Collectible extends Entity {
         this.time = Math.random() * 10; 
         this.startY = y; 
     }
-    update(dt) { 
+        update(dt) { 
         this.time += dt; 
         this.y = this.startY + Math.sin(this.time * 4) * 15; 
     }
-    draw(ctx, camX, camY) {
-        const cx = this.x - camX + this.w / 2, cy = this.y - camY + this.h / 2;
+        draw(ctx, camX, camY) {
+            const cx = this.x - camX + this.w / 2, cy = this.y - camY + this.h / 2;
         
-        ctx.save();
-        ctx.translate(cx, cy);
+            ctx.save();
+            ctx.translate(cx, cy);
         
-        if (Assets && Assets.items && Assets.items[this.type]) {
-            ctx.shadowBlur = 20; ctx.shadowColor = '#FFF'; 
-            ctx.drawImage(Assets.items[this.type], 0, 0, 128, 128, -this.w/2, -this.h/2, this.w, this.h);
-        } else {
+            if (Assets && Assets.items && Assets.items[this.type]) {
+                ctx.shadowBlur = 20; ctx.shadowColor = '#FFF'; 
+                // Zeichne aus dem nun 512x512 großen Sprite-Canvas
+                ctx.drawImage(Assets.items[this.type], 0, 0, 512, 512, -this.w*0.8, -this.h*0.8, this.w*1.6, this.h*1.6);
+            } else {
             ctx.fillStyle = '#FF0'; ctx.fillRect(-this.w/2, -this.h/2, this.w, this.h);
         }
         
@@ -218,7 +317,7 @@ class Projectile extends Entity {
         }
     }
     
-    draw(ctx, camX, camY) {
+        draw(ctx, camX, camY) {
         const drawX = this.x - camX, drawY = this.y - camY;
         ctx.save(); ctx.translate(drawX + this.w/2, drawY + this.h/2);
         
@@ -226,13 +325,13 @@ class Projectile extends Entity {
             const maxL = this.type === 'FLAME' ? 0.6 : 4.0;
             const alpha = Math.max(0, this.life / maxL);
             ctx.globalAlpha = alpha;
-            ctx.shadowBlur = 30; ctx.shadowColor = '#F40';
+            ctx.shadowBlur = 50; ctx.shadowColor = '#F40';
             
             ctx.fillStyle = '#F40'; 
-            let pulse = Math.random() * 5;
-            ctx.beginPath(); ctx.ellipse(0, 0, (this.w/2 + pulse) * alpha, (this.h/2 + pulse) * alpha, 0, 0, Math.PI*2); ctx.fill();
+            let pulse = Math.random() * 15; // MEHR PULSIEREN
+            ctx.beginPath(); ctx.ellipse(0, 0, (this.w + pulse) * alpha, (this.h + pulse) * alpha, 0, 0, Math.PI*2); ctx.fill();
             ctx.fillStyle = '#FF0'; 
-            ctx.beginPath(); ctx.ellipse(0, 0, (this.w/4 + pulse) * alpha, (this.h/4 + pulse) * alpha, 0, 0, Math.PI*2); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(0, 0, (this.w/2 + pulse) * alpha, (this.h/2 + pulse) * alpha, 0, 0, Math.PI*2); ctx.fill();
             
             ctx.globalAlpha = 1.0; ctx.shadowBlur = 0;
         } 
@@ -265,20 +364,26 @@ class Projectile extends Entity {
 }
 
 class Corpse extends Entity {
-    constructor(x, y, w, h, state, type, level, facingLeft) { 
-        super(x, y, w, h); 
+    constructor(x, y, w, h, state, type, level, facingLeft, vx = 0, vy = 0) { 
+        // Wir nehmen eine feste, flache Höhe für die Leichen-Hitbox
+        const corpseH = 40;
+        super(x, y + h - corpseH, w, corpseH); 
+        this.originalH = h; // Merken für das Zeichnen
         this.state = state; 
         this.type = type;
         this.level = level;
         this.facingLeft = facingLeft;
         
-        this.vy = -200 - Math.random() * 300; 
-        this.vx = (Math.random() - 0.5) * 300;
+        this.vx = vx || (Math.random() - 0.5) * 300;
+        this.vy = vy || -200 - Math.random() * 300; 
+        
+        this.angle = 0;
+        this.angularVelocity = (Math.random() - 0.5) * 20; 
+        
         this.life = 15.0; 
-        this.hasBled = false; // Stellt sicher, dass das Blut nur beim Aufprall generiert wird
+        this.hasBled = false; 
     }
     
-    // WICHTIG: Das game-Objekt muss übergeben werden, damit wir Partikel spawnen können
     update(dt, platforms) {
         this.life -= dt;
         
@@ -287,37 +392,62 @@ class Corpse extends Entity {
             this.vy += CONFIG.GRAVITY * 0.1 * dt; 
         } else {
             this.vy += CONFIG.GRAVITY * dt; 
+            if (Math.abs(this.vy) > 20 || Math.abs(this.vx) > 20) {
+                this.angle += this.angularVelocity * dt;
+            }
         }
         
         this.x += this.vx * dt;
         this.y += this.vy * dt;
         
         for (let plat of platforms) {
-            if (this.checkCollision(plat) && this.vy > 0 && this.y + this.h - this.vy * dt <= plat.y + 15) {
-                this.y = plat.y - this.h; 
-                this.vy = 0; 
-                this.vx *= 0.5; 
+            if (this.checkCollision(plat)) {
+                if (this.vy > 0 && this.y + this.h - this.vy * dt <= plat.y + 25) {
+                    this.y = plat.y - this.h; 
+                    
+                    if (this.vy > 150) {
+                        this.vy *= -0.4; 
+                        this.vx *= 0.7; 
+                        this.angularVelocity *= 0.6;
+                    } else {
+                        this.vy = 0;
+                        this.vx *= 0.9;
+                        this.angularVelocity *= 0.8;
+                        
+                        // Flach legen: Der Winkel muss 90 Grad (PI/2) sein, damit sie liegen
+                        let targetAngle = Math.PI / 2;
+                        let currentAngleNormalized = this.angle % (Math.PI * 2);
+                        // Je nachdem wie er rotiert ist, legen wir ihn auf den Bauch oder Rücken
+                        if (currentAngleNormalized < 0) currentAngleNormalized += Math.PI * 2;
+                        
+                        if (currentAngleNormalized > Math.PI) targetAngle = Math.PI * 1.5;
+                        
+                        this.angle += (targetAngle - this.angle) * 10 * dt;
+                        if (Math.abs(targetAngle - this.angle) < 0.1) {
+                            this.angle = targetAngle;
+                            this.angularVelocity = 0;
+                        }
+                    }
 
-                // NEU: Wenn der Corpse den Boden berührt, generieren wir ECHTE Blutpartikel, die kleben bleiben
-                if (!this.hasBled && this.state !== 'ASH') {
-                    this.hasBled = true;
-                    // Greife auf die globale Game Instance zu, die wir in game.js gesetzt haben!
-                    if (window.gameInstance && window.gameInstance.particles) {
-                        for(let i=0; i<10; i++) {
-                            window.gameInstance.particles.particles.push({
-                                type: 'BLOOD',
-                                x: this.x + Math.random() * this.w, 
-                                y: this.y + this.h - 5, // Am Boden
-                                vx: (Math.random() - 0.5) * 200, 
-                                vy: -50 - Math.random() * 100, // Spritzt kurz hoch
-                                life: 9999, // Bleibt liegen
-                                maxLife: 9999,
-                                color: Math.random() > 0.3 ? '#880000' : '#FF0000',
-                                size: Math.random() * 20 + 10, // Fette Blutflecken
-                                glow: false, 
-                                isBlood: true, 
-                                stopped: false // Wird beim nächsten Update am Boden stoppen
-                            });
+                    if (!this.hasBled && this.state !== 'ASH') {
+                        this.hasBled = true;
+                        if (window.gameInstance && window.gameInstance.particles) {
+                            for(let i=0; i<12; i++) {
+                                window.gameInstance.particles.particles.push({
+                                    type: 'BLOOD',
+                                    x: this.x + Math.random() * this.w, 
+                                    y: this.y + this.h - 2, 
+                                    vx: (Math.random() - 0.5) * 300, 
+                                    vy: -100 - Math.random() * 150,
+                                    life: 6,
+                                    maxLife: 6,
+                                    color: Math.random() > 0.3 ? '#700' : '#A00',
+                                    size: Math.random() * 25 + 15, 
+                                    glow: false, 
+                                    isBlood: true, 
+                                    stopped: false 
+                                });
+                            }
                         }
                     }
                 }
@@ -334,33 +464,49 @@ class Corpse extends Entity {
         if (this.state === 'ASH') {
             ctx.fillStyle = '#222';
             ctx.beginPath(); ctx.ellipse(drawX + this.w/2, drawY + this.h - 5, this.w/2, 5, 0, 0, Math.PI*2); ctx.fill();
-            ctx.fillStyle = '#444';
-            ctx.beginPath(); ctx.ellipse(drawX + this.w/2, drawY + this.h - 8, this.w/3, 8, 0, 0, Math.PI*2); ctx.fill();
         } else {
-            // Totes Sprite rendern (ohne das rote Oval darunter)
             let spriteObj = Assets && Assets.enemies && Assets.enemies[this.level];
             let spriteToDraw = null;
             if (spriteObj) {
-                if (this.type === 'NORMAL') spriteToDraw = spriteObj.normal;
-                else if (this.type === 'RUNNER') spriteToDraw = spriteObj.runner;
-                else if (this.type === 'TANK') spriteToDraw = spriteObj.tank;
-                else if (this.type === 'SPITTER') spriteToDraw = spriteObj.spitter;
-                else if (this.type === 'CRAWLER') spriteToDraw = spriteObj.crawler;
-                else if (this.type === 'GIANT') spriteToDraw = spriteObj.giant;
-                else if (this.type === 'SOLDIER') spriteToDraw = spriteObj.soldier;
-                else if (this.type === 'SPIDER') spriteToDraw = spriteObj.spider;
-                else if (this.type === 'DEMON') spriteToDraw = spriteObj.demon;
+                const map = {
+                    'NORMAL': spriteObj.normal, 'RUNNER': spriteObj.runner, 'TANK': spriteObj.tank,
+                    'SPITTER': spriteObj.spitter, 'CRAWLER': spriteObj.crawler, 'GIANT': spriteObj.giant,
+                    'SOLDIER': spriteObj.soldier, 'SPIDER': spriteObj.spider, 'DEMON': spriteObj.demon,
+                    'HELLHOUND': spriteObj.hellhound, 'BLOATER': spriteObj.bloater
+                };
+                spriteToDraw = map[this.type];
             }
 
-            if (spriteToDraw) {
+                        if (spriteToDraw) {
                 ctx.save();
-                ctx.translate(drawX + this.w/2, drawY + this.h); 
+                ctx.translate(drawX + this.w/2, drawY + this.h/2); 
                 if (this.facingLeft) ctx.scale(-1, 1);
-                
-                ctx.rotate(Math.PI / 2);
-                ctx.translate(0, -this.w/2); 
+                ctx.rotate(this.angle);
 
-                ctx.drawImage(spriteToDraw, 0, 0, 256, 256, -this.w*0.8, -this.h*1.5, this.w*1.6, this.h*1.5);
+                if (this.type === 'GORE_CHUNK') {
+                    // Zerfetzter Fleischklumpen Look
+                    ctx.fillStyle = '#600';
+                    ctx.beginPath();
+                    ctx.ellipse(0, 0, this.w*0.5, this.h*0.5, 0, 0, Math.PI*2);
+                    ctx.fill();
+                    ctx.fillStyle = '#900';
+                    ctx.beginPath();
+                    ctx.ellipse(2, -2, this.w*0.3, this.h*0.3, 0, 0, Math.PI*2);
+                    ctx.fill();
+                } else {
+                    ctx.filter = 'brightness(0.4) sepia(1) saturate(3) hue-rotate(-50deg)';
+                    const drawW = this.w * 1.5;
+                    const drawH = this.originalH * 1.2;
+                    ctx.drawImage(spriteToDraw, 0, 0, 512, 512, -drawW/2, -drawH/2, drawW, drawH);
+                    
+                    ctx.globalAlpha = 0.5;
+                    ctx.fillStyle = '#400';
+                    for(let i=0; i<3; i++) {
+                        ctx.beginPath();
+                        ctx.arc((Math.random()-0.5)*this.w, (Math.random()-0.5)*this.h, 10+Math.random()*20, 0, Math.PI*2);
+                        ctx.fill();
+                    }
+                }
                 ctx.restore();
             }
         }
