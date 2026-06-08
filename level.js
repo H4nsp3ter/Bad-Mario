@@ -239,17 +239,19 @@ class LevelGenerator {
                 for (let i = 0; i < 5; i++) this.items.push(new Collectible(sx + 300 + i * 160, B - 130 - Math.sin(i) * 40, i % 2 ? 'LIQUOR' : 'BEER'));
                 this.items.push(new Collectible(sx + 1150, B - 120, d % 3 === 0 ? 'BOOSTER' : 'HEART'));
                 this.items.push(new Collectible(sx + 750, B - 120, d <= 3 ? 'SHOTGUN' : 'ASSAULT_RIFLE')); // Waffen-Nachschub
+                this.items.push(new Collectible(sx + 980, B - 120, d % 2 ? 'MOLOTOV' : 'GRENADE'));       // Wurfwaffe
                 break;
             }
 
             case 'ARSENAL': {          // vor dem Boss aufrüsten
-                sx = this.addFloor(2000);
+                sx = this.addFloor(2500);
                 this.items.push(new Collectible(sx + 300, B - 120, 'HEART'));
-                this.items.push(new Collectible(sx + 650, B - 120, 'SHOTGUN'));
-                this.items.push(new Collectible(sx + 1000, B - 120, 'ROCKET'));
-                this.items.push(new Collectible(sx + 1350, B - 120, d >= 7 ? 'MINIGUN' : 'ASSAULT_RIFLE'));
-                this.items.push(new Collectible(sx + 1650, B - 120, 'FLAMETHROWER'));
-                this.items.push(new Collectible(sx + 1900, B - 120, 'CHAINSAW'));
+                this.items.push(new Collectible(sx + 600, B - 120, 'SHOTGUN'));
+                this.items.push(new Collectible(sx + 900, B - 120, 'ROCKET'));
+                this.items.push(new Collectible(sx + 1200, B - 120, d >= 7 ? 'MINIGUN' : 'ASSAULT_RIFLE'));
+                this.items.push(new Collectible(sx + 1500, B - 120, 'FLAMETHROWER'));
+                this.items.push(new Collectible(sx + 1800, B - 120, 'MOLOTOV'));
+                this.items.push(new Collectible(sx + 2100, B - 120, 'CHAINSAW'));
                 break;
             }
 

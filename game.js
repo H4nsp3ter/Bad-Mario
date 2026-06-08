@@ -484,20 +484,22 @@ class Game {
         if(this.camera.x < 0) this.camera.x = 0;
         this.camera.y += ((this.player.y - this.logicalHeight * 0.55) - this.camera.y) * 4 * dt;
         
-        let targetDeathY = this.player.lastSafePlatform ? this.player.lastSafePlatform.y + 600 : this.camera.y + this.logicalHeight + 600;
-        this.deathY += (targetDeathY - this.deathY) * 2 * dt; 
-        
+        // Lava/Wasser an den BODEN koppeln (nicht an die Kletterhöhe) -> sie steigt nicht mehr
+        // mit, wenn man hochklettert, und Runterspringen auf festen Boden tut nicht weh.
+        let targetDeathY = this.levelGen.baseY + 550;
+        this.deathY += (targetDeathY - this.deathY) * 4 * dt;
+
         if (this.player.y > this.deathY + 50) {
             this.player.takeDamage(50, this);
             if (this.player.hp > 0) {
                 const p = this.player.lastSafePlatform || this.levelGen.platforms[0];
-                this.player.x = p.x + p.w/2; 
-                this.player.y = p.y - this.player.h - 10; 
-                this.player.vx = 0; 
+                this.player.x = p.x + p.w/2;
+                this.player.y = p.y - this.player.h - 10;
+                this.player.vx = 0;
                 this.player.vy = 0;
-                this.camera.x = Math.max(0, p.x - this.logicalWidth / 2); 
-                this.camera.y = this.player.y - this.logicalHeight / 2; 
-                this.deathY = this.camera.y + this.logicalHeight + 400;
+                this.camera.x = Math.max(0, p.x - this.logicalWidth / 2);
+                this.camera.y = this.player.y - this.logicalHeight / 2;
+                this.deathY = this.levelGen.baseY + 550;
             }
         }
         
