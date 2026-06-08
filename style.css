@@ -498,16 +498,16 @@ button:active {
 
         /* MASSIVE BUTTONS FOR MOBILE */
     #dpad {
-        width: 250px !important;
-        height: 250px !important;
+        width: 180px !important;
+        height: 180px !important;
     }
     #action-pad {
-        width: 250px !important;
-        height: 250px !important;
+        width: 180px !important;
+        height: 180px !important;
     }
     .action-btn {
-        width: 90px !important;
-        height: 90px !important;
+        width: 70px !important;
+        height: 70px !important;
         font-size: 2.2rem !important;
     }
     .dpad-btn {
