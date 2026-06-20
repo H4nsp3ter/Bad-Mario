@@ -31,6 +31,12 @@ body::before {
     pointer-events: none;
 }
 
+/* CLASSIC-Modus: kein blutroter Rand, nur dezente neutrale Vignette */
+body.classic-mode::before {
+    background: radial-gradient(circle at center, rgba(0,0,0,0) 58%, rgba(0,0,0,0.4) 100%);
+    box-shadow: none;
+}
+
 /* CRT Scanline Effect Overlay */
 body::after {
     content: "";

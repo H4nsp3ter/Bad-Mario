@@ -32,6 +32,8 @@ class Platform extends Entity {
     }
     
         update(dt) {
+        if (this.bumpTimer > 0) this.bumpTimer -= dt;   // CLASSIC: Anschlag-Hop läuft aus
+
         if (this.isCrumbling && this.touched) {
             this.crumbleTimer -= dt;
             this.x += (Math.random() - 0.5) * 10;
@@ -59,7 +61,10 @@ class Platform extends Entity {
 
     draw(ctx, camX, camY, levelData, levelIndex) {
         const drawX = this.x - camX, drawY = this.y - camY, now = performance.now() / 1000;
-        
+
+        // CLASSIC-Modus: Plattformen mit eigenem Stil (Röhre, ?-Block, Ziegel, Boden, Treppe)
+        if (this.style) { this.drawClassic(ctx, drawX, drawY, now); return; }
+
         if (this.isSpiky) {
             ctx.fillStyle = '#666';
             for(let i=0; i<this.w; i+=40) {
@@ -203,6 +208,90 @@ class Platform extends Entity {
             }
         }
     }
+
+    // CLASSIC-Plattform-Rendering im (leicht ranzigen) Super-Mario-Stil
+    drawClassic(ctx, x, y, now) {
+        const w = this.w, h = this.h;
+        if (this.bumpTimer > 0) y += -Math.sin((this.bumpTimer / 0.18) * Math.PI) * 14; // Anschlag-Hop
+
+        // Theme-Palette: over (Tag/orange), under (Untergrund/türkis), castle (Burg/grau)
+        const PAL = ({
+            over:   { body: '#C84C0C', dark: '#7C2C00', stair: '#9C4A00', edge: '#C86418', used: '#7A4A1E', dot: '#3A2410' },
+            under:  { body: '#2a9a9a', dark: '#0d4848', stair: '#1f7d7d', edge: '#46c8c8', used: '#1b5a5a', dot: '#0a3333' },
+            castle: { body: '#9aa0aa', dark: '#4a4e57', stair: '#7e828c', edge: '#c3c8d0', used: '#5a5e66', dot: '#2a2d33' }
+        })[this.ctheme || 'over'];
+        const G_BODY = PAL.body, G_DARK = PAL.dark, STAIR_BODY = PAL.stair, STAIR_EDGE = PAL.edge;
+
+        if (this.style === 'HIDDEN') return;      // unsichtbar bis von unten ausgelöst (wird dann USED)
+
+        if (this.style === 'USED') {              // ausgelöster Block (leer, solide)
+            ctx.fillStyle = PAL.used; ctx.fillRect(x, y, w, h);
+            ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.strokeRect(x, y, w, h);
+            ctx.fillStyle = PAL.dot;
+            ctx.fillRect(x + 6, y + 6, 7, 7); ctx.fillRect(x + w - 13, y + 6, 7, 7);
+            ctx.fillRect(x + 6, y + h - 13, 7, 7); ctx.fillRect(x + w - 13, y + h - 13, 7, 7);
+            return;
+        }
+
+        if (this.style === 'GROUND') {
+            ctx.fillStyle = G_BODY; ctx.fillRect(x, y, w, h);                 // bis ganz nach unten (kein Schweben)
+            ctx.fillStyle = '#000'; ctx.fillRect(x, y, w, 6);                 // dunkle Oberkante
+            ctx.fillStyle = G_DARK;                                           // Ziegelfugen
+            for (let by = 8; by < Math.min(h, 220); by += 46) {
+                ctx.fillRect(x, y + by, w, 3);
+                const off = ((by / 46) % 2) ? 23 : 0;
+                for (let bx = off; bx < w; bx += 46) ctx.fillRect(x + bx, y + by, 3, 46);
+            }
+            return;
+        }
+
+        if (this.style === 'PIPE') {
+            // Mündung (oben, breiter)
+            ctx.fillStyle = '#00A800'; ctx.fillRect(x - 4, y, w + 8, 30);
+            ctx.fillStyle = '#58D854'; ctx.fillRect(x - 2, y + 2, 12, 26);    // Glanz
+            ctx.fillStyle = '#006000'; ctx.fillRect(x + w - 10, y + 2, 8, 26);// Schatten
+            ctx.strokeStyle = '#003000'; ctx.lineWidth = 2; ctx.strokeRect(x - 4, y, w + 8, 30);
+            // Körper
+            ctx.fillStyle = '#00A800'; ctx.fillRect(x + 6, y + 30, w - 12, h);
+            ctx.fillStyle = '#58D854'; ctx.fillRect(x + 12, y + 30, 10, h);
+            ctx.fillStyle = '#006000'; ctx.fillRect(x + w - 18, y + 30, 10, h);
+            return;
+        }
+
+        if (this.style === 'STAIR') {
+            ctx.fillStyle = STAIR_BODY; ctx.fillRect(x, y, w, Math.min(h, 400));
+            ctx.fillStyle = STAIR_EDGE; ctx.fillRect(x + 4, y + 4, w - 8, 8);  // helle Kante
+            ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.strokeRect(x + 1, y + 1, w - 2, Math.min(h, 400) - 2);
+            return;
+        }
+
+        if (this.style === 'BRICK') {
+            ctx.fillStyle = G_BODY; ctx.fillRect(x, y, w, h);
+            ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.strokeRect(x, y, w, h);
+            ctx.strokeStyle = 'rgba(0,0,0,0.55)'; ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(x, y + h / 2); ctx.lineTo(x + w, y + h / 2);           // horizontale Fuge
+            ctx.moveTo(x + w / 2, y); ctx.lineTo(x + w / 2, y + h / 2);       // versetzte vertikale Fugen
+            ctx.moveTo(x + w / 4, y + h / 2); ctx.lineTo(x + w / 4, y + h);
+            ctx.moveTo(x + 3 * w / 4, y + h / 2); ctx.lineTo(x + 3 * w / 4, y + h);
+            ctx.stroke();
+            return;
+        }
+
+        if (this.style === 'QUESTION') {
+            const pulse = 0.55 + 0.45 * Math.sin(now * 4);
+            ctx.fillStyle = `rgba(229,148,0,${pulse})`; ctx.fillRect(x, y, w, h);
+            ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.strokeRect(x, y, w, h);
+            ctx.fillStyle = '#FFF';                                           // Niet-Ecken
+            ctx.fillRect(x + 4, y + 4, 5, 5); ctx.fillRect(x + w - 9, y + 4, 5, 5);
+            ctx.fillRect(x + 4, y + h - 9, 5, 5); ctx.fillRect(x + w - 9, y + h - 9, 5, 5);
+            ctx.fillStyle = '#000'; ctx.font = `bold ${Math.floor(h * 0.7)}px monospace`;
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText('?', x + w / 2, y + h / 2 + 2);
+            ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+            return;
+        }
+    }
 }
 
 class Ladder extends Entity {
@@ -234,9 +323,15 @@ class Collectible extends Entity {
         this.time = Math.random() * 10; 
         this.startY = y; 
     }
-        update(dt) { 
-        this.time += dt; 
-        this.y = this.startY + Math.sin(this.time * 4) * 15; 
+        update(dt) {
+        if (this.fallTo != null) {                  // CLASSIC: aus dem Block herausfallen, bis zum Boden
+            this.vy = (this.vy || 0) + 2200 * dt;
+            this.y += this.vy * dt;
+            if (this.y >= this.fallTo) { this.y = this.fallTo; this.startY = this.fallTo; this.fallTo = null; this.vy = 0; }
+            return;
+        }
+        this.time += dt;
+        this.y = this.startY + Math.sin(this.time * 4) * 15;
     }
         draw(ctx, camX, camY) {
             const cx = this.x - camX + this.w / 2, cy = this.y - camY + this.h / 2;

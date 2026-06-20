@@ -36,5 +36,24 @@ const CONFIG = {
         COIN: '#FFB800',
         LADDER: '#332211',
         FLAME: '#FF6600',
+    },
+    // Palette für den CLASSIC-Modus (originalgetreue Super-Mario-Level).
+    // theme:0 -> Platform.draw zeichnet keine Story-Deko; die Klassik-Plattformen
+    // rendern über ihren eigenen .style (siehe entities.js / classic.js).
+    CLASSIC: {
+        theme: 0,
+        SKY_TOP: '#5C94FC', SKY_BOTTOM: '#5C94FC',
+        PLATFORM_TOP: '#C84C0C', PLATFORM_GRAD: ['#C84C0C', '#7C2C00'],
+        LAVA_TOP: '#FF6A00', LAVA_BOTTOM: '#561600',   // Lava nur in der Burg (1-4) sichtbar
+        DECOR: 'WORLD 1-1'
+    },
+    // Spielbare Charaktere mit eigenen Fähigkeiten (Auswahl im Startmenü)
+    CHARACTERS: {
+        MARIO: { name: 'MARIO', jump: 1.0,  speed: 1.0, dmg: 1.0,  airJumps: 0,
+                 hat: 'cap',    shirt: '#d11100', shirtDk: '#8a0500', overall: '#2a44c8', skin: '#e8b682' },
+        LUIGI: { name: 'LUIGI', jump: 1.22, speed: 1.0, dmg: 1.4,  airJumps: 0,   // springt höher, steckt weniger ein
+                 hat: 'cap',    shirt: '#1f9e3a', shirtDk: '#0c5a1e', overall: '#243a8a', skin: '#e8b682' },
+        SONIC: { name: 'SONIC', jump: 1.05, speed: 1.5, dmg: 1.15, airJumps: 1,   // schnell + Doppelsprung
+                 hat: 'spikes', shirt: '#1565d8', shirtDk: '#0a3a8a', overall: '#1565d8', skin: '#e8b682' }
     }
 };

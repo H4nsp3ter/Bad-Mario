@@ -13,6 +13,11 @@ class AudioManager {
         this.currentBGM = null;
         this.currentBGMName = '';
         this.isMuted = false;
+
+        // Sound-Stil: 'METAL' (Samples + Synth, wie bisher) oder 'CLASSIC' (8-Bit-Chiptune à la Mario)
+        this.audioTheme = 'METAL';
+        this.chipName = '';      // aktuell laufende Chiptune-Melodie ('OVERWORLD'/'BOSS')
+        this.chipTimer = null;
     }
 
     init() {
@@ -35,6 +40,10 @@ class AudioManager {
                 this.loadTrack('LEVEL_2', SF + 'level_metal_2.mp3', true);
                 this.loadTrack('LEVEL_3', SF + 'level_metal_3.mp3', true);
                 this.loadTrack('LEVEL_4', SF + 'level_metal_4.mp3', true);
+                // Optionale Classic-Mode-Musik: einfach diese Dateien in "sound files/" legen,
+                // dann spielt der KLASSISCH-Schalter sie statt des Chiptunes (404 -> Fallback Chiptune).
+                this.loadTrack('CLASSIC_BGM',  SF + 'classic_overworld.mp3', true);
+                this.loadTrack('CLASSIC_BOSS', SF + 'classic_boss.mp3', true);
                 // Waffen- & Effekt-Samples
                 this.loadTrack('SFX_PISTOL',    SF + 'pistol-shot.mp3',     false);
                 this.loadTrack('SFX_UZI',       SF + 'uzi.mp3',             false);
@@ -331,9 +340,109 @@ class AudioManager {
 
     playCoin() { this.playPickup(false); }
 
+    // CLASSIC: dumpfes "Donk" beim Anschlagen eines Blocks von unten
+    playBump() {
+        if (!this.ctx || this.isMuted) return;
+        const now = this.ctx.currentTime;
+        const osc = this.ctx.createOscillator(); const gain = this.ctx.createGain();
+        osc.type = 'square';
+        osc.frequency.setValueAtTime(190, now);
+        osc.frequency.exponentialRampToValueAtTime(95, now + 0.08);
+        gain.gain.setValueAtTime(0.22, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+        osc.connect(gain).connect(this.masterGain);
+        osc.start(now); osc.stop(now + 0.08);
+        setTimeout(() => this.cleanupNode(osc), 130);
+    }
+
+    // CLASSIC: kurzer, krümeliger Bruch-Sound beim Zerstören eines Ziegels (Rausch-Burst, keine Explosion)
+    playBlockBreak() {
+        if (!this.ctx || this.isMuted) return;
+        const now = this.ctx.currentTime;
+        const len = Math.floor(this.ctx.sampleRate * 0.16);
+        const buffer = this.ctx.createBuffer(1, len, this.ctx.sampleRate);
+        const data = buffer.getChannelData(0);
+        for (let i = 0; i < len; i++) data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / len, 2);
+        const noise = this.ctx.createBufferSource(); noise.buffer = buffer;
+        const filter = this.ctx.createBiquadFilter(); filter.type = 'bandpass'; filter.frequency.value = 1700; filter.Q.value = 0.6;
+        const gain = this.ctx.createGain();
+        gain.gain.setValueAtTime(0.8, now);
+        gain.gain.exponentialRampToValueAtTime(0.01, now + 0.16);
+        noise.connect(filter).connect(gain).connect(this.masterGain);
+        noise.start(now); noise.stop(now + 0.16);
+        setTimeout(() => this.cleanupNode(noise), 220);
+    }
+
+    // =====================================================================
+    //  CLASSIC-SOUND: 8-Bit-Chiptune (BGM) + Retro-SFX im Super-Mario-Stil
+    // =====================================================================
+    // Eine einzelne Chiptune-Note zu Zeitpunkt 'time' planen
+    chipNote(freq, time, dur, type = 'square', vol = 0.16) {
+        if (!this.ctx || this.isMuted || !freq) return;
+        const osc = this.ctx.createOscillator(), g = this.ctx.createGain();
+        osc.type = type; osc.frequency.setValueAtTime(freq, time);
+        g.gain.setValueAtTime(0.0001, time);
+        g.gain.exponentialRampToValueAtTime(vol, time + 0.008);
+        g.gain.exponentialRampToValueAtTime(0.0001, time + dur);
+        osc.connect(g).connect(this.masterGain);
+        osc.start(time); osc.stop(time + dur + 0.02);
+        setTimeout(() => this.cleanupNode(osc), (time - this.ctx.currentTime + dur + 0.1) * 1000);
+    }
+
+    // Loopende Chiptune-Melodie. key: '1-1' (Overworld), '1-2' (unterirdisch, düster), 'BOSS'.
+    // Bewusst tiefe Tonlage (kein hohes Gepiepse), je Level eine eigene Melodie.
+    playChiptune(which) {
+        if (!this.ctx || this.chipName === which) return;
+        this.stopChiptune();
+        this.chipName = which;
+        const _ = 0; // Pause
+        const songs = {
+            '1-1': { step: 0.17,                           // Overworld in Moll, düster & tief
+                lead: [220,_,262,220,165,_,220,_, 196,_,165,_,220,_,247,_, 262,_,220,_,196,_,165,_, 147,_,165,_,220,_,_,_],
+                bass: [110,_,110,_,82,_,82,_, 87,_,87,_,98,_,82,_] },
+            '1-2': { step: 0.165,                          // Untergrund: sehr dunkel
+                lead: [196,_,165,_,147,_,165,196, 131,_,147,_,165,_,196,_, 156,_,131,_,117,_,131,156, 98,_,117,_,147,_,165,_],
+                bass: [98,_,98,_,73,_,73,_, 87,_,87,_,65,_,73,_] },
+            '1-3': { step: 0.15,                           // Athletik: treibend, gespannt (Moll)
+                lead: [294,_,220,_,294,349,_,294, 262,_,220,_,220,_,175,_, 294,_,349,440,_,349,294,_, 262,_,220,_,294,_,_,_],
+                bass: [73,_,73,_,110,_,110,_, 117,_,87,_,98,_,110,_] },
+            '1-4': { step: 0.19,                           // Burg: bedrohlich, langsam, sehr tief
+                lead: [165,_,_,175,_,_,165,147, 165,_,_,196,_,_,165,_, 220,_,_,196,_,175,165,_, 147,_,_,165,_,_,_,_],
+                bass: [82,_,_,82,_,_,87,_, 82,_,_,98,_,_,82,_] },
+            'BOSS':  { step: 0.125,                        // hektisch, bedrohlich tief
+                lead: [165,196,165,147,165,196,220,196, 175,165,147,165,175,_,220,_, 165,147,131,147,165,196,220,247, 262,_,247,_,220,_,196,_],
+                bass: [82,82,_,98,87,87,_,73, 82,82,_,98,110,_,98,_] }
+        };
+        const song = songs[which] || songs['1-1'];
+        const step = song.step, n = song.lead.length;
+        const scheduleBar = () => {
+            if (this.chipName !== which || !this.ctx) return;
+            const now = this.ctx.currentTime;
+            for (let i = 0; i < n; i++) {
+                const t = now + i * step;
+                this.chipNote(song.lead[i % song.lead.length], t, step * 0.85, 'square', 0.16);
+                this.chipNote(song.bass[i % song.bass.length], t, step * 0.9, 'triangle', 0.24);
+            }
+            this.chipTimer = setTimeout(scheduleBar, n * step * 1000);
+        };
+        scheduleBar();
+    }
+
+    stopChiptune() {
+        if (this.chipTimer) { clearTimeout(this.chipTimer); this.chipTimer = null; }
+        this.chipName = '';
+    }
+
+
     // --- BGM LOGIK ---
     startBGM() {
         this.init();
+        if (this.audioTheme === 'CLASSIC') {
+            // Eigene Classic-MP3 bevorzugen, sonst Chiptune (updateBGM wählt je Level die richtige Melodie)
+            if (this.bgmBuffers['CLASSIC_BGM']) this.playMusicTrack('CLASSIC_BGM');
+            else this.playChiptune('1-1');
+            return;
+        }
         let tries = 0;
         const checkReady = setInterval(() => {
             const ready = ['LEVEL_1','LEVEL_2','LEVEL_3','LEVEL_4'].some(n => this.bgmBuffers[n]);
@@ -346,6 +455,7 @@ class AudioManager {
 
     stopBGM() {
         this.stopAllSustains();
+        this.stopChiptune();
         if (this.currentBGM) {
             this.currentBGM.stop();
             this.currentBGM = null;
@@ -378,6 +488,15 @@ class AudioManager {
 
     updateBGM(level, isBossActive = false) {
         if (!this.ctx) return;
+        if (this.audioTheme === 'CLASSIC') {
+            if (this.bgmBuffers['CLASSIC_BGM']) {            // eigene MP3 vorhanden -> diese nutzen
+                this.stopChiptune();
+                this.playMusicTrack(isBossActive && this.bgmBuffers['CLASSIC_BOSS'] ? 'CLASSIC_BOSS' : 'CLASSIC_BGM');
+            } else {
+                this.playChiptune(isBossActive ? 'BOSS' : (['1-1', '1-2', '1-3', '1-4'][level - 1] || '1-1'));  // je Level eigene Melodie
+            }
+            return;
+        }
         if (isBossActive) {
             if (this.currentBGMName !== 'BOSS') {
                 this.playMusicTrack('BOSS');

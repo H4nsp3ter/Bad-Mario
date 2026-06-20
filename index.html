@@ -67,7 +67,23 @@
                 
                                 <div id="start-screen-prompt">
                     <p class="insert-coin-text">CHOOSE YOUR FATE</p>
-                    
+
+                    <div id="mode-switch" style="display:flex; justify-content:center; gap:10px; margin-bottom:12px;">
+                        <button id="btn-mode-story" class="diff-btn regular">STORY</button>
+                        <button id="btn-mode-classic" class="diff-btn regular">CLASSIC 1-1</button>
+                    </div>
+
+                    <div id="audio-switch" style="display:flex; justify-content:center; gap:10px; margin-bottom:12px;">
+                        <button id="btn-audio-metal" class="diff-btn regular">♪ METAL</button>
+                        <button id="btn-audio-classic" class="diff-btn regular">♪ KLASSISCH</button>
+                    </div>
+
+                    <div id="char-switch" style="display:flex; justify-content:center; gap:10px; margin-bottom:20px;">
+                        <button id="btn-char-mario" class="diff-btn regular">MARIO</button>
+                        <button id="btn-char-luigi" class="diff-btn regular">LUIGI</button>
+                        <button id="btn-char-sonic" class="diff-btn regular">SONIC</button>
+                    </div>
+
                     <div id="level-selection" class="hidden" style="margin-top: 20px; text-align: center;">
                         <p style="font-size: 14px; color: #888; margin-bottom: 10px;">START FROM LEVEL:</p>
                         <div id="level-buttons" style="display: flex; justify-content: center; gap: 10px; margin-bottom: 20px;">
@@ -108,6 +124,7 @@
     <script src="enemies.js"></script>
     <script src="player.js"></script>
     <script src="level.js"></script>
+    <script src="classic.js"></script>
     <script src="game.js"></script>
 </body>
 </html>

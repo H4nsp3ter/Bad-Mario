@@ -28,9 +28,14 @@ class Game {
         this.shakeMag = 0; 
         this.shakeTime = 0; 
         this.deathY = 2000;
-                this.level = 1; 
-        this.difficulty = 'regular'; 
+                this.level = 1;
+        this.difficulty = 'regular';
+        this.gameMode = localStorage.getItem('badMarioMode') || 'NORMAL'; // 'NORMAL' = Story, 'CLASSIC' = Super-Mario-Level
+        this.classicMode = (this.gameMode === 'CLASSIC');
+        this.audioMode = localStorage.getItem('badMarioAudio') || 'METAL';  // 'METAL' = bisher, 'CLASSIC' = 8-Bit-Mario-Sound
+        this.character = localStorage.getItem('badMarioChar') || 'MARIO';   // MARIO / LUIGI / SONIC
         this.maxUnlockedLevel = parseInt(localStorage.getItem('badMarioUnlockedLevel')) || 1;
+        this.maxClassicUnlocked = parseInt(localStorage.getItem('badMarioClassicUnlocked')) || 1; // freigeschaltete Classic-Level (1-1, 1-2, ...)
         this.maxReachedLevel = 1;
         this.transitionTimer = 0; 
         this.levelFlashTimer = 0;
@@ -62,39 +67,102 @@ class Game {
         };
         this.uiCache = { hp: -1, score: -1, coins: -1, level: -1, weapon: '' };
 
-        this.resize(); 
+        this.resize();
         window.addEventListener('resize', () => this.resize());
         this.setupEventListeners();
+        this.setMode(this.gameMode); // synchronisiert Switch-Optik + Level-Auswahl
+        this.setAudioMode(this.audioMode);
+        this.setCharacter(this.character);
+    }
+
+    // Charakter-Auswahl (Mario / Luigi / Sonic) im Startmenü
+    setCharacter(key) {
+        if (!CONFIG.CHARACTERS[key]) key = 'MARIO';
+        this.character = key;
+        localStorage.setItem('badMarioChar', key);
+        const ids = { MARIO: 'btn-char-mario', LUIGI: 'btn-char-luigi', SONIC: 'btn-char-sonic' };
+        for (const k in ids) {
+            const b = document.getElementById(ids[k]); if (!b) continue;
+            const active = (k === key);
+            b.style.opacity = active ? '1' : '0.45';
+            b.style.boxShadow = active ? '0 0 15px #FFD700' : 'none';
+            b.style.borderColor = active ? '#FFD700' : '';
+        }
+    }
+
+    // Sound-Stil umschalten (Heavy Metal vs. klassischer 8-Bit-Mario-Sound)
+    setAudioMode(mode) {
+        this.audioMode = mode;
+        localStorage.setItem('badMarioAudio', mode);
+        if (this.audio) this.audio.audioTheme = mode;
+
+        const setBtn = (btn, active) => {
+            if (!btn) return;
+            btn.style.opacity = active ? '1' : '0.45';
+            btn.style.boxShadow = active ? '0 0 15px #0FF' : 'none';
+            btn.style.borderColor = active ? '#0FF' : '';
+        };
+        setBtn(document.getElementById('btn-audio-metal'), mode === 'METAL');
+        setBtn(document.getElementById('btn-audio-classic'), mode === 'CLASSIC');
+
+        // Läuft schon Musik? Dann live umschalten.
+        if (this.state === 'PLAYING' && this.audio && this.audio.startBGM) {
+            this.audio.stopBGM();
+            this.audio.startBGM();
+        }
+    }
+
+    // Story- vs. Classic-Modus umschalten (Switch im Startmenü)
+    setMode(mode) {
+        this.gameMode = mode;
+        this.classicMode = (mode === 'CLASSIC');
+        localStorage.setItem('badMarioMode', mode);
+        document.body.classList.toggle('classic-mode', this.classicMode); // steuert u.a. die Vignette
+
+        const setBtn = (btn, active) => {
+            if (!btn) return;
+            btn.style.opacity = active ? '1' : '0.45';
+            btn.style.boxShadow = active ? '0 0 15px #FFD700' : 'none';
+            btn.style.borderColor = active ? '#FFD700' : '';
+        };
+        setBtn(document.getElementById('btn-mode-story'), !this.classicMode);
+        setBtn(document.getElementById('btn-mode-classic'), this.classicMode);
+
+        this.level = 1;                 // bei Moduswechsel Auswahl zurücksetzen
         this.updateLevelSelection();
     }
 
+    // Level-Auswahl: bereits freigeschaltete Level (Story ODER Classic) direkt anwählbar
     updateLevelSelection() {
         if (!this.ui.levelSelection || !this.ui.levelButtons) return;
-        
-        if (this.maxUnlockedLevel > 1) {
+        const maxLvl = this.classicMode ? this.maxClassicUnlocked : this.maxUnlockedLevel;
+
+        if (maxLvl > 1) {
             this.ui.levelSelection.classList.remove('hidden');
             this.ui.levelButtons.innerHTML = '';
-            
-            for (let i = 1; i <= this.maxUnlockedLevel; i++) {
+
+            for (let i = 1; i <= maxLvl; i++) {
                 const btn = document.createElement('button');
                 btn.className = 'diff-btn regular';
                 btn.style.width = '60px';
                 btn.style.minWidth = '60px';
-                                btn.innerText = i;
-                
+                btn.innerText = this.classicMode ? (CLASSIC_LABELS[i] || i) : i;
+
                 if (i === this.level) {
                     btn.style.backgroundColor = 'rgba(255, 215, 0, 0.4)';
                     btn.style.borderColor = '#FFD700';
                     btn.style.color = '#FFF';
                     btn.style.boxShadow = '0 0 15px #FFD700';
                 }
-                
+
                 btn.onclick = () => {
                     this.level = i;
                     this.updateLevelSelection();
                 };
                 this.ui.levelButtons.appendChild(btn);
             }
+        } else {
+            this.ui.levelSelection.classList.add('hidden');
         }
     }
 
@@ -111,6 +179,13 @@ class Game {
 
         document.body.addEventListener('click', (e) => {
             const t = e.target;
+            if (t.id === 'btn-mode-story') { this.setMode('NORMAL'); return; }
+            else if (t.id === 'btn-mode-classic') { this.setMode('CLASSIC'); return; }
+            else if (t.id === 'btn-audio-metal') { this.audio.init(); this.setAudioMode('METAL'); return; }
+            else if (t.id === 'btn-audio-classic') { this.audio.init(); this.setAudioMode('CLASSIC'); return; }
+            else if (t.id === 'btn-char-mario') { this.setCharacter('MARIO'); return; }
+            else if (t.id === 'btn-char-luigi') { this.setCharacter('LUIGI'); return; }
+            else if (t.id === 'btn-char-sonic') { this.setCharacter('SONIC'); return; }
             if (t.id === 'btn-princess' || t.id === 'restart-princess') launchWithDiff('princess');
             else if (t.id === 'btn-regular' || t.id === 'restart-regular') launchWithDiff('regular');
             else if (t.id === 'btn-badass' || t.id === 'restart-badass') launchWithDiff('badass');
@@ -223,16 +298,25 @@ class Game {
         if(this.ui.mobileControls) this.ui.mobileControls.classList.remove('hidden');
 
         this.difficulty = diff;
-        this.state = 'PLAYING'; 
-        this.level = level; 
-        this.maxReachedLevel = Math.max(this.maxReachedLevel, level);
+        this.state = 'PLAYING';
+        this.level = level;                          // gewähltes Level (Story oder Classic 1-1/1-2)
+        this.maxReachedLevel = Math.max(this.maxReachedLevel, this.level);
         this.camera = { x: 0, y: 0 }; 
-        this.player = new Player(100, 200);
+        this.player = new Player(100, 200, this.character);
+        if (this.classicMode) {                 // kompakterer Mario (Super-Mario-Proportionen)
+            const s = 0.8;
+            this.player.w = Math.round(80 * s);
+            this.player.standH = Math.round(140 * s);
+            this.player.crouchH = Math.round(80 * s);
+            this.player.h = this.player.standH;
+        }
         this._bossWasActive = false;
         const wasted = document.querySelector('.wasted-text'); if (wasted) wasted.innerText = 'WASTED';
 
+        this.levelGen.classicMode = this.classicMode;
+        this.levelGen.currentGeneratedLevel = -1; // erzwingt sauberen (Neu-)Aufbau im ersten update()
         this.levelGen.init(0, 500);
-        this.projectiles = []; 
+        this.projectiles = [];
         this.particles.particles = [];
         this.screenBlood = [];
         this.combo = 0;
@@ -241,8 +325,9 @@ class Game {
         this.uiCache = { hp: -1, score: -1, coins: -1, level: -1, weapon: '' };
         this.updateHUD(); 
         
-        this.audio.startBGM(); 
-        this.transitionTimer = 3.0; 
+        this.audio.audioTheme = this.audioMode;
+        this.audio.startBGM();
+        this.transitionTimer = 3.0;
         this.levelFlashTimer = 0; 
         this.lastTime = performance.now();
     }
@@ -254,8 +339,9 @@ class Game {
         
         if (this.player.ammo !== Infinity) this.player.ammo += 20;
         
-        this.levelGen.init(0, 500); 
-        this.player.x = 100; 
+        this.levelGen.currentGeneratedLevel = -1; // Classic-Level beim Weiterspielen neu aufbauen
+        this.levelGen.init(0, 500);
+        this.player.x = 100;
         this.player.y = 200; 
         this.player.vx = 0; 
         this.player.vy = 0;
@@ -288,6 +374,42 @@ class Game {
         this.updateHUD();
     }
 
+    // CLASSIC: ?-Block/Ziegel von unten anschlagen (oder per Projektil treffen)
+    bumpBlock(p) {
+        if (!p || p.used || p.style === 'USED') return;
+        p.bumpTimer = 0.18;                       // kleiner Anschlag-Hop (siehe Platform)
+
+        if (p.style === 'QUESTION') {
+            if (this.audio.playBump) this.audio.playBump();
+            this.dispense(p, p.content || 'BEER');
+            p.style = 'USED'; p.used = true; p.bumpable = false;
+        } else { // BRICK
+            if (p.content) {                       // Ziegel mit Inhalt -> gibt Inhalt frei, bleibt als USED stehen
+                if (this.audio.playBump) this.audio.playBump();
+                this.dispense(p, p.content);
+                p.content = null; p.style = 'USED'; p.used = true; p.bumpable = false;
+            } else {                               // leerer Ziegel -> zerbricht
+                this.particles.spawn(p.x + p.w/2, p.y + p.h/2, '#C84C0C', 18, 350);
+                this.particles.spawn(p.x + p.w/2, p.y + p.h/2, '#7C2C00', 10, 300);
+                if (this.audio.playBlockBreak) this.audio.playBlockBreak();
+                this.triggerShake(4, 0.08);
+                this.player.score += 50;
+                const idx = this.levelGen.platforms.indexOf(p);
+                if (idx >= 0) this.levelGen.platforms.splice(idx, 1);
+            }
+        }
+        this.updateHUD();
+    }
+
+    // Inhalt eines Blocks ausgeben: ploppt unten aus dem Block und FÄLLT auf den Boden -> immer aufsammelbar
+    dispense(p, type) {
+        const it = new Collectible(p.x + p.w/2 - 40, p.y + p.h, type);
+        it.startY = it.y;
+        it.fallTo = this.levelGen.baseY - it.h;   // landet auf dem Boden
+        this.levelGen.items.push(it);
+        this.particles.spawn(p.x + p.w/2, p.y, '#FFF', 10, 200);
+    }
+
     handleBossDefeat() {
         this.triggerShake(80, 2.5);
         this.audio.playExplosion();
@@ -299,9 +421,16 @@ class Game {
     advanceLevel() {
         this.transitionTimer = 4.0;
         this.levelFlashTimer = 1.2;
-        if (this.level < 10) {
+        // Classic-Modus: nur verfügbare Klassik-Level fortsetzen, sonst Sieg.
+        const hasNext = this.classicMode ? !!CLASSIC_AVAILABLE[this.level + 1] : (this.level < 10);
+        if (hasNext) {
             this.level++;
-            if (this.level > this.maxUnlockedLevel) {
+            if (this.classicMode) {
+                if (this.level > this.maxClassicUnlocked) {
+                    this.maxClassicUnlocked = this.level;
+                    localStorage.setItem('badMarioClassicUnlocked', this.maxClassicUnlocked);
+                }
+            } else if (this.level > this.maxUnlockedLevel) {
                 this.maxUnlockedLevel = this.level;
                 localStorage.setItem('badMarioUnlockedLevel', this.maxUnlockedLevel);
                 this.updateLevelSelection();
@@ -310,6 +439,12 @@ class Game {
             this.levelGen.bossSpawned = false;
             this._bossWasActive = false;
             this.player.hp = Math.min(CONFIG.MAX_HP, this.player.hp + 25); // kleine Heilung beim Übergang
+            // Classic-Level werden ab x=0 gebaut -> Spieler & Kamera an den Anfang setzen
+            if (this.classicMode) {
+                this.player.x = 100; this.player.y = 200; this.player.vx = 0; this.player.vy = 0;
+                this.camera.x = 0; this.camera.y = 0; this.deathY = 2000;
+                this.projectiles = [];
+            }
             // Level wird automatisch neu generiert (LevelGenerator erkennt den Levelwechsel)
         } else {
             // Sieg!
@@ -355,7 +490,7 @@ class Game {
             this.uiCache.coins = this.player.coins;
         }
         if (this.uiCache.level !== this.level) {
-            if(this.ui.levelVal) this.ui.levelVal.innerText = `${this.level}`;
+            if(this.ui.levelVal) this.ui.levelVal.innerText = this.classicMode ? (CLASSIC_LABELS[this.level] || '1-1') : `${this.level}`;
             this.uiCache.level = this.level;
         }
         
@@ -630,9 +765,12 @@ class Game {
             if (!hit) {
                 for (let j = 0; j < this.levelGen.platforms.length; j++) {
                     let p = this.levelGen.platforms[j];
-                    if (proj.checkCollision(p)) { 
-                        hit = true; 
-                        
+                    if (proj.checkCollision(p)) {
+                        hit = true;
+
+                        // CLASSIC: Spielerschüsse öffnen ?-Blöcke / zerstören Ziegel
+                        if (!proj.isEnemy && p.bumpable && !p.used) this.bumpBlock(p);
+
                         if (proj.type === 'MOLOTOV') {
                             this.audio.playExplosion();
                             if(this.particles.spawnFire) this.particles.spawnFire(proj.x, proj.y, 40, 200, 50);
@@ -674,13 +812,20 @@ class Game {
             enemy.update(dt, this);
             
             if (!enemy.dead && this.player.checkCollision(enemy)) {
+                const aboveNow = this.player.vy > 0 && (this.player.y + this.player.h - this.player.vy * dt) < enemy.y + enemy.h * 0.5;
                 if (this.player.isStar) {
                     enemy.takeDamage(1000, this, 'FLAME');
-                } else if (this.player.vy > 0 && this.player.y + this.player.h - this.player.vy * dt < enemy.y + enemy.h * 0.5) { 
-                    enemy.takeDamage(100, this); 
-                    this.player.vy = -CONFIG.JUMP_FORCE * (this.player.isBoosted ? 1.2 : 0.8); 
-                } else { 
-                    this.player.takeDamage(20, this); 
+                } else if (enemy.isShellAny && enemy.isShellAny()) {           // Koopa-Panzer
+                    if (aboveNow) { enemy.takeDamage(100, this); this.player.vy = -CONFIG.JUMP_FORCE * 0.6; } // drauftreten: ruhend->fahren / fahrend->kaputt
+                    else if (enemy.isIdleShell()) { enemy.kick(this.player.x < enemy.x ? 1 : -1, this); }     // seitlich antreten
+                    // fahrender Panzer von der Seite: ungefährlich für den Spieler
+                } else if (enemy.noStomp) {                                     // Piranha-Pflanze: nicht stampfbar
+                    this.player.takeDamage(20, this);
+                } else if (aboveNow) {
+                    enemy.takeDamage(100, this);
+                    this.player.vy = -CONFIG.JUMP_FORCE * (this.player.isBoosted ? 1.2 : 0.8);
+                } else {
+                    this.player.takeDamage(20, this);
                 }
             }
         }
@@ -727,6 +872,59 @@ class Game {
         }
     }
 
+    // Himmelblauer Super-Mario-Hintergrund mit Hügeln, Büschen, Wolken + Schloss
+    drawClassicBackground() {
+        const ctx = this.ctx, W = this.logicalWidth, camX = this.camera.x;
+        const groundY = 600 - this.camera.y;
+
+        // Untergrund-Level (1-2): dunkles Setting, keine Wolken/Hügel
+        if (this.levelGen.classicUnder) {
+            const grad = ctx.createLinearGradient(0, 0, 0, this.logicalHeight);
+            grad.addColorStop(0, '#04161a'); grad.addColorStop(1, '#000');
+            ctx.fillStyle = grad; ctx.fillRect(0, 0, W, this.logicalHeight);
+            return;
+        }
+
+        ctx.fillStyle = '#5C94FC'; ctx.fillRect(0, 0, W, this.logicalHeight);
+
+        // Wolken
+        ctx.fillStyle = '#FFF';
+        for (let i = 0; i < 12; i++) {
+            let cx = (i * 760 - camX * 0.12) % 5800; if (cx < -200) cx += 5800;
+            let cy = 110 + (i % 3) * 75 - this.camera.y * 0.05;
+            ctx.beginPath();
+            ctx.arc(cx, cy, 26, 0, Math.PI * 2); ctx.arc(cx + 32, cy, 34, 0, Math.PI * 2);
+            ctx.arc(cx + 68, cy, 26, 0, Math.PI * 2); ctx.fill();
+            ctx.fillRect(cx, cy, 68, 26);
+        }
+
+        // Hügel & Büsche (grün, auf der Bodenlinie)
+        ctx.fillStyle = '#00A800';
+        for (let i = 0; i < 10; i++) {
+            let hx = (i * 1100 - camX * 0.3) % 7000; if (hx < -400) hx += 7000;
+            ctx.beginPath(); ctx.arc(hx, groundY, 130, Math.PI, 0); ctx.fill();          // Hügel
+            ctx.beginPath();
+            ctx.arc(hx + 560, groundY - 4, 50, Math.PI, 0);
+            ctx.arc(hx + 610, groundY - 4, 64, Math.PI, 0);
+            ctx.arc(hx + 665, groundY - 4, 50, Math.PI, 0); ctx.fill();                   // Busch
+        }
+
+        this.drawClassicCastle();
+    }
+
+    drawClassicCastle() {
+        const cx = this.levelGen.castleX;
+        if (cx == null) return;
+        const ctx = this.ctx, x = cx - this.camera.x, gy = 600 - this.camera.y;
+        if (x < -260 || x > this.logicalWidth + 260) return;
+        ctx.fillStyle = '#9C4A00'; ctx.fillRect(x, gy - 220, 220, 220);                   // Korpus
+        for (let i = 0; i < 5; i++) ctx.fillRect(x + i * 50, gy - 250, 30, 32);           // Zinnen
+        ctx.fillStyle = '#7C2C00'; ctx.fillRect(x + 85, gy - 300, 50, 90);               // Mittelturm
+        for (let i = 0; i < 3; i++) ctx.fillRect(x + 85 + i * 22, gy - 320, 12, 24);
+        ctx.fillStyle = '#000'; ctx.fillRect(x + 88, gy - 95, 44, 95);                   // Tor
+        ctx.beginPath(); ctx.arc(x + 110, gy - 95, 22, Math.PI, 0); ctx.fill();
+    }
+
     drawGoal(gx) {
         const ctx = this.ctx, x = gx - this.camera.x, groundY = 600 - this.camera.y, t = performance.now() / 200;
         ctx.fillStyle = 'rgba(255,220,80,0.18)'; ctx.fillRect(x - 26, groundY - 360, 52, 360); // Lichtsäule
@@ -751,10 +949,10 @@ class Game {
             this.ctx.translate((Math.random() - 0.5) * this.shakeMag, (Math.random() - 0.5) * this.shakeMag); 
         }
         
-        const levelData = CONFIG.LEVELS[this.level]; 
-        this.drawBackground(levelData);
-        
-        const theme = levelData.theme || 1;
+        const levelData = this.classicMode ? CONFIG.CLASSIC : CONFIG.LEVELS[this.level];
+        if (this.classicMode) this.drawClassicBackground(); else this.drawBackground(levelData);
+
+        const theme = this.classicMode ? 0 : (levelData.theme || 1);
         for (let i = 0; i < this.levelGen.ladders.length; i++) this.levelGen.ladders[i].draw(this.ctx, this.camera.x, this.camera.y, theme);
         for (let i = 0; i < this.levelGen.platforms.length; i++) this.levelGen.platforms[i].draw(this.ctx, this.camera.x, this.camera.y, levelData, theme);
         if (this.levelGen.goalX != null) this.drawGoal(this.levelGen.goalX);
@@ -764,19 +962,15 @@ class Game {
         for (let i = 0; i < this.projectiles.length; i++) this.projectiles[i].draw(this.ctx, this.camera.x, this.camera.y);
         
         if (this.player) {
-            if (this.player.isStar) {
-                this.ctx.shadowBlur = 30; this.ctx.shadowColor = '#FF4400';
-            }
-            this.player.draw(this.ctx, this.camera.x, this.camera.y);
-            this.ctx.shadowBlur = 0;
+            this.player.draw(this.ctx, this.camera.x, this.camera.y);   // Star-Effekt jetzt günstig per Farb-Flash in drawMarioBody
         }
 
         this.particles.draw(this.ctx, this.camera.x, this.camera.y, this.logicalWidth, this.logicalHeight);
         
         const time = performance.now() / 300;
         const startY = this.deathY - this.camera.y;
-        
-        if (startY < this.logicalHeight) {
+
+        if ((!this.classicMode || this.levelGen.classicTheme === 'castle') && startY < this.logicalHeight) {
             const lavaGrad = this.ctx.createLinearGradient(0, startY, 0, this.logicalHeight);
             lavaGrad.addColorStop(0, levelData.LAVA_TOP); 
             lavaGrad.addColorStop(1, levelData.LAVA_BOTTOM);
@@ -849,15 +1043,17 @@ class Game {
         }
 
         if (this.transitionTimer > 0 && this.state === 'PLAYING') {
-            this.ctx.fillStyle = `rgba(255, 255, 255, ${Math.min(1.0, this.transitionTimer / 1.5) * 0.8})`; 
+            const titleTxt = this.classicMode ? ('WORLD ' + (CLASSIC_LABELS[this.level] || '1-1')) : `LEVEL ${this.level}`;
+            const decorTxt = this.classicMode ? ({ under: 'UNDERGROUND', castle: 'CASTLE', over: 'CLASSIC' }[this.levelGen.classicTheme] || 'CLASSIC') : CONFIG.LEVELS[this.level].DECOR;
+            this.ctx.fillStyle = `rgba(255, 255, 255, ${Math.min(1.0, this.transitionTimer / 1.5) * 0.8})`;
             this.ctx.fillRect(0, 0, this.logicalWidth, this.logicalHeight);
-            this.ctx.fillStyle = '#000'; 
-            this.ctx.font = 'bold 80px monospace'; 
-            this.ctx.textAlign = 'center'; 
-            this.ctx.fillText(`LEVEL ${this.level}`, this.logicalWidth / 2, this.logicalHeight / 2 - 20);
-            this.ctx.fillStyle = '#900'; 
-            this.ctx.font = 'bold 50px monospace'; 
-            this.ctx.fillText(CONFIG.LEVELS[this.level].DECOR, this.logicalWidth / 2, this.logicalHeight / 2 + 50); 
+            this.ctx.fillStyle = '#000';
+            this.ctx.font = 'bold 80px monospace';
+            this.ctx.textAlign = 'center';
+            this.ctx.fillText(titleTxt, this.logicalWidth / 2, this.logicalHeight / 2 - 20);
+            this.ctx.fillStyle = '#900';
+            this.ctx.font = 'bold 50px monospace';
+            this.ctx.fillText(decorTxt, this.logicalWidth / 2, this.logicalHeight / 2 + 50);
             this.ctx.textAlign = 'left';
         }
         

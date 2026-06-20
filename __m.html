@@ -1,0 +1,20 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"><style>body{margin:0;background:#5C94FC;font-family:monospace;color:#fff}.cell{display:inline-block;margin:4px;text-align:center}</style></head><body>
+<div id="host"></div><canvas id="gameCanvas" style="display:none"></canvas>
+<script src="config.js"></script><script src="audio.js"></script><script src="input.js"></script>
+<script src="particles.js"></script><script src="sprites.js"></script><script src="entities.js"></script>
+<script src="enemies.js"></script><script src="player.js"></script><script src="level.js"></script>
+<script src="classic.js"></script><script src="game.js"></script>
+<script>
+  Assets.init();
+  const g=new Game(); g.audio=new Proxy({},{get:()=>()=>{}}); g.setMode('CLASSIC');
+  g.input={isDown:()=>false,isJustPressed:()=>false,isJustReleased:()=>false,update:()=>{}};
+  function shot(label,key,face){
+    const W=200,H=210,oc=document.createElement('canvas');oc.width=W;oc.height=H;const o=oc.getContext('2d');
+    o.fillStyle='#5C94FC';o.fillRect(0,0,W,H);o.strokeStyle='#C84C0C';o.beginPath();o.moveTo(0,185);o.lineTo(W,185);o.stroke();
+    g.character=key; g.startPlay(1,'regular'); const p=g.player;
+    p.isDead=false;p.invincibleTimer=0;p.isStar=false;p.isCrouching=false;p.grounded=true;p.h=p.standH;p.state='IDLE';p.facingRight=face;p.weapon='PISTOL';p.x=1000;p.y=1000;
+    p.draw(o,p.x+p.w/2-100,p.y+p.h-185);
+    const c=document.createElement('div');c.className='cell';const img=new Image();img.src=oc.toDataURL();c.appendChild(img);const t=document.createElement('div');t.textContent=label;c.appendChild(t);document.getElementById('host').appendChild(c);
+  }
+  shot('MARIO','MARIO',true); shot('LUIGI','LUIGI',true); shot('SONIC →','SONIC',true); shot('SONIC ←','SONIC',false);
+</script></body></html>

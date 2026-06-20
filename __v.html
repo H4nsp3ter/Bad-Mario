@@ -1,0 +1,44 @@
+<!DOCTYPE html><html><head><meta charset="utf-8"></head><body><canvas id="gameCanvas"></canvas><pre id="out"></pre>
+<script src="config.js"></script><script src="audio.js"></script><script src="input.js"></script>
+<script src="particles.js"></script><script src="sprites.js"></script><script src="entities.js"></script>
+<script src="enemies.js"></script><script src="player.js"></script><script src="level.js"></script>
+<script src="classic.js"></script><script src="game.js"></script>
+<script>
+function log(s){ document.getElementById('out').textContent += s+'\n'; }
+const NO={isDown:()=>false,isJustPressed:()=>false,isJustReleased:()=>false,update:()=>{}};
+try {
+  Assets.init();
+  const g=new Game(); g.audio=new Proxy({},{get:()=>()=>{}}); g.setMode('CLASSIC'); g.input=NO;
+  let problems=0, totalEnemies=0, totalPiranha=0, maxProj=0, fireTraps=0;
+  for (let lvl=1; lvl<=32; lvl++){
+    g.character='MARIO'; g.startPlay(lvl,'regular');
+    g.levelGen.currentGeneratedLevel=-1; g.levelGen.update(0,1400,lvl,'regular');
+    const lg=g.levelGen;
+    // 30 Update- + Draw-Frames (Gegner/Piranha/Panzer-Update + Render)
+    let err='';
+    try {
+      g.state='PLAYING'; g.transitionTimer=0;
+      for(let f=0; f<30; f++){ g.update(0.016); }
+      g.camera.x=Math.max(0, g.player.x-400); g.camera.y=lg.baseY-400;
+      for(let f=0; f<2; f++){ g.draw(); }
+    } catch(e){ err='THROW '+e.message; problems++; }
+    const pir = lg.enemies.filter(e=>e.constructor.name==='PiranhaPlantEnemy').length;
+    const ft = lg.platforms.filter(p=>p.isFireTrap).length;
+    fireTraps += ft;
+    totalEnemies += lg.enemies.length; totalPiranha += pir; maxProj=Math.max(maxProj, g.projectiles.length);
+    if (err || ft>0 || lg.goalX==null || lg.platforms.length<5)
+      log(CLASSIC_LABELS[lvl]+' theme='+lg.classicTheme+' plats='+lg.platforms.length+' en='+lg.enemies.length+' pir='+pir+' ft='+ft+' goal='+(lg.goalX!=null)+' '+err);
+  }
+  log('--- '+ (problems? problems+' PROBLEME':'alle 32 Level OK') +' ---');
+  log('Summe Gegner='+totalEnemies+' Piranhas='+totalPiranha+' Feuerfallen(soll 0)='+fireTraps+' maxProjektile(idle, soll ~0)='+maxProj);
+
+  // Badass mehr Gegner als Princess?
+  g.startPlay(5,'princess'); g.levelGen.currentGeneratedLevel=-1; g.levelGen.update(0,1400,5,'princess'); const ep=g.levelGen.enemies.length;
+  g.startPlay(5,'badass');   g.levelGen.currentGeneratedLevel=-1; g.levelGen.update(0,1400,5,'badass');   const eb=g.levelGen.enemies.length;
+  log('2-1 Gegner princess='+ep+' badass='+eb+' (badass>princess='+(eb>ep)+')');
+
+  // Sieg nach 8-4?
+  log('CLASSIC_AVAILABLE[33]='+CLASSIC_AVAILABLE[33]+' (undefined -> Sieg nach 8-4)');
+  log('DONE');
+} catch(e){ log('FATAL: '+e.message+'\n'+(e.stack||'')); }
+</script></body></html>

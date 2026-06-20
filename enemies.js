@@ -788,3 +788,370 @@ class BossHell extends GiantZombieEnemy {
         });
     }
 }
+
+// ============================================================================
+//  CLASSIC-Gegner — die Original-Mario-Typen, aber ranzig & böse (prozedural)
+//  Genutzt im CLASSIC-Level-Modus (siehe classic.js cEnemy).
+// ============================================================================
+class ClassicWalker extends Enemy {
+    constructor(x, y, w, h, hp, level, type, speed) {
+        super(x, y, w, h, hp, level, type);
+        this.speed = speed;
+        this.facingLeft = true;            // läuft dem von links kommenden Spieler entgegen
+        this.grounded = false;
+        this.animTimer = Math.random() * 5;
+    }
+
+    // Eigene, schlanke Todes-Logik (keine Zombie-Corpses) — passt zu Stomp & Schüssen
+    takeDamage(amount, game, projType = 'NORMAL') {
+        if (this.dead) return;
+        this.hp -= amount;
+        this.hurtTimer = 0.2;
+        game.particles.spawnBlood(this.x + this.w/2, this.y + this.h/2, amount > 50 ? 35 : 12);
+        if (this.hp <= 0) {
+            this.dead = true;
+            game.player.score += 100;
+            game.particles.spawnBlood(this.x + this.w/2, this.y + this.h/2, 55);
+            if (game.audio.playSplatter) game.audio.playSplatter();
+            if (Math.random() > 0.5) game.levelGen.items.push(new Collectible(this.x + this.w/2 - 40, this.y, Math.random() > 0.85 ? 'LIQUOR' : 'BEER'));
+            game.checkLevelUp();
+        } else {
+            this.vx = (game.player.x < this.x ? 1 : -1) * 220;   // Knockback
+        }
+    }
+
+    update(dt, game) {
+        if (!game) return;
+        if (this.hurtTimer > 0) this.hurtTimer -= dt;
+        this.animTimer += dt;
+
+        if (this.hurtTimer > 0) this.vx *= 0.9;            // Knockback ausgleiten
+        else this.vx = (this.facingLeft ? -1 : 1) * this.speed;
+        this.vy += CONFIG.GRAVITY * dt;
+        this.x += this.vx * dt;
+
+        // Wand voraus (Röhre/Treppe) -> umdrehen
+        for (let plat of game.levelGen.platforms) {
+            if (plat.isHazard) continue;
+            if (this.checkCollision(plat) && (this.y + this.h) > plat.y + 14) {
+                if (this.vx > 0) { this.x = plat.x - this.w; this.facingLeft = true; }
+                else if (this.vx < 0) { this.x = plat.x + plat.w; this.facingLeft = false; }
+            }
+        }
+
+        this.y += this.vy * dt;
+        this.grounded = false;
+        for (let plat of game.levelGen.platforms) {
+            if (plat.isHazard) continue;
+            if (this.checkCollision(plat) && this.vy >= 0 && (this.y + this.h - this.vy * dt) <= plat.y + 30) {
+                this.y = plat.y - this.h; this.vy = 0; this.grounded = true;
+            }
+        }
+
+        // Abgrund-Kante voraus -> umdrehen (nicht in die Grube laufen)
+        if (this.grounded && this.hurtTimer <= 0) {
+            const aheadX = this.facingLeft ? this.x - 6 : this.x + this.w + 6;
+            const footY = this.y + this.h + 8;
+            let groundAhead = false;
+            for (let plat of game.levelGen.platforms) {
+                if (plat.isHazard) continue;
+                if (aheadX >= plat.x && aheadX <= plat.x + plat.w && footY >= plat.y && footY <= plat.y + plat.h) { groundAhead = true; break; }
+            }
+            if (!groundAhead) this.facingLeft = !this.facingLeft;
+        }
+
+        this.state = this.grounded ? 'WALK' : 'AIR';
+    }
+}
+
+class GoombaEnemy extends ClassicWalker {
+    constructor(x, y, level) { super(x, y, 74, 64, 50, level, 'GOOMBA', 70 + Math.random() * 20); } // HP 50: badass (×2.5) überlebt 1 Stampfer
+
+    draw(ctx, camX, camY) {
+        this.drawEffects(ctx, () => {
+            const w = this.w, h = this.h, fsh = Math.sin(this.animTimer * 12);
+            ctx.save();
+            ctx.translate(this.x - camX + this.w/2, this.y - camY + this.h/2);
+            if (this.facingLeft) ctx.scale(-1, 1);
+            // Füße (schlurfen)
+            ctx.fillStyle = '#2b1a0a';
+            ctx.beginPath(); ctx.ellipse(-w*0.22, h*0.40 + fsh*3, w*0.20, h*0.12, 0, 0, 7); ctx.fill();
+            ctx.beginPath(); ctx.ellipse( w*0.22, h*0.40 - fsh*3, w*0.20, h*0.12, 0, 0, 7); ctx.fill();
+            // Pilzkörper
+            ctx.fillStyle = '#6b3f1d';
+            ctx.beginPath(); ctx.ellipse(0, -h*0.04, w*0.46, h*0.44, 0, 0, 7); ctx.fill();
+            ctx.fillStyle = '#3a2210';                       // Verfall unten
+            ctx.beginPath(); ctx.ellipse(0, h*0.16, w*0.44, h*0.22, 0, 0, Math.PI); ctx.fill();
+            ctx.fillStyle = 'rgba(70,95,25,0.55)';           // ranzige Schimmel-Flecken
+            ctx.beginPath(); ctx.arc(-w*0.22, -h*0.12, w*0.09, 0, 7); ctx.fill();
+            ctx.beginPath(); ctx.arc( w*0.26,  h*0.02, w*0.06, 0, 7); ctx.fill();
+            // Augen + rote Pupillen
+            ctx.fillStyle = '#e8e0c0';
+            ctx.beginPath(); ctx.ellipse(-w*0.17, -h*0.06, w*0.13, h*0.12, 0, 0, 7); ctx.fill();
+            ctx.beginPath(); ctx.ellipse( w*0.17, -h*0.06, w*0.13, h*0.12, 0, 0, 7); ctx.fill();
+            ctx.fillStyle = '#b00000';
+            ctx.beginPath(); ctx.arc(-w*0.13, -h*0.04, w*0.055, 0, 7); ctx.fill();
+            ctx.beginPath(); ctx.arc( w*0.21, -h*0.04, w*0.055, 0, 7); ctx.fill();
+            // zornige Brauen
+            ctx.strokeStyle = '#140a02'; ctx.lineWidth = Math.max(2, w*0.06);
+            ctx.beginPath();
+            ctx.moveTo(-w*0.34, -h*0.26); ctx.lineTo(-w*0.02, -h*0.12);
+            ctx.moveTo( w*0.34, -h*0.26); ctx.lineTo( w*0.02, -h*0.12);
+            ctx.stroke();
+            // Reißzähne
+            ctx.fillStyle = '#efe8cc';
+            ctx.beginPath(); ctx.moveTo(-w*0.14, h*0.14); ctx.lineTo(-w*0.06, h*0.28); ctx.lineTo(0, h*0.14); ctx.fill();
+            ctx.beginPath(); ctx.moveTo( w*0.14, h*0.14); ctx.lineTo( w*0.06, h*0.28); ctx.lineTo(0, h*0.14); ctx.fill();
+            ctx.restore();
+        });
+    }
+}
+
+class KoopaEnemy extends ClassicWalker {
+    constructor(x, y, level) {
+        super(x, y, 72, 104, 40, level, 'KOOPA', 95 + Math.random() * 25);
+        this.shellState = 'walk';     // 'walk' | 'shell' | 'slide'
+        this.spin = 0;
+    }
+
+    isShellAny() { return this.shellState !== 'walk'; }
+    isIdleShell() { return this.shellState === 'shell'; }
+
+    _toShell() {                      // Lauf -> Panzer: kleinere Box, bleibt am Boden stehen
+        const bottom = this.y + this.h;
+        this.w = 66; this.h = 52; this.y = bottom - this.h;
+    }
+
+    kick(dir, game) {                 // Panzer treten/wegschießen
+        this.shellState = 'slide';
+        this.vx = dir * 720;
+        if (game && game.audio && game.audio.playSwing) game.audio.playSwing();
+        if (game) game.particles.spawn(this.x + this.w/2, this.y + this.h/2, '#fff', 8, 320);
+    }
+
+    takeDamage(amount, game, projType = 'NORMAL') {
+        if (this.dead) return;
+        if (this.shellState === 'walk') {                 // 1. Treffer -> Panzer (stirbt nicht)
+            this.shellState = 'shell'; this.vx = 0; this._toShell();
+            this.hurtTimer = 0.15; this.spin = 0;
+            game.player.score += 100;
+            game.particles.spawnBlood(this.x + this.w/2, this.y + this.h/2, 12);
+            if (game.audio.playMeleeHit) game.audio.playMeleeHit('BAT');
+            if (Math.random() > 0.5) game.levelGen.items.push(new Collectible(this.x + this.w/2 - 40, this.y - 40, Math.random() > 0.85 ? 'LIQUOR' : 'BEER'));
+            game.checkLevelUp();
+        } else if (this.shellState === 'shell') {         // ruhender Panzer -> wegschießen/treten
+            this.kick((game.player.x < this.x) ? 1 : -1, game);
+        } else {                                          // fahrender Panzer -> zerstören
+            this.dead = true;
+            game.player.score += 100;
+            game.particles.spawnBlood(this.x + this.w/2, this.y + this.h/2, 45);
+            if (game.audio.playSplatter) game.audio.playSplatter();
+        }
+    }
+
+    update(dt, game) {
+        if (this.shellState === 'walk') { super.update(dt, game); return; }
+        if (this.hurtTimer > 0) this.hurtTimer -= dt;
+        if (this.shellState === 'slide') {
+            this.spin += dt * 16;
+            for (const e of game.levelGen.enemies) {      // mäht andere Gegner um
+                if (e !== this && !e.dead && !(e.isShellAny && e.isShellAny()) && this.checkCollision(e)) e.takeDamage(1000, game, 'ROCKET');
+            }
+        }
+        this.vy += CONFIG.GRAVITY * dt;
+        this.x += this.vx * dt;
+        for (const plat of game.levelGen.platforms) {
+            if (plat.isHazard) continue;
+            if (this.checkCollision(plat) && (this.y + this.h) > plat.y + 10) {
+                if (this.vx > 0) { this.x = plat.x - this.w; this.vx = (this.shellState === 'slide') ? -this.vx : 0; }
+                else if (this.vx < 0) { this.x = plat.x + plat.w; this.vx = (this.shellState === 'slide') ? -this.vx : 0; }
+            }
+        }
+        this.y += this.vy * dt; this.grounded = false;
+        for (const plat of game.levelGen.platforms) {
+            if (plat.isHazard) continue;
+            if (this.checkCollision(plat) && this.vy >= 0 && (this.y + this.h - this.vy * dt) <= plat.y + 30) { this.y = plat.y - this.h; this.vy = 0; this.grounded = true; }
+        }
+    }
+
+    draw(ctx, camX, camY) {
+        if (this.shellState !== 'walk') {                 // ---- Panzer (ruhend/fahrend) ----
+            this.drawEffects(ctx, () => {
+                const w = this.w, h = this.h;
+                ctx.save();
+                ctx.translate(this.x - camX + this.w/2, this.y - camY + this.h/2);
+                if (this.shellState === 'slide') ctx.rotate(this.spin * (this.vx < 0 ? -1 : 1));
+                // gelblicher Saum (breit-oval) -> Panzerform statt Kreis
+                ctx.fillStyle = '#caa23a';
+                ctx.beginPath(); ctx.ellipse(0, h*0.14, w*0.55, h*0.40, 0, 0, 7); ctx.fill();
+                ctx.fillStyle = '#9c7a28';
+                ctx.beginPath(); ctx.ellipse(0, h*0.22, w*0.55, h*0.22, 0, 0, Math.PI); ctx.fill();
+                // dunkelgrüne Kuppel (sitzt höher als der Saum)
+                ctx.fillStyle = '#2f7d2f';
+                ctx.beginPath(); ctx.ellipse(0, -h*0.05, w*0.48, h*0.42, 0, 0, 7); ctx.fill();
+                ctx.fillStyle = '#46a046';                                          // Glanz oben
+                ctx.beginPath(); ctx.ellipse(-w*0.12, -h*0.16, w*0.26, h*0.18, 0, 0, 7); ctx.fill();
+                // Schuppen: zentrale Sechseck-Scute + Ringe
+                ctx.strokeStyle = '#0e3a0e'; ctx.lineWidth = Math.max(2, w*0.05);
+                ctx.beginPath();
+                for (let a = 0; a < 6; a++) { const ang = a*Math.PI/3 + Math.PI/6, px = Math.cos(ang)*w*0.2, py = -h*0.05 + Math.sin(ang)*h*0.18; a ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
+                ctx.closePath(); ctx.stroke();
+                ctx.beginPath();
+                ctx.moveTo(-w*0.42, -h*0.04); ctx.lineTo(-w*0.2, -h*0.05);
+                ctx.moveTo(w*0.2, -h*0.05); ctx.lineTo(w*0.42, -h*0.04);
+                ctx.stroke();
+                ctx.strokeStyle = 'rgba(0,0,0,0.45)'; ctx.lineWidth = 2;             // ranziger Riss
+                ctx.beginPath(); ctx.moveTo(w*0.06, -h*0.34); ctx.lineTo(-w*0.04, -h*0.06); ctx.lineTo(w*0.08, h*0.08); ctx.stroke();
+                ctx.restore();
+            });
+            return;
+        }
+        this.drawEffects(ctx, () => {
+            const w = this.w, h = this.h, fsh = Math.sin(this.animTimer * 11);
+            ctx.save();
+            ctx.translate(this.x - camX + this.w/2, this.y - camY + this.h/2);
+            if (this.facingLeft) ctx.scale(-1, 1);
+            // Füße
+            ctx.fillStyle = '#caa23a';
+            ctx.beginPath(); ctx.ellipse(-w*0.10, h*0.44 + fsh*3, w*0.16, h*0.07, 0, 0, 7); ctx.fill();
+            ctx.beginPath(); ctx.ellipse( w*0.20, h*0.44 - fsh*3, w*0.16, h*0.07, 0, 0, 7); ctx.fill();
+            // Hals + Kopf nach vorn
+            ctx.fillStyle = '#d8b24a';
+            ctx.beginPath(); ctx.ellipse(w*0.20, -h*0.20, w*0.16, h*0.16, 0, 0, 7); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(w*0.34, -h*0.30, w*0.20, h*0.15, 0, 0, 7); ctx.fill();
+            ctx.fillStyle = '#caa23a';                        // Schnabel
+            ctx.beginPath(); ctx.moveTo(w*0.46, -h*0.31); ctx.lineTo(w*0.60, -h*0.27); ctx.lineTo(w*0.46, -h*0.23); ctx.fill();
+            // böses Auge
+            ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(w*0.38, -h*0.34, w*0.07, 0, 7); ctx.fill();
+            ctx.fillStyle = '#b00000'; ctx.beginPath(); ctx.arc(w*0.40, -h*0.34, w*0.035, 0, 7); ctx.fill();
+            ctx.strokeStyle = '#143a14'; ctx.lineWidth = Math.max(2, w*0.05);
+            ctx.beginPath(); ctx.moveTo(w*0.26, -h*0.42); ctx.lineTo(w*0.46, -h*0.36); ctx.stroke();
+            // Panzer (panzerförmig: gelber Saum + grüne Kuppel + Schuppen)
+            const sx = -w*0.08;
+            ctx.fillStyle = '#caa23a';
+            ctx.beginPath(); ctx.ellipse(sx, h*0.07, w*0.45, h*0.40, 0, 0, 7); ctx.fill();   // Saum
+            ctx.fillStyle = '#2f7d2f';
+            ctx.beginPath(); ctx.ellipse(sx, -h*0.05, w*0.40, h*0.38, 0, 0, 7); ctx.fill();  // Kuppel
+            ctx.fillStyle = '#46a046';
+            ctx.beginPath(); ctx.ellipse(sx - w*0.12, -h*0.17, w*0.18, h*0.15, 0, 0, 7); ctx.fill(); // Glanz
+            ctx.strokeStyle = '#0e3a0e'; ctx.lineWidth = Math.max(2, w*0.045);
+            ctx.beginPath();
+            for (let a = 0; a < 6; a++) { const ang = a*Math.PI/3 + Math.PI/6, px = sx + Math.cos(ang)*w*0.18, py = -h*0.05 + Math.sin(ang)*h*0.18; a ? ctx.lineTo(px, py) : ctx.moveTo(px, py); }
+            ctx.closePath(); ctx.stroke();
+            ctx.beginPath();
+            ctx.moveTo(sx - w*0.38, -h*0.04); ctx.lineTo(sx - w*0.17, -h*0.05);
+            ctx.moveTo(sx + w*0.17, -h*0.05); ctx.lineTo(sx + w*0.3, -h*0.04); ctx.stroke();
+            ctx.strokeStyle = 'rgba(0,0,0,0.45)'; ctx.lineWidth = 2;             // ranziger Riss
+            ctx.beginPath(); ctx.moveTo(sx - w*0.12, -h*0.12); ctx.lineTo(sx, h*0.02); ctx.lineTo(sx - w*0.08, h*0.16); ctx.stroke();
+            ctx.restore();
+        });
+    }
+}
+
+// Paratroopa: fliegender Koopa. Erster Treffer -> verliert Flügel und wird zum Boden-Koopa.
+class ParatroopaEnemy extends KoopaEnemy {
+    constructor(x, y, level) {
+        super(x, y, level);
+        this.winged = true;
+        this.baseFlyY = y;
+        this.flapT = Math.random() * 5;
+    }
+
+    takeDamage(amount, game, projType = 'NORMAL') {
+        if (this.dead) return;
+        if (this.winged && this.shellState === 'walk') {     // Flügel weg -> normaler Koopa
+            this.winged = false; this.vy = -200;
+            game.player.score += 50;
+            game.particles.spawn(this.x + this.w/2, this.y, '#fff', 12, 260);
+            if (game.audio.playMeleeHit) game.audio.playMeleeHit('BAT');
+        } else {
+            super.takeDamage(amount, game, projType);
+        }
+    }
+
+    update(dt, game) {
+        if (!this.winged) { super.update(dt, game); return; }
+        if (!game) return;
+        this.animTimer += dt; this.flapT += dt;
+        this.vx = (this.facingLeft ? -1 : 1) * (this.speed * 0.55);
+        this.x += this.vx * dt;
+        for (const plat of game.levelGen.platforms) {        // an Wänden/Röhren drehen
+            if (plat.isHazard) continue;
+            if (this.checkCollision(plat)) {
+                if (this.vx > 0) { this.x = plat.x - this.w; this.facingLeft = true; }
+                else if (this.vx < 0) { this.x = plat.x + plat.w; this.facingLeft = false; }
+            }
+        }
+        this.y = this.baseFlyY + Math.sin(this.flapT * 2.4) * 46;   // sanftes Auf/Ab
+        this.grounded = false; this.state = 'AIR';
+    }
+
+    draw(ctx, camX, camY) {
+        if (!this.winged) { super.draw(ctx, camX, camY); return; }
+        this.drawEffects(ctx, () => {                         // Flügel hinter dem Körper
+            const w = this.w, h = this.h, flap = Math.sin(this.flapT * 14);
+            ctx.save();
+            ctx.translate(this.x - camX + this.w/2, this.y - camY + this.h/2);
+            if (this.facingLeft) ctx.scale(-1, 1);
+            ctx.fillStyle = '#f4f4f4';
+            ctx.beginPath(); ctx.ellipse(-w*0.34, -h*0.14 - flap*9, w*0.22, h*0.34, 0.5, 0, 7); ctx.fill();
+            ctx.fillStyle = '#cfd6e0';
+            ctx.beginPath(); ctx.ellipse(-w*0.30, -h*0.04 - flap*9, w*0.13, h*0.22, 0.5, 0, 7); ctx.fill();
+            ctx.restore();
+        });
+        super.draw(ctx, camX, camY);                          // Koopa-Körper (laufende Zeichnung)
+    }
+}
+
+// Piranha-Pflanze: kommt aus einer Röhre, fährt rhythmisch aus/ein. Nicht stampfbar, nur abschießbar.
+class PiranhaPlantEnemy extends Enemy {
+    constructor(cx, pipeTopY, level) {
+        super(cx - 30, pipeTopY, 60, 4, 30, level, 'PIRANHA');
+        this.pipeTop = pipeTopY;
+        this.maxRise = 150;
+        this.t = Math.random() * 3;
+        this.curRise = 0;
+        this.noStomp = true;        // Kontakt verletzt den Spieler (kein Stampf-Kill)
+        this.facingLeft = false;
+    }
+
+    takeDamage(amount, game, projType = 'NORMAL') {
+        if (this.dead) return;
+        if (projType === 'NORMAL') return;          // nicht stampfbar – nur per Schuss
+        this.hp -= amount; this.hurtTimer = 0.2;
+        game.particles.spawnBlood(this.x + this.w/2, this.y, 14);
+        if (this.hp <= 0) {
+            this.dead = true; game.player.score += 100;
+            game.particles.spawnBlood(this.x + this.w/2, this.y, 40);
+            if (game.audio.playSplatter) game.audio.playSplatter();
+            if (Math.random() > 0.5) game.levelGen.items.push(new Collectible(this.x, this.pipeTop - 50, 'BEER'));
+            game.checkLevelUp();
+        }
+    }
+
+    update(dt, game) {
+        if (this.hurtTimer > 0) this.hurtTimer -= dt;
+        this.t += dt;
+        const phase = this.t % 3.2;
+        let target = (phase > 0.3 && phase < 1.8) ? this.maxRise : 0;     // Mitte des Zyklus draußen
+        const px = game.player.x + game.player.w / 2;
+        if (Math.abs(px - (this.x + this.w / 2)) < 95) target = 0;        // Spieler nah -> drin bleiben
+        this.curRise += (target - this.curRise) * Math.min(1, dt * 5);
+        if (this.curRise < 8) { this.y = 100000; this.h = 2; }            // versteckt: keine Kollision
+        else { this.h = this.curRise; this.y = this.pipeTop - this.curRise; }
+    }
+
+    draw(ctx, camX, camY) {
+        if (this.curRise < 8) return;                                     // in der Röhre versteckt
+        this.drawEffects(ctx, () => {
+            const cx = this.x - camX + this.w / 2, topY = this.y - camY, baseY = this.pipeTop - camY;
+            ctx.fillStyle = '#2f8a2f'; ctx.fillRect(cx - 7, topY + 16, 14, Math.max(0, baseY - topY - 16));  // Stiel
+            ctx.fillStyle = '#1f5f1f'; ctx.fillRect(cx - 7, topY + 16, 4, Math.max(0, baseY - topY - 16));
+            ctx.fillStyle = '#1f6f1f'; ctx.beginPath(); ctx.arc(cx, topY + 16, 22, 0, 7); ctx.fill();         // Kopf
+            ctx.fillStyle = '#b01020'; ctx.beginPath(); ctx.ellipse(cx, topY + 18, 20, 9, 0, 0, 7); ctx.fill(); // Maul
+            ctx.fillStyle = '#fff';                                                                            // Zähne
+            for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(cx + i * 8, topY + 10); ctx.lineTo(cx + i * 8 + 4, topY + 18); ctx.lineTo(cx + i * 8 - 4, topY + 18); ctx.fill(); }
+            ctx.beginPath(); ctx.arc(cx - 11, topY + 5, 3, 0, 7); ctx.arc(cx + 11, topY + 7, 3, 0, 7); ctx.fill(); // Sporen
+        });
+    }
+}

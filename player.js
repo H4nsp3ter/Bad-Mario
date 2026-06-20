@@ -1,6 +1,9 @@
 class Player extends Entity {
-    constructor(x, y) {
+    constructor(x, y, charKey) {
         super(x, y, 80, 140);
+        this.standH = 140; this.crouchH = 80;   // Grundhöhen (im Classic-Modus skaliert)
+        this.char = (CONFIG.CHARACTERS && CONFIG.CHARACTERS[charKey]) || CONFIG.CHARACTERS.MARIO;
+        this.airJumpsLeft = 0;                   // für Doppelsprung (z.B. Sonic)
         this.hp = CONFIG.MAX_HP;
         this.vx = 0;
         this.vy = 0;
@@ -88,7 +91,7 @@ class Player extends Entity {
             if(moveDirX === 0) this.x += (((activeLadder.x + activeLadder.w/2) - (this.w/2)) - this.x) * 10 * dt;
         } else { this.isClimbing = false; }
         
-        let currentSpeed = this.isStar ? CONFIG.PLAYER_SPEED * 1.5 : CONFIG.PLAYER_SPEED;
+        let currentSpeed = (this.isStar ? CONFIG.PLAYER_SPEED * 1.5 : CONFIG.PLAYER_SPEED) * this.char.speed;
         if (this.weapon === 'MINIGUN' && this.shootCooldown > 0) currentSpeed *= 0.1;
         if (this.weapon === 'FLAMETHROWER' && this.shootCooldown > 0) currentSpeed *= 0.5;
         if (this.hp < (CONFIG.MAX_HP * 0.3) && !this.isStar) {
@@ -110,22 +113,26 @@ class Player extends Entity {
             }
             this.vy += CONFIG.GRAVITY * dt;
             if (this.vy > CONFIG.MAX_FALL_SPEED) this.vy = CONFIG.MAX_FALL_SPEED;
+            const jForce = CONFIG.JUMP_FORCE * this.char.jump * (this.isBoosted ? 1.5 : 1);
             if (input.isJustPressed('Space') && this.grounded && !this.isCrouching) {
-                let jForce = this.isBoosted ? CONFIG.JUMP_FORCE * 1.5 : CONFIG.JUMP_FORCE;
                 this.vy = -jForce; this.grounded = false; game.audio.playJump();
                 game.particles.spawn(this.x + this.w/2, this.y + this.h, this.isBoosted ? '#00FFCC' : '#CCC', 30, 200);
+            } else if (input.isJustPressed('Space') && !this.grounded && this.airJumpsLeft > 0) { // Doppelsprung
+                this.vy = -jForce * 0.92; this.airJumpsLeft--; game.audio.playJump();
+                game.particles.spawn(this.x + this.w/2, this.y + this.h, '#FFF', 18, 240);
             }
             if (input.isJustReleased('Space') && this.vy < 0) this.vy *= 0.5;
         }
         
-        let actualH = this.isCrouching ? 80 : 140; 
-        if (this.isCrouching && this.h !== 80) { this.y += 60; this.h = 80; }
-        else if (!this.isCrouching && this.h !== 140) { this.y -= 60; this.h = 140; }
+        const fullH = this.standH, crouchH = this.crouchH, shift = fullH - crouchH;
+        if (this.isCrouching && this.h !== crouchH) { this.y += shift; this.h = crouchH; }
+        else if (!this.isCrouching && this.h !== fullH) { this.y -= shift; this.h = fullH; }
         
         this.x += this.vx * dt; this.handleCollisions(game.levelGen.platforms, 'x', dt, game);
         if (this.x < game.camera.x) { this.x = game.camera.x; this.vx = 0; }
         this.y += this.vy * dt; this.grounded = false; this.handleCollisions(game.levelGen.platforms, 'y', dt, game);
-        
+        if (this.grounded) this.airJumpsLeft = this.char.airJumps;   // Luftsprünge am Boden auffüllen
+
         if (this.grounded && !this.isClimbing) {
             for (let p of game.levelGen.platforms) {
                 if (p.isHazard || (p.isCrumbling && p.crumbleTimer <= 0)) continue;
@@ -162,7 +169,7 @@ class Player extends Entity {
     
     fireWeapon(game, input) {
         const dirX = this.facingRight ? 1 : -1;
-        let py = this.isCrouching ? this.y + 40 : this.y + 60; 
+        let py = this.y + this.h * (this.isCrouching ? 0.28 : 0.20); // Schulterhöhe, proportional zur Spielergröße
         let px = this.facingRight ? this.x + this.w + 10 : this.x - 30;
         let vx = 0, vy = 0;
         let speed = 1200;
@@ -275,19 +282,185 @@ class Player extends Entity {
                         if (p.isBouncy) { this.vy = -1500; this.grounded = false; }
                     }
                 } else {
-                    if (axis === 'x') { this.x = this.vx > 0 ? p.x - this.w : p.x + p.w; this.vx = 0; } 
-                    else if (axis === 'y') { if (this.vy > 0) { this.y = p.y - this.h; this.grounded = true; } else if (this.vy < 0) this.y = p.y + p.h; this.vy = 0; }
+                    if (axis === 'x') { this.x = this.vx > 0 ? p.x - this.w : p.x + p.w; this.vx = 0; }
+                    else if (axis === 'y') {
+                        if (this.vy > 0) { this.y = p.y - this.h; this.grounded = true; }
+                        else if (this.vy < 0) { this.y = p.y + p.h; if (p.bumpable && !p.used && game && game.bumpBlock) game.bumpBlock(p); } // CLASSIC: Kopf-Anschlag
+                        this.vy = 0;
+                    }
                 }
             }
         }
     }
     
     takeDamage(amount, game) {
-        if (this.invincibleTimer > 0 || this.isStar) return; 
-        this.hp = Math.max(0, this.hp - amount); this.invincibleTimer = 1.5; this.vy = -500; this.vx = (this.facingRight ? -1 : 1) * 400; this.isClimbing = false;
+        if (this.invincibleTimer > 0 || this.isStar) return;
+        this.hp = Math.max(0, this.hp - amount * this.char.dmg); this.invincibleTimer = 1.5; this.vy = -500; this.vx = (this.facingRight ? -1 : 1) * 400; this.isClimbing = false;
         game.particles.spawnBlood(this.x + this.w/2, this.y + this.h/2, 60); game.triggerShake(30, 0.4); game.updateHUD();
     }
     
+    // Prozedurale Spielerfigur (Bad-Mario, böse). Zeichnet im selben lokalen Raum wie das alte
+    // Sprite (Füße bei ~ y=+83). Blickrichtung = +x (Spiegelung übernimmt der Aufrufer).
+    drawMarioBody(ctx, frame) {
+        const crouch = this.isCrouching;
+        const air = !this.grounded && !crouch;
+        const walk = (this.state === 'WALK');
+        const cyc = walk ? (frame / 8) * Math.PI * 2 : 0;
+        const bob = walk ? -Math.abs(Math.sin(cyc)) * 4 : 0;
+
+        let SKIN = this.char.skin, RED = this.char.shirt, BLUE = this.char.overall;
+        const SKINSH = '#c98d54', REDDK = this.char.shirtDk, SHOE = '#3f2713', MUST = '#241405', BTN = '#f5c542';
+        if (this.isStar) {                          // günstiger Stern-Flash (kein filter/shadowBlur)
+            const c = ['#ffffff', '#ffe14d', '#54d8ff', '#9dff54'][Math.floor(performance.now() / 70) % 4];
+            RED = c; BLUE = c; SKIN = c;
+        }
+
+        ctx.save();
+        ctx.translate(0, bob);
+        ctx.lineJoin = 'round'; ctx.lineCap = 'round';
+
+        const shoe = (fx, fy, ang) => {
+            ctx.save(); ctx.translate(fx, fy); if (ang) ctx.rotate(ang);
+            ctx.fillStyle = SHOE; ctx.beginPath(); ctx.roundRect(-9, -3, 26, 12, 5); ctx.fill();
+            ctx.fillStyle = '#1f130a'; ctx.beginPath(); ctx.roundRect(-9, 6, 26, 3, 1); ctx.fill();   // abgenutzte Sohle
+            ctx.strokeStyle = 'rgba(210,200,180,0.16)'; ctx.lineWidth = 1.4;                          // Schrammen
+            ctx.beginPath(); ctx.moveTo(-4, 1); ctx.lineTo(7, 1); ctx.stroke();
+            ctx.restore();
+        };
+        // Zweigliedriges Bein (Hüfte -> Knie -> Fuß) für dynamische Gangart
+        const leg = (hipX, thigh, knee) => {
+            const hx = hipX, hy = 12;
+            const kx = hx + Math.sin(thigh) * 28, ky = hy + Math.cos(thigh) * 28;
+            const fx = kx + Math.sin(knee) * 32,  fy = ky + Math.cos(knee) * 32;
+            ctx.strokeStyle = BLUE; ctx.lineWidth = 16;
+            ctx.beginPath(); ctx.moveTo(hx, hy); ctx.lineTo(kx, ky); ctx.lineTo(fx, fy); ctx.stroke();
+            shoe(fx, fy - 1, Math.sin(thigh) * 0.25);
+        };
+
+        if (crouch) {
+            // ---- HOCKE: tiefer Kampf-Hock, Knie hoch, Waffe nach vorn ----
+            const cleg = (footX, hipX, kneeX) => {
+                ctx.strokeStyle = BLUE; ctx.lineWidth = 16;
+                ctx.beginPath(); ctx.moveTo(hipX, 52); ctx.lineTo(kneeX, 34); ctx.lineTo(footX, 70); ctx.stroke();
+                shoe(footX, 70);
+            };
+            cleg(-18, -8, -16); cleg(10, 6, 18);
+            ctx.strokeStyle = REDDK; ctx.lineWidth = 12;                     // hinterer Arm (stützt ab)
+            ctx.beginPath(); ctx.moveTo(-6, 24); ctx.lineTo(-20, 44); ctx.stroke();
+            ctx.fillStyle = SKIN; ctx.beginPath(); ctx.arc(-20, 46, 5.5, 0, 7); ctx.fill();
+            ctx.fillStyle = RED;                                            // nach vorn gelehnter Oberkörper
+            ctx.beginPath(); ctx.roundRect(-20, 12, 44, 38, 13); ctx.fill();
+            ctx.fillStyle = BLUE;
+            ctx.beginPath(); ctx.roundRect(-15, 30, 32, 24, 8); ctx.fill();
+            ctx.fillStyle = BTN; ctx.beginPath(); ctx.arc(-8, 36, 3.2, 0, 7); ctx.fill();
+            ctx.beginPath(); ctx.arc(9, 36, 3.2, 0, 7); ctx.fill();
+            this._drawHead(ctx, 4, -2, SKIN, SKINSH, RED, REDDK, MUST);
+            ctx.restore();
+            return;
+        }
+
+        // ---- STEHEN / LAUFEN / SPRINGEN ----  (l0 = hinten, l1 = vorne)
+        let l0, l1;
+        if (air) {                                   // Sprung: vorderes Bein angezogen, hinteres gestreckt
+            l0 = { h: -7, t: -0.6, k: -0.95 };       // hinteres Bein nach hinten gestreckt
+            l1 = { h: 8,  t: 1.2,  k: -0.1 };        // vorderes Bein: Knie hoch, Schienbein getuckt
+        } else if (walk) {                           // Gang mit nach HINTEN knickendem Knie (natürlich)
+            const mk = (p, h) => { const t = Math.cos(p) * 0.5; const fold = Math.max(0, -Math.sin(p)) * 1.1; return { h, t, k: t - fold }; };
+            l0 = mk(cyc, -7); l1 = mk(cyc + Math.PI, 8);
+        } else {                                     // Stand: ruhiger Stand
+            l0 = { h: -8, t: -0.12, k: -0.12 }; l1 = { h: 8, t: 0.12, k: 0.12 };
+        }
+
+        leg(l0.h, l0.t, l0.k);                                              // hinteres Bein
+        const bax = -13 + (walk ? Math.cos(cyc) * -8 : (air ? -6 : 0));      // hinterer Arm schwingt gegengleich
+        ctx.strokeStyle = REDDK; ctx.lineWidth = 11;
+        ctx.beginPath(); ctx.moveTo(-6, -30); ctx.lineTo(bax, 6); ctx.stroke();
+        ctx.fillStyle = SKIN; ctx.beginPath(); ctx.arc(bax, 8, 5.5, 0, 7); ctx.fill();
+
+        if (this.char.hat === 'spikes') {                                  // Sonic: Stacheln auf dem Rücken
+            ctx.fillStyle = REDDK;
+            [-34, -16, 2].forEach(sy => { ctx.beginPath(); ctx.moveTo(-16, sy); ctx.lineTo(-42, sy + 9); ctx.lineTo(-14, sy + 22); ctx.closePath(); ctx.fill(); });
+        }
+
+        ctx.fillStyle = RED;                                                // Oberkörper (rotes Shirt)
+        ctx.beginPath(); ctx.roundRect(-20, -40, 40, 56, 13); ctx.fill();
+        ctx.fillStyle = BLUE;                                               // Latzhose
+        ctx.beginPath(); ctx.roundRect(-18, -8, 36, 28, 7); ctx.fill();
+        ctx.fillRect(-15, -34, 7, 28); ctx.fillRect(8, -34, 7, 28);         // Träger
+        ctx.fillStyle = BTN; ctx.beginPath(); ctx.arc(-11, -6, 3.5, 0, 7); ctx.fill();
+        ctx.beginPath(); ctx.arc(11, -6, 3.5, 0, 7); ctx.fill();
+        // --- Verschleiß (dezent): Flicken, Riss, Dreck ---
+        ctx.fillStyle = '#1d3290'; ctx.fillRect(2, 2, 12, 10);             // aufgenähter Flicken auf dem Latz
+        ctx.strokeStyle = 'rgba(255,255,255,0.22)'; ctx.lineWidth = 1; ctx.setLineDash([2, 2]);
+        ctx.strokeRect(2, 2, 12, 10); ctx.setLineDash([]);
+        ctx.strokeStyle = REDDK; ctx.lineWidth = 2;                        // Riss im Shirt (Schulter)
+        ctx.beginPath(); ctx.moveTo(-14, -30); ctx.lineTo(-9, -22); ctx.lineTo(-13, -15); ctx.stroke();
+        ctx.fillStyle = 'rgba(0,0,0,0.16)';                               // Dreckflecken
+        ctx.beginPath(); ctx.ellipse(-6, 8, 7, 5, 0.3, 0, 7); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(9, -24, 5, 4, -0.4, 0, 7); ctx.fill();
+
+        leg(l1.h, l1.t, l1.k);                                              // vorderes Bein (vor dem Körper)
+        this._drawHead(ctx, 0, -58, SKIN, SKINSH, RED, REDDK, MUST);
+        ctx.restore();
+    }
+
+    // Böser Bad-Mario-Kopf: finsterer Blick, glühendes Auge, Narbe, fieser Schnauzer, Grinsen
+    _drawHead(ctx, cx, cy, SKIN, SKINSH, RED, REDDK, MUST) {
+        ctx.save(); ctx.translate(cx, cy);
+        ctx.fillStyle = SKIN;                                                // Gesicht
+        ctx.beginPath(); ctx.roundRect(-17, -15, 34, 37, 11); ctx.fill();
+        ctx.beginPath(); ctx.arc(-15, 6, 6, 0, 7); ctx.fill();              // Ohr
+        ctx.beginPath(); ctx.arc(16, 5, 8, 0, 7); ctx.fill();              // Nase
+        ctx.fillStyle = SKINSH; ctx.beginPath(); ctx.arc(17, 7, 4.5, 0, 7); ctx.fill();
+        // Bartstoppeln
+        ctx.fillStyle = 'rgba(20,10,2,0.45)';
+        for (let i = 0; i < 16; i++) ctx.fillRect(-12 + (i % 6) * 5, 9 + ((i * 5) % 9), 1.6, 1.6);
+        // dunkle Augenhöhle + glühend rotes Auge (böse)
+        ctx.fillStyle = 'rgba(0,0,0,0.32)'; ctx.beginPath(); ctx.ellipse(6, -4, 9, 8, 0, 0, 7); ctx.fill();
+        ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.ellipse(5, -3, 4.5, 5.5, 0, 0, 7); ctx.fill();
+        ctx.save(); ctx.shadowBlur = 7; ctx.shadowColor = '#ff2a00';
+        ctx.fillStyle = '#e21000'; ctx.beginPath(); ctx.arc(6, -3, 3, 0, 7); ctx.fill(); ctx.restore();
+        ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(7, -3, 1.5, 0, 7); ctx.fill();
+        // steile, zornige Augenbraue (V zur Nase)
+        ctx.save(); ctx.translate(4, -9); ctx.rotate(-0.55);
+        ctx.fillStyle = MUST; ctx.fillRect(-9, -3, 21, 6); ctx.restore();
+        // Narbe übers Auge
+        ctx.strokeStyle = '#9a5238'; ctx.lineWidth = 1.8;
+        ctx.beginPath(); ctx.moveTo(1, -14); ctx.lineTo(11, 3); ctx.stroke();
+        // fieser, spitzer Schnauzer
+        ctx.fillStyle = MUST; ctx.beginPath();
+        ctx.moveTo(-5, 8); ctx.quadraticCurveTo(15, 5, 27, 10);
+        ctx.quadraticCurveTo(22, 14, 15, 13); ctx.quadraticCurveTo(20, 17, 11, 17);
+        ctx.quadraticCurveTo(3, 17, -5, 13); ctx.closePath(); ctx.fill();
+        ctx.fillRect(-15, -2, 5, 12);                                       // Koteletten
+        // fieses Grinsen mit Zähnen (unter dem Schnauzer)
+        ctx.fillStyle = '#160803'; ctx.beginPath(); ctx.roundRect(1, 17, 15, 5, 2); ctx.fill();
+        ctx.fillStyle = '#e8e0c0'; ctx.fillRect(4, 17, 3, 4); ctx.fillRect(9, 17, 3, 4); ctx.fillRect(13, 18, 2, 3);
+        ctx.fillStyle = 'rgba(120,0,0,0.6)'; ctx.beginPath(); ctx.arc(22, 12, 1.8, 0, 7); ctx.fill(); // Blutspritzer am Schnauzer
+        if (this.char && this.char.hat === 'spikes') {
+            // Stachel-"Frisur" (Überraschungs-Charakter) statt Mütze
+            ctx.fillStyle = RED;
+            ctx.beginPath();
+            ctx.moveTo(-20, -8);
+            ctx.lineTo(-26, -26); ctx.lineTo(-12, -16);
+            ctx.lineTo(-16, -34); ctx.lineTo(-2, -18);
+            ctx.lineTo(-2, -38); ctx.lineTo(10, -16);
+            ctx.lineTo(16, -32); ctx.lineTo(18, -10);
+            ctx.closePath(); ctx.fill();
+        } else {
+            // Mütze (tief über die Augen für finsteren Blick)
+            ctx.fillStyle = RED; ctx.beginPath(); ctx.roundRect(-20, -27, 40, 17, 8); ctx.fill();
+            ctx.beginPath(); ctx.roundRect(7, -15, 24, 7, 3); ctx.fill();       // Schirm tief
+            ctx.fillStyle = 'rgba(0,0,0,0.28)'; ctx.fillRect(-17, -11, 30, 4);  // Schattenkante unter dem Schirm
+            ctx.fillStyle = REDDK; ctx.fillRect(-20, -12, 40, 2);
+            ctx.fillStyle = 'rgba(0,0,0,0.18)'; ctx.beginPath(); ctx.ellipse(-10, -20, 5, 3, 0, 0, 7); ctx.fill(); // abgewetzte Stelle
+            ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(-3, -18, 6, 0, 7); ctx.fill(); // Emblem
+            ctx.fillStyle = RED; ctx.font = 'bold 9px monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText((this.char && this.char.name[0]) || 'M', -3, -17.5); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+        }
+        ctx.restore();
+    }
+
     draw(ctx, camX, camY) {
         if (!this.isDead && this.invincibleTimer > 0 && Math.floor(this.invincibleTimer * 15) % 2 === 0) return;
         let frame = 0;
@@ -319,15 +492,12 @@ class Player extends Entity {
             ctx.translate(this.x - camX + this.w / 2 + (this.facingRight ? lunge : -lunge), this.y - camY + this.h / 2);
         }
         if (!this.facingRight) ctx.scale(-1, 1);
+        // Im Classic-Modus ist der Spieler kleiner (standH < 140): Grafik mitskalieren
+        // und die Füße exakt auf die Hitbox-Unterkante (Bodenlinie) setzen.
+        const vis = this.standH / 140;
+        if (!this.isDead) { ctx.translate(0, this.h / 2 - 82.8 * vis + 5); ctx.scale(vis, vis); } // Schuhe exakt auf Bodenlinie (+5px Feinabgleich); vis=1 in Story = neutral
         ctx.save();
-        ctx.scale(0.7, 1);
-        if (this.isStar) ctx.filter = 'invert(1) sepia(1) saturate(5) hue-rotate(175deg)'; 
-
-        let activeSprite = this.isStar ? Assets.playerStar : Assets.playerWalk;
-        ctx.save();
-        if (this.isCrouching) { ctx.scale(1, 0.6); ctx.translate(0, 80); }
-        ctx.drawImage(activeSprite, frame * 512, 0, 512, 512, -100, -110, 200, 200);
-        ctx.restore();
+        this.drawMarioBody(ctx, frame);     // prozedurale Spielerfigur (Star-Flash intern, ohne teures filter/shadow)
         ctx.restore();
         
         ctx.scale(1.5, 1.5);
@@ -342,8 +512,8 @@ class Player extends Entity {
         let walkBob = -Math.abs(Math.sin(cycle)) * 5;
         if (this.isCrouching) walkBob += 20; 
 
-        let sX = 0, sY = -25; 
-        if (this.isCrouching) { sX = -5; sY = -15; }
+        let sX = 0, sY = -21;                         // Schulter etwas tiefer (gibt den Mund frei)
+        if (this.isCrouching) { sX = 1; sY = 1; }     // Hocke: Schulter höher (auf Brusthöhe der Hocke)
         sY += walkBob;
         
         let attackRot = 0, distHand = 45;
@@ -363,7 +533,7 @@ class Player extends Entity {
                 if (progress > 0) {
                     if (t < 0.3) { let wind = t/0.3; attackRot = -Math.PI/4 - Math.PI*0.6*wind; distHand = 45 + 10*wind; }
                     else { let smash = Math.min(1, (t-0.3)/0.3); attackRot = -Math.PI*0.85 + Math.PI*1.6*smash; distHand = 55; }
-                } else { attackRot = Math.PI/8 + walkArmAngle * 0.5; }
+                } else { attackRot = Math.PI/8 + walkArmAngle * 0.5; distHand = 40; }  // Schläger näher am Körper halten
             }
             else if (this.weapon === 'CHAINSAW') {
                 attackRot = Math.PI / 12 + walkArmAngle * 0.2;
@@ -391,10 +561,9 @@ class Player extends Entity {
             let angle1 = Math.atan2(dy, dx) + angleOffset; 
             let ex = sx + Math.cos(angle1) * L1, ey = sy + Math.sin(angle1) * L1;
             ctx.save(); ctx.lineCap = 'round'; ctx.lineJoin = 'round';
-            if(this.isStar) ctx.filter = 'invert(1) sepia(1) saturate(5) hue-rotate(175deg)';
             ctx.beginPath(); ctx.moveTo(sx, sy); ctx.lineTo(ex, ey);
-            ctx.lineWidth = 14; ctx.strokeStyle = '#8A0500'; ctx.stroke();
-            ctx.lineWidth = 10; ctx.strokeStyle = '#D11100'; ctx.stroke();
+            ctx.lineWidth = 14; ctx.strokeStyle = this.char.shirtDk; ctx.stroke();   // Ärmel in Charakterfarbe
+            ctx.lineWidth = 10; ctx.strokeStyle = this.char.shirt; ctx.stroke();
             ctx.beginPath(); ctx.moveTo(ex, ey); ctx.lineTo(hx, hy);
             ctx.lineWidth = 10; ctx.strokeStyle = '#C18D5D'; ctx.stroke();
             ctx.lineWidth = 6; ctx.strokeStyle = '#E8B682'; ctx.stroke();

@@ -2,6 +2,7 @@ class LevelGenerator {
     constructor() {
         this.platforms = []; this.ladders = []; this.enemies = []; this.items = []; this.corpses = [];
         this.cursorX = 0; this.baseY = 600; this.levelPlan = []; this.bossSpawned = false; this.currentGeneratedLevel = 1; this.goalX = null;
+        this.classicMode = false; this._lastClassic = false; this.castleX = null;
     }
 
     init(startX, startY) {
@@ -12,10 +13,19 @@ class LevelGenerator {
     }
 
     update(camX, screenWidth, gameLevel, difficulty = 'regular') {
-        if (this.currentGeneratedLevel !== gameLevel) { this.init(camX, 600); this.currentGeneratedLevel = gameLevel; }
-        if (!this.levelPlan) this.loadBlueprint(gameLevel);
-        while (this.levelPlan.length > 0 && this.cursorX < camX + screenWidth + 1200) {
-            let nextModule = this.levelPlan.shift(); this.buildModule(nextModule, gameLevel, difficulty);
+        // (Neu-)Aufbau bei Levelwechsel ODER Moduswechsel (Story <-> Classic)
+        if (this.currentGeneratedLevel !== gameLevel || this._lastClassic !== this.classicMode) {
+            this.currentGeneratedLevel = gameLevel;
+            this._lastClassic = this.classicMode;
+            if (this.classicMode) this.buildClassic(gameLevel, difficulty);
+            else { this.init(camX, 600); }
+        }
+        // Story-Level werden lazily aus dem Bauplan erweitert; Classic-Level stehen komplett.
+        if (!this.classicMode) {
+            if (!this.levelPlan) this.loadBlueprint(gameLevel);
+            while (this.levelPlan.length > 0 && this.cursorX < camX + screenWidth + 1200) {
+                let nextModule = this.levelPlan.shift(); this.buildModule(nextModule, gameLevel, difficulty);
+            }
         }
         const cleanupX = camX - 2000;
         this.enemies = this.enemies.filter(e => e.x + e.w > cleanupX || e.isBoss);
@@ -92,7 +102,7 @@ class LevelGenerator {
         // Jedes Level eine eigene Abfolge. Jedes hat Trampoline (BOUNCE) und mind. eine
         // vertikale Passage (VCLIMB/TOWER); Reihenfolge & Signatur-Module unterscheiden sich.
         const plans = {
-            1:  ['RUN', 'BOUNCE', 'GAP', 'VCLIMB', 'HORDE', 'REST', 'EXIT'],                          // Trampolin-Einführung
+            1:  ['FOREST', 'RUN', 'GAP', 'TRAMP', 'FLOAT', 'MOVERS', 'HORDE', 'LIFT', 'REST', 'EXIT'], // Komplexe Wald-Einführung
             2:  ['RUN', 'VCLIMB', 'MOVERS', 'BOUNCE', 'TOWER', 'ARSENAL', 'BOSS'],                    // erste Kletterwand
             3:  ['GAP', 'CRUMBLE', 'TOWER', 'BOUNCE', 'HORDE', 'LIFT', 'REST', 'EXIT'],               // bröckelnde Stege
             4:  ['TOWER', 'HAZARD', 'VCLIMB', 'MOVERS', 'BOUNCE', 'HORDE', 'ARSENAL', 'BOSS'],        // Vertikal-Fabrik
@@ -119,6 +129,32 @@ class LevelGenerator {
                 this.items.push(new Collectible(sx + 400, B - 120, 'BEER'));
                 this.items.push(new Collectible(sx + 950, B - 120, d > 4 ? 'LIQUOR' : 'BEER'));
                 if (d <= 2) this.items.push(new Collectible(sx + 1250, B - 120, 'PISTOL')); // frühe Waffe
+                break;
+            }
+
+            case 'FOREST': {           // Einführung in den Giftwald mit speziellen Effekten
+                sx = this.addFloor(2000);
+                // Spezifische Wald-Elemente für Level 1
+                if (lvl === 1) {
+                    // Giftige Pflanzen und Spikes
+                    this.addSpikes(sx + 300, B - 40, 1500);
+                    
+                    // Wasserflächen im Wald
+                    this.addPlatform(sx + 600, B - 80, 200);
+                    this.addPlatform(sx + 900, B - 120, 200);
+                    this.addPlatform(sx + 1200, B - 160, 200);
+                    
+                    // Giftige Blüten und Samen als Belohnungen
+                    this.items.push(new Collectible(sx + 700, B - 140, 'LIQUOR'));
+                    this.items.push(new Collectible(sx + 1000, B - 180, 'BEER'));
+                    
+                    // Wald-Tiere als Gegner
+                    this.spawnThemeEnemy(sx + 500, lvl, diff, 'fast');
+                    this.spawnThemeEnemy(sx + 1300, lvl, diff, 'basic');
+                }
+                // Allgemeiner Lauf für alle Level
+                const n = 1 + Math.floor(d / 2);
+                for (let i = 0; i < n; i++) this.spawnThemeEnemy(sx + 600 + i * 400, lvl, diff, i % 2 ? 'fast' : 'basic');
                 break;
             }
 
@@ -219,6 +255,12 @@ class LevelGenerator {
                 this.addPlatform(sx + 1500, B - 40, 200, false, true);
                 this.items.push(new Collectible(sx + 1580, B - 520, 'LIQUOR'));
                 this.spawnThemeEnemy(sx + 2000, lvl, diff, 'special');
+                // Spezielle Wald-Trampolins für Level 1
+                if (lvl === 1) {
+                    this.addPlatform(sx + 1000, B - 40, 200, false, true); // Zusätzliche Trampoline im Wald
+                    this.items.push(new Collectible(sx + 1080, B - 500, 'LIQUOR'));
+                    this.addSpikes(sx + 1300, B - 40, 200); // Stacheln um Trampolin zu umgeben
+                }
                 break;
             }
 
@@ -310,6 +352,11 @@ class LevelGenerator {
             case 'EXIT': {             // Ziel-Flagge (Nicht-Boss-Level)
                 sx = this.addFloor(1500);
                 this.items.push(new Collectible(sx + 300, B - 120, 'HEART'));
+                // Spezielle Wald-Ende für Level 1
+                if (lvl === 1) {
+                    this.items.push(new Collectible(sx + 700, B - 150, 'LIQUOR'));
+                    this.addSpikes(sx + 1200, B - 40, 100); // Stacheln als Wald-Grenze
+                }
                 this.goalX = sx + 800;
                 break;
             }
