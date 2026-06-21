@@ -230,8 +230,10 @@ class Player extends Entity {
                     if (e.isBoss) { if (e.takeDamage) e.takeDamage(120, game, 'FLAME'); }   // Boss fliegt nicht, kassiert aber
                     else {
                         e.kicked = true; e.kickDir = dir; e.noStomp = false;
-                        e.vx = dir * (1500 + Math.random() * 350);
-                        e.vy = -300 - Math.random() * 160;
+                        const sp = 1650 + Math.random() * 350;             // wie vorher, nur etwas stärker
+                        const ang = (20 + Math.random() * 10) * Math.PI / 180;  // 20–30° nach oben -> Bogenflug
+                        e.vx = dir * sp;
+                        e.vy = -sp * Math.tan(ang);
                         e.spin = 0;
                     }
                 }

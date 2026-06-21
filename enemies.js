@@ -1231,7 +1231,8 @@ class HammerBroEnemy extends ClassicWalker {
         super.update(dt, game);
         if (this.dead) return;
         this.throwT -= dt;
-        if (this.throwT <= 0 && Math.abs(game.player.x - this.x) < 950) {
+        const onScreen = game.camera && (this.x + this.w > game.camera.x) && (this.x < game.camera.x + game.logicalWidth);
+        if (this.throwT <= 0 && onScreen && Math.abs(game.player.x - this.x) < 850) {
             const dir = game.player.x < this.x ? -1 : 1;
             game.projectiles.push(new Projectile(this.x + this.w/2, this.y, dir * 340, -640, true, 'GORE', true));
             this.throwT = 1.5 + Math.random() * 1.3;

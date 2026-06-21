@@ -107,15 +107,47 @@ class Game {
         }
     }
 
-    // Helden-Auswahl-Screen ein-/ausblenden + Porträts rendern
-    showHeroSelect() {
-        const hs = document.getElementById('hero-select'); if (!hs) return;
-        hs.classList.remove('hidden');
-        this.renderHeroPortraits();
-        this.setCharacter(this.character);   // aktuelle Wahl hervorheben
+    // Stufenweiser Menü-Assistent: START -> mode -> music -> hero -> level
+    showStep(name) {
+        ['step-mode', 'step-music', 'hero-select', 'step-level'].forEach(id => {
+            const el = document.getElementById(id); if (el) el.classList.add('hidden');
+        });
+        const sp = document.getElementById('start-screen-prompt');
+        if (name === 'start' || !name) { if (sp) sp.classList.remove('hidden'); return; }
+        if (sp) sp.classList.add('hidden');
+        const map = { mode: 'step-mode', music: 'step-music', hero: 'hero-select', level: 'step-level' };
+        const el = document.getElementById(map[name]); if (el) el.classList.remove('hidden');
+        if (name === 'mode') this.renderModePreviews();
+        if (name === 'hero') { this.renderHeroPortraits(); this.setCharacter(this.character); }
+        if (name === 'level') { this.updateLevelSelection(); this.selectDifficulty(this.selectedDiff); }
     }
-    hideHeroSelect() {
-        const hs = document.getElementById('hero-select'); if (hs) hs.classList.add('hidden');
+    hideHeroSelect() { this.showStep('start'); }   // Kompatibilität
+
+    // Vorschau-Szenen für die Modus-Auswahl
+    renderModePreviews() {
+        document.querySelectorAll('#step-mode .mode-card').forEach(card => {
+            const cv = card.querySelector('.mode-preview'); if (!cv) return;
+            const ctx = cv.getContext('2d'); const W = cv.width, H = cv.height; ctx.clearRect(0, 0, W, H);
+            if (card.dataset.mode === 'CLASSIC') {
+                ctx.fillStyle = '#5C94FC'; ctx.fillRect(0, 0, W, H);
+                ctx.fillStyle = '#00A800'; ctx.beginPath(); ctx.arc(W * 0.32, H - 24, 40, Math.PI, 0); ctx.fill();
+                ctx.fillStyle = '#C84C0C'; ctx.fillRect(0, H - 24, W, 24);
+                ctx.fillStyle = '#7C2C00'; for (let x = 0; x < W; x += 18) ctx.fillRect(x, H - 24, 2, 24);
+                ctx.fillStyle = '#00A800'; ctx.fillRect(W - 60, H - 70, 28, 46); ctx.fillStyle = '#58D854'; ctx.fillRect(W - 58, H - 68, 7, 44);
+            } else {
+                const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#3a0808'); g.addColorStop(1, '#0a0204');
+                ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+                ctx.fillStyle = '#5a4a36'; ctx.fillRect(0, H - 24, W, 24);
+                ctx.fillStyle = '#241a10'; for (let x = 0; x < W; x += 16) ctx.fillRect(x, H - 24, 2, 24);
+                ctx.fillStyle = 'rgba(70,95,35,0.6)'; for (let x = 0; x < W; x += 22) ctx.fillRect(x, H - 24, 10, 4);
+                ctx.fillStyle = '#5a7d3a'; ctx.beginPath(); ctx.ellipse(W - 52, H - 40, 13, 18, 0, 0, 7); ctx.fill();  // Zombie
+                ctx.fillStyle = '#b00000'; ctx.beginPath(); ctx.arc(W - 56, H - 46, 2.2, 0, 7); ctx.arc(W - 48, H - 46, 2.2, 0, 7); ctx.fill();
+            }
+            try {
+                const pl = new Player(0, 0, this.character); pl.facingRight = true; pl.grounded = true; pl.state = 'IDLE';
+                ctx.save(); ctx.translate(W * 0.30, H - 24); ctx.scale(0.34, 0.34); pl.draw(ctx, 40, 145); ctx.restore();
+            } catch (e) {}
+        });
     }
     renderHeroPortraits() {
         const cards = document.querySelectorAll('#hero-select .hero-card');
@@ -170,6 +202,7 @@ class Game {
         };
         setBtn(document.getElementById('btn-mode-story'), !this.classicMode);
         setBtn(document.getElementById('btn-mode-classic'), this.classicMode);
+        document.querySelectorAll('#step-mode .mode-card').forEach(c => { c.style.borderColor = (c.dataset.mode === mode) ? '#FFD700' : ''; });
 
         this.level = 1;                 // bei Moduswechsel Auswahl zurücksetzen
         this.updateLevelSelection();
@@ -180,30 +213,22 @@ class Game {
         if (!this.ui.levelSelection || !this.ui.levelButtons) return;
         const maxLvl = this.classicMode ? this.maxClassicUnlocked : this.maxUnlockedLevel;
 
-        if (maxLvl > 1) {
-            this.ui.levelSelection.classList.remove('hidden');
-            this.ui.levelButtons.innerHTML = '';
-
-            for (let i = 1; i <= maxLvl; i++) {
-                const btn = document.createElement('button');
-                btn.className = 'opt-btn lvl-btn';
-                btn.innerText = this.classicMode ? (CLASSIC_LABELS[i] || i) : i;
-
-                if (i === this.level) {
-                    btn.style.backgroundColor = 'rgba(255, 215, 0, 0.4)';
-                    btn.style.borderColor = '#FFD700';
-                    btn.style.color = '#FFF';
-                    btn.style.boxShadow = '0 0 15px #FFD700';
-                }
-
-                btn.onclick = () => {
-                    this.level = i;
-                    this.updateLevelSelection();
-                };
-                this.ui.levelButtons.appendChild(btn);
+        this.ui.levelSelection.classList.remove('hidden');
+        this.ui.levelButtons.innerHTML = '';
+        const top = Math.max(1, maxLvl);
+        if (this.level > top) this.level = 1;
+        for (let i = 1; i <= top; i++) {
+            const btn = document.createElement('button');
+            btn.className = 'opt-btn lvl-btn';
+            btn.innerText = this.classicMode ? (CLASSIC_LABELS[i] || i) : i;
+            if (i === this.level) {
+                btn.style.backgroundColor = 'rgba(255, 215, 0, 0.4)';
+                btn.style.borderColor = '#FFD700';
+                btn.style.color = '#FFF';
+                btn.style.boxShadow = '0 0 15px #FFD700';
             }
-        } else {
-            this.ui.levelSelection.classList.add('hidden');
+            btn.onclick = () => { this.level = i; this.updateLevelSelection(); };
+            this.ui.levelButtons.appendChild(btn);
         }
     }
 
@@ -220,33 +245,34 @@ class Game {
 
         document.body.addEventListener('click', (e) => {
             const t = e.target;
-            if (t.id === 'btn-mode-story') { this.setMode('NORMAL'); return; }
-            else if (t.id === 'btn-mode-classic') { this.setMode('CLASSIC'); return; }
-            else if (t.id === 'btn-audio-metal') { this.audio.init(); this.setAudioMode('METAL'); return; }
-            else if (t.id === 'btn-audio-classic') { this.audio.init(); this.setAudioMode('CLASSIC'); return; }
-            // Schwierigkeit im Hauptmenü = Auswahl (Spielstart erst über Hero-Select)
-            else if (t.id === 'btn-princess') { this.selectDifficulty('princess'); return; }
-            else if (t.id === 'btn-regular') { this.selectDifficulty('regular'); return; }
-            else if (t.id === 'btn-badass') { this.selectDifficulty('badass'); return; }
-            // START -> Helden-Auswahl
-            else if (t.id === 'btn-start') { this.audio.init(); this.showHeroSelect(); return; }
-            else if (t.id === 'hero-back') { this.hideHeroSelect(); return; }
+            // ---- STUFENWEISER MENÜ-ASSISTENT: START -> Modus -> Musik -> Held -> Level ----
+            if (t.id === 'btn-start') { this.audio.init(); this.showStep('mode'); return; }
+            // Schwierigkeit im Level-Schritt = Auswahl (Start über LOS GEHT'S)
+            if (t.id === 'btn-princess') { this.selectDifficulty('princess'); return; }
+            if (t.id === 'btn-regular') { this.selectDifficulty('regular'); return; }
+            if (t.id === 'btn-badass') { this.selectDifficulty('badass'); return; }
+            if (t.id === 'btn-go') { launchWithDiff(this.selectedDiff); return; }
             // Game-Over-Restart startet direkt mit aktuellem Helden
-            else if (t.id === 'restart-princess') { launchWithDiff('princess'); return; }
-            else if (t.id === 'restart-regular') { launchWithDiff('regular'); return; }
-            else if (t.id === 'restart-badass') { launchWithDiff('badass'); return; }
-            else if (t.id === 'continue-btn') {
+            if (t.id === 'restart-princess') { launchWithDiff('princess'); return; }
+            if (t.id === 'restart-regular') { launchWithDiff('regular'); return; }
+            if (t.id === 'restart-badass') { launchWithDiff('badass'); return; }
+            if (t.id === 'continue-btn') {
                 this.requestFullScreen();
                 if (this.state === 'GAMEOVER') this.continueGame();
                 return;
             }
-            // Helden-Karte angeklickt -> Charakter setzen + starten
+            // Zurück-Knöpfe im Assistenten
+            const back = t.closest && t.closest('.wiz-back');
+            if (back) { this.showStep(back.dataset.back); return; }
+            // Modus-Karte -> Musik-Schritt
+            const modeCard = t.closest && t.closest('.mode-card');
+            if (modeCard) { this.setMode(modeCard.dataset.mode); this.showStep('music'); return; }
+            // Musik-Karte -> Held-Schritt
+            const musicCard = t.closest && t.closest('.music-card');
+            if (musicCard) { this.audio.init(); this.setAudioMode(musicCard.dataset.audio); this.showStep('hero'); return; }
+            // Helden-Karte -> Level-Schritt
             const card = t.closest && t.closest('.hero-card');
-            if (card && card.dataset.char) {
-                this.setCharacter(card.dataset.char);
-                this.hideHeroSelect();
-                launchWithDiff(this.selectedDiff);
-            }
+            if (card && card.dataset.char) { this.setCharacter(card.dataset.char); this.showStep('level'); return; }
         });
 
                 const btnZoomIn = document.getElementById('btn-zoom-in');
@@ -348,6 +374,10 @@ class Game {
     startPlay(level = 1, diff = 'regular') {
         if(this.ui.menuOverlay) this.ui.menuOverlay.classList.add('hidden');
         if(this.ui.gameOverStats) this.ui.gameOverStats.classList.add('hidden');
+        ['step-mode', 'step-music', 'hero-select', 'step-level'].forEach(id => {   // Wizard-Overlays ausblenden
+            const el = document.getElementById(id); if (el) el.classList.add('hidden');
+        });
+        const sp = document.getElementById('start-screen-prompt'); if (sp) sp.classList.remove('hidden'); // für nächstes Mal zurücksetzen
         if(this.ui.mobileControls) this.ui.mobileControls.classList.remove('hidden');
 
         this.difficulty = diff;
@@ -872,32 +902,44 @@ class Game {
                 this.levelGen.enemies.splice(i, 1);
                 continue;
             }
-            // --- ROUNDHOUSE: gekickter Gegner fliegt, schlittert, zerplatzt an Wänden ---
+            // --- ROUNDHOUSE: gekickter Gegner fliegt im Bogen; zerplatzt NUR bei schnellem
+            //     Wandaufprall, sonst landet/rollt er aus und überlebt ---
             if (enemy.kicked) {
                 enemy.spin = (enemy.spin || 0) + dt * 18;
                 enemy.vy += CONFIG.GRAVITY * dt;
                 enemy.x += enemy.vx * dt;
                 enemy.y += enemy.vy * dt;
-                let splat = false;
+                const speed = Math.hypot(enemy.vx, enemy.vy);
+                let splat = false, landed = false;
                 for (const plat of this.levelGen.platforms) {
                     if (plat.isHazard || !plat.isSolidGround) continue;
                     if (!enemy.checkCollision(plat)) continue;
                     const onTop = enemy.vy > 0 && (enemy.y + enemy.h - enemy.vy * dt) <= plat.y + 22;
-                    if (onTop) {                                  // auf Boden -> weiterschlittern
-                        enemy.y = plat.y - enemy.h; enemy.vy = 0; enemy.vx *= 0.95;
-                        if (Math.abs(enemy.vx) < 90) splat = true;
-                    } else { splat = true; }                      // Wand/Röhre/Block -> sofort zerplatzen
-                    if (splat) break;
+                    if (onTop) {                                  // auf Boden gelandet -> ausrollen
+                        enemy.y = plat.y - enemy.h; enemy.vy = 0; enemy.vx *= 0.88; landed = true;
+                    } else if (Math.abs(enemy.vx) > 520) {        // schneller Wandtreffer -> zerplatzen
+                        splat = true; break;
+                    } else {                                      // langsam -> abprallen (überlebt)
+                        enemy.vx = -enemy.vx * 0.4; enemy.x += enemy.vx * dt;
+                    }
                 }
-                // mäht andere Gegner um
-                for (const o of this.levelGen.enemies) {
-                    if (o !== enemy && !o.dead && !o.kicked && !o.isBoss && enemy.checkCollision(o) && o.takeDamage) o.takeDamage(1000, this, 'FLAME');
+                if (speed > 700) {                                // mäht andere Gegner nur bei Tempo um
+                    for (const o of this.levelGen.enemies) {
+                        if (o !== enemy && !o.dead && !o.kicked && !o.isBoss && enemy.checkCollision(o) && o.takeDamage) o.takeDamage(1000, this, 'FLAME');
+                    }
                 }
-                if (splat || enemy.x < this.camera.x - 1600 || enemy.x > this.camera.x + this.logicalWidth + 2600 || enemy.y > this.levelGen.baseY + 800) {
+                if (splat) {
                     this.particles.spawnBlood(enemy.x + enemy.w / 2, enemy.y + enemy.h / 2, 60);
-                    if (splat) this.triggerShake(14, 0.25);
+                    this.triggerShake(14, 0.25);
                     if (this.audio.playSplatter) this.audio.playSplatter();
                     enemy.dead = true; this.player.score += 150;
+                    continue;
+                }
+                if (enemy.x < this.camera.x - 1600 || enemy.x > this.camera.x + this.logicalWidth + 2600 || enemy.y > this.levelGen.baseY + 800) {
+                    enemy.dead = true; continue;                  // aus dem Level geflogen
+                }
+                if (landed && Math.abs(enemy.vx) < 60) {          // ausgerollt -> überlebt, normale KI zurück
+                    enemy.kicked = false; enemy.vx = 0; enemy.spin = 0;
                 }
                 continue;   // normale KI + Spielerkollision überspringen
             }

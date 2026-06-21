@@ -72,7 +72,11 @@ class Platform extends Entity {
             const g = window.gameInstance;
             if (g && g.player && !g.player.isDead && this.cannonTimer <= 0) {
                 const dx = (g.player.x + g.player.w / 2) - (this.x + this.w / 2);
-                if (Math.abs(dx) < 1300 && Math.abs(dx) > 130) {
+                const dy = (g.player.y + g.player.h / 2) - (this.y + 16);
+                // FAIR: nur feuern, wenn die Kanone im Bild ist (Spieler sieht sie) UND der Spieler
+                // ungefähr auf Mündungshöhe ist — verhindert "unsichtbare" Treffer aus anderer Höhe/off-screen.
+                const onScreen = g.camera && (this.x + this.w > g.camera.x) && (this.x < g.camera.x + g.logicalWidth);
+                if (onScreen && Math.abs(dx) < 1000 && Math.abs(dx) > 150 && Math.abs(dy) < 170) {
                     const dir = dx < 0 ? -1 : 1;
                     g.projectiles.push(new Projectile(this.x + this.w / 2, this.y + 16, dir * 470, 0, true, 'BULLET'));
                     if (g.audio && g.audio.playExplosion) g.audio.playExplosion();
