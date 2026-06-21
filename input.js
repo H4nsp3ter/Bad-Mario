@@ -50,7 +50,7 @@ class InputHandler {
         bindButton('btn-b', 'Space'); 
         bindButton('btn-a', 'KeyF');   
         bindButton('btn-x', 'KeyQ');  
-        bindButton('btn-y', 'Digit2');
+        bindButton('btn-y', 'KeyE');   // Roundhouse-Kick (nur Chuck)
     }
 
         update() {
@@ -102,8 +102,11 @@ class InputHandler {
                 if (isPressed(13)) this.gamepadKeys['KeyS'] = true; 
 
                 // Action Buttons
-                if (isPressed(0)) this.gamepadKeys['Space'] = true; 
-            
+                if (isPressed(0)) this.gamepadKeys['Space'] = true;
+
+                // Roundhouse-Kick (Chuck) — freier "A"-Knopf (Face-Button Index 1)
+                if (isPressed(1)) this.gamepadKeys['KeyE'] = true;
+
                 // Shoot
                 if (isPressed(2) || isPressed(5) || isPressed(7)) {
                     this.gamepadKeys['KeyF'] = true; 

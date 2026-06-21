@@ -29,6 +29,10 @@ class Platform extends Entity {
         this.startY = y;
         this.isFireTrap = false;
         this.fireTimer = 0;
+        this.isCannon = false;      // CLASSIC: Bullet-Bill-Kanone (feuert Geschosse auf den Spieler)
+        this.cannonTimer = 0;
+        this.shabby = false;        // STORY: schäbiger/verfallener Zombie-Look der Bibliotheks-Elemente
+        this.stemLen = 0;           // MUSHROOM: Stiellänge bis zum Boden
     }
     
         update(dt) {
@@ -43,7 +47,38 @@ class Platform extends Entity {
         }
 
         if (this.isMoving) {
-            this.y = this.startY + Math.sin(performance.now() / 1000 * this.moveSpeed) * this.moveRange;
+            const newY = this.startY + Math.sin(performance.now() / 1000 * this.moveSpeed) * this.moveRange;
+            const delta = newY - this.y;
+            this.y = newY;
+            // Spieler aktiv MITTRAGEN, wenn er auf der Plattform steht — auch nach unten,
+            // sonst löst er sich beim Absinken und fällt plötzlich (Stabilitätsproblem).
+            const g = window.gameInstance;
+            if (g && g.player && !g.player.isDead) {
+                const pl = g.player;
+                const onTop = pl.x + pl.w > this.x + 4 && pl.x < this.x + this.w - 4
+                           && (pl.y + pl.h) > this.y - 26 && (pl.y + pl.h) < this.y + 24
+                           && pl.vy >= -1;          // nicht beim Hochspringen
+                if (onTop) {
+                    pl.y = this.y - pl.h;            // exakt auf die Plattform-Oberkante setzen
+                    pl.vy = 0;
+                    pl.grounded = true;
+                    pl.lastSafePlatform = this;
+                }
+            }
+        }
+
+        if (this.isCannon) {
+            this.cannonTimer -= dt;
+            const g = window.gameInstance;
+            if (g && g.player && !g.player.isDead && this.cannonTimer <= 0) {
+                const dx = (g.player.x + g.player.w / 2) - (this.x + this.w / 2);
+                if (Math.abs(dx) < 1300 && Math.abs(dx) > 130) {
+                    const dir = dx < 0 ? -1 : 1;
+                    g.projectiles.push(new Projectile(this.x + this.w / 2, this.y + 16, dir * 470, 0, true, 'BULLET'));
+                    if (g.audio && g.audio.playExplosion) g.audio.playExplosion();
+                    this.cannonTimer = 2.0 + Math.random() * 1.6;
+                }
+            }
         }
 
         if (this.isFireTrap) {
@@ -215,11 +250,14 @@ class Platform extends Entity {
         if (this.bumpTimer > 0) y += -Math.sin((this.bumpTimer / 0.18) * Math.PI) * 14; // Anschlag-Hop
 
         // Theme-Palette: over (Tag/orange), under (Untergrund/türkis), castle (Burg/grau)
-        const PAL = ({
-            over:   { body: '#C84C0C', dark: '#7C2C00', stair: '#9C4A00', edge: '#C86418', used: '#7A4A1E', dot: '#3A2410' },
-            under:  { body: '#2a9a9a', dark: '#0d4848', stair: '#1f7d7d', edge: '#46c8c8', used: '#1b5a5a', dot: '#0a3333' },
-            castle: { body: '#9aa0aa', dark: '#4a4e57', stair: '#7e828c', edge: '#c3c8d0', used: '#5a5e66', dot: '#2a2d33' }
-        })[this.ctheme || 'over'];
+        const PAL = this.shabby
+            // STORY-Variante: verfallen/morbide (entsättigt, schmutzig) — Zombie-Feeling
+            ? { body: '#5a4a36', dark: '#241a10', stair: '#4a3c28', edge: '#7a6a4e', used: '#332617', dot: '#120c05' }
+            : ({
+                over:   { body: '#C84C0C', dark: '#7C2C00', stair: '#9C4A00', edge: '#C86418', used: '#7A4A1E', dot: '#3A2410' },
+                under:  { body: '#2a9a9a', dark: '#0d4848', stair: '#1f7d7d', edge: '#46c8c8', used: '#1b5a5a', dot: '#0a3333' },
+                castle: { body: '#9aa0aa', dark: '#4a4e57', stair: '#7e828c', edge: '#c3c8d0', used: '#5a5e66', dot: '#2a2d33' }
+              })[this.ctheme || 'over'];
         const G_BODY = PAL.body, G_DARK = PAL.dark, STAIR_BODY = PAL.stair, STAIR_EDGE = PAL.edge;
 
         if (this.style === 'HIDDEN') return;      // unsichtbar bis von unten ausgelöst (wird dann USED)
@@ -233,6 +271,15 @@ class Platform extends Entity {
             return;
         }
 
+        if (this.style === 'CANNON') {            // Bullet-Bill-Kanone (schwarzer Turm + Mündung)
+            ctx.fillStyle = '#16161b'; ctx.fillRect(x, y, w, Math.min(h, 600));
+            ctx.fillStyle = '#34343e'; ctx.fillRect(x + 3, y, w - 6, 16);              // Mündungsband
+            ctx.fillStyle = '#000'; ctx.beginPath(); ctx.ellipse(x + w / 2, y + 8, w * 0.30, 9, 0, 0, 7); ctx.fill(); // Mündungsloch
+            ctx.fillStyle = '#4a4a56'; ctx.fillRect(x + 6, y + 22, 6, Math.min(h, 600) - 22); // Glanzkante
+            ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.strokeRect(x, y, w, Math.min(h, 600));
+            return;
+        }
+
         if (this.style === 'GROUND') {
             ctx.fillStyle = G_BODY; ctx.fillRect(x, y, w, h);                 // bis ganz nach unten (kein Schweben)
             ctx.fillStyle = '#000'; ctx.fillRect(x, y, w, 6);                 // dunkle Oberkante
@@ -242,6 +289,7 @@ class Platform extends Entity {
                 const off = ((by / 46) % 2) ? 23 : 0;
                 for (let bx = off; bx < w; bx += 46) ctx.fillRect(x + bx, y + by, 3, 46);
             }
+            if (this.shabby) this._grunge(ctx, x, y, w, h);
             return;
         }
 
@@ -259,38 +307,96 @@ class Platform extends Entity {
         }
 
         if (this.style === 'STAIR') {
-            ctx.fillStyle = STAIR_BODY; ctx.fillRect(x, y, w, Math.min(h, 400));
-            ctx.fillStyle = STAIR_EDGE; ctx.fillRect(x + 4, y + 4, w - 8, 8);  // helle Kante
-            ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.strokeRect(x + 1, y + 1, w - 2, Math.min(h, 400) - 2);
+            const dh = Math.min(h, 1600);                       // hohe Säulen/Treppen bis zum Boden (kein Schweben mehr)
+            ctx.fillStyle = STAIR_BODY; ctx.fillRect(x, y, w, dh);            // Körper
+            ctx.fillStyle = G_DARK; ctx.fillRect(x + w - 7, y, 7, dh);        // Schattenkante rechts
+            ctx.fillStyle = STAIR_EDGE; ctx.fillRect(x, y, w, 10);           // heller Tritt oben
+            ctx.fillStyle = G_DARK;                                          // Stein-/Ziegelfugen
+            for (let bx = 46; bx < w; bx += 46) ctx.fillRect(x + bx, y, 2, dh);
+            for (let by = 46; by < dh; by += 46) ctx.fillRect(x, y + by, w, 2);
+            ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.strokeRect(x, y, w, Math.min(dh, 1200));
+            if (this.shabby) this._grunge(ctx, x, y, w, dh);
+            return;
+        }
+
+        if (this.style === 'MUSHROOM') {
+            // EIN Element: oranger Stiel (bis zum Boden) + grüne, gerundete Kappe (begehbar).
+            const stemLen = this.stemLen || 0;
+            const stemW = Math.min(w * 0.30, 56);
+            const sx = x + w / 2 - stemW / 2;
+            const stemTop = y + h * 0.5;
+            ctx.fillStyle = '#cf8a3a'; ctx.fillRect(sx, stemTop, stemW, stemLen);                 // Stiel
+            ctx.fillStyle = '#9c5e1e'; ctx.fillRect(sx, stemTop, stemW * 0.30, stemLen);          // Schatten links
+            ctx.fillStyle = '#eebb73'; ctx.fillRect(sx + stemW * 0.72, stemTop, stemW * 0.20, stemLen); // Glanz rechts
+            ctx.fillStyle = '#7a4a14'; ctx.fillRect(sx, stemTop + stemLen - 6, stemW, 6);         // Fußkante
+            // Kappe
+            const capR = w / 2;
+            ctx.fillStyle = '#1f9e1f';
+            ctx.beginPath(); ctx.moveTo(x, y + h); ctx.lineTo(x, y + 14);
+            ctx.quadraticCurveTo(x, y - 6, x + 22, y - 6);
+            ctx.lineTo(x + w - 22, y - 6);
+            ctx.quadraticCurveTo(x + w, y - 6, x + w, y + 14);
+            ctx.lineTo(x + w, y + h); ctx.closePath(); ctx.fill();
+            ctx.fillStyle = '#46c846'; ctx.fillRect(x + 6, y - 2, w - 12, 7);                     // heller Grasrand
+            ctx.fillStyle = '#0e6b0e'; ctx.fillRect(x, y + h - 6, w, 6);                          // Unterkante Schatten
+            ctx.strokeStyle = '#0a4a0a'; ctx.lineWidth = 2; ctx.strokeRect(x, y - 4, w, h + 4);
+            if (this.shabby) this._grunge(ctx, x, y, w, h);
             return;
         }
 
         if (this.style === 'BRICK') {
+            // Original-SMB-Ziegel: voller Körper, heller Rand oben/links, dunkler unten/rechts,
+            // versetztes 2-reihiges Mauerwerk mit schwarzen Fugen
             ctx.fillStyle = G_BODY; ctx.fillRect(x, y, w, h);
+            ctx.fillStyle = PAL.edge; ctx.fillRect(x, y, w, 4); ctx.fillRect(x, y, 4, h);   // Highlight oben/links
+            ctx.fillStyle = G_DARK;  ctx.fillRect(x, y + h - 5, w, 5); ctx.fillRect(x + w - 5, y, 5, h); // Schatten
+            ctx.fillStyle = '#000';
+            ctx.fillRect(x, y + Math.floor(h / 2) - 1, w, 3);                 // mittlere horizontale Fuge
+            ctx.fillRect(x + Math.floor(w / 2) - 1, y, 3, Math.floor(h / 2)); // obere Reihe: 1 Stoßfuge mittig
+            ctx.fillRect(x + Math.floor(w / 4) - 1, y + Math.floor(h / 2), 3, Math.ceil(h / 2));     // untere Reihe versetzt
+            ctx.fillRect(x + Math.floor(3 * w / 4) - 1, y + Math.floor(h / 2), 3, Math.ceil(h / 2));
             ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.strokeRect(x, y, w, h);
-            ctx.strokeStyle = 'rgba(0,0,0,0.55)'; ctx.lineWidth = 1.5;
-            ctx.beginPath();
-            ctx.moveTo(x, y + h / 2); ctx.lineTo(x + w, y + h / 2);           // horizontale Fuge
-            ctx.moveTo(x + w / 2, y); ctx.lineTo(x + w / 2, y + h / 2);       // versetzte vertikale Fugen
-            ctx.moveTo(x + w / 4, y + h / 2); ctx.lineTo(x + w / 4, y + h);
-            ctx.moveTo(x + 3 * w / 4, y + h / 2); ctx.lineTo(x + 3 * w / 4, y + h);
-            ctx.stroke();
+            if (this.shabby) this._grunge(ctx, x, y, w, h);
             return;
         }
 
         if (this.style === 'QUESTION') {
-            const pulse = 0.55 + 0.45 * Math.sin(now * 4);
-            ctx.fillStyle = `rgba(229,148,0,${pulse})`; ctx.fillRect(x, y, w, h);
-            ctx.strokeStyle = '#000'; ctx.lineWidth = 2; ctx.strokeRect(x, y, w, h);
+            // Original-SMB-?-Block: solides Gold (kein Durchscheinen), animiertes Blinken zwischen 2 Gold-Tönen
+            const blink = (Math.sin(now * 5) > 0.4);
+            ctx.fillStyle = blink ? '#FCA800' : '#E59400';
+            ctx.fillRect(x, y, w, h);
+            ctx.fillStyle = '#FFD060'; ctx.fillRect(x, y, w, 4); ctx.fillRect(x, y, 4, h);  // Highlight
+            ctx.fillStyle = '#A85000'; ctx.fillRect(x, y + h - 5, w, 5); ctx.fillRect(x + w - 5, y, 5, h); // Schatten
+            ctx.strokeStyle = '#000'; ctx.lineWidth = 3; ctx.strokeRect(x, y, w, h);
             ctx.fillStyle = '#FFF';                                           // Niet-Ecken
-            ctx.fillRect(x + 4, y + 4, 5, 5); ctx.fillRect(x + w - 9, y + 4, 5, 5);
-            ctx.fillRect(x + 4, y + h - 9, 5, 5); ctx.fillRect(x + w - 9, y + h - 9, 5, 5);
-            ctx.fillStyle = '#000'; ctx.font = `bold ${Math.floor(h * 0.7)}px monospace`;
+            ctx.fillRect(x + 7, y + 7, 6, 6); ctx.fillRect(x + w - 13, y + 7, 6, 6);
+            ctx.fillRect(x + 7, y + h - 13, 6, 6); ctx.fillRect(x + w - 13, y + h - 13, 6, 6);
+            // "?" mit Schatten für Tiefe
+            ctx.font = `bold ${Math.floor(h * 0.66)}px monospace`;
             ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            ctx.fillText('?', x + w / 2, y + h / 2 + 2);
+            ctx.fillStyle = '#7C3000'; ctx.fillText('?', x + w / 2 + 2, y + h / 2 + 4);     // Schatten
+            ctx.fillStyle = '#FFF';    ctx.fillText('?', x + w / 2, y + h / 2 + 2);
             ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
             return;
         }
+    }
+
+    // STORY: schäbiger/verfallener Overlay (deterministisch -> kein Flackern): Risse, Moos, Blut
+    _grunge(ctx, x, y, w, h) {
+        const dh = Math.min(h, 240);
+        const s = Math.abs((this.x * 0.137) % 1) + 0.05;
+        ctx.strokeStyle = 'rgba(0,0,0,0.5)'; ctx.lineWidth = 2;          // Risse
+        for (let i = 0; i < 3; i++) {
+            const sx = x + ((s * 997 * (i + 1)) % Math.max(8, w - 8)) + 4;
+            ctx.beginPath(); ctx.moveTo(sx, y + 4);
+            ctx.lineTo(sx + (i % 2 ? 9 : -9), y + Math.min(dh, 60));
+            ctx.lineTo(sx + (i % 2 ? 2 : -2), y + Math.min(dh, 112)); ctx.stroke();
+        }
+        ctx.fillStyle = 'rgba(70,95,35,0.6)';                            // Moos oben
+        for (let bx = 0; bx < w; bx += 20) { if (((s * 100 + bx) % 3) < 1.3) ctx.fillRect(x + bx, y, 12, 7); }
+        ctx.fillStyle = 'rgba(120,12,12,0.55)';                          // Blutspritzer
+        const bx2 = x + (s * Math.max(4, w - 12));
+        ctx.fillRect(bx2, y + 14 + (s * 30), 7, 7); ctx.fillRect(bx2 + 6, y + 18 + (s * 30), 4, 4);
     }
 }
 
@@ -340,8 +446,7 @@ class Collectible extends Entity {
             ctx.translate(cx, cy);
         
             if (Assets && Assets.items && Assets.items[this.type]) {
-                ctx.shadowBlur = 20; ctx.shadowColor = '#FFF'; 
-                // Zeichne aus dem nun 512x512 großen Sprite-Canvas
+                // kein per-Frame shadowBlur (teuer bei vielen Items) — der Glow steckt bereits im Sprite
                 ctx.drawImage(Assets.items[this.type], 0, 0, 512, 512, -this.w*0.8, -this.h*0.8, this.w*1.6, this.h*1.6);
             } else {
             ctx.fillStyle = '#FF0'; ctx.fillRect(-this.w/2, -this.h/2, this.w, this.h);
@@ -420,16 +525,15 @@ class Projectile extends Entity {
             const maxL = this.type === 'FLAME' ? 0.6 : 4.0;
             const alpha = Math.max(0, this.life / maxL);
             ctx.globalAlpha = alpha;
-            ctx.shadowBlur = 50; ctx.shadowColor = '#F40';
-            
-            ctx.fillStyle = '#F40'; 
-            let pulse = Math.random() * 15; // MEHR PULSIEREN
+            ctx.globalCompositeOperation = 'lighter';      // additiver Feuer-Glow statt teurem shadowBlur
+            let pulse = Math.random() * 15;
+            ctx.fillStyle = '#F40';
             ctx.beginPath(); ctx.ellipse(0, 0, (this.w + pulse) * alpha, (this.h + pulse) * alpha, 0, 0, Math.PI*2); ctx.fill();
-            ctx.fillStyle = '#FF0'; 
+            ctx.fillStyle = '#FF0';
             ctx.beginPath(); ctx.ellipse(0, 0, (this.w/2 + pulse) * alpha, (this.h/2 + pulse) * alpha, 0, 0, Math.PI*2); ctx.fill();
-            
-            ctx.globalAlpha = 1.0; ctx.shadowBlur = 0;
-        } 
+            ctx.globalCompositeOperation = 'source-over';
+            ctx.globalAlpha = 1.0;
+        }
         else if (this.type === 'ROCKET') {
             ctx.rotate(this.angle);
             ctx.fillStyle = '#456'; ctx.fillRect(-this.w/2, -this.h/2, this.w, this.h); 
@@ -440,9 +544,7 @@ class Projectile extends Entity {
         else if (this.type === 'BULLET') {
             ctx.rotate(this.angle);
             ctx.fillStyle = this.color;
-            ctx.shadowBlur = 10; ctx.shadowColor = this.color;
-            ctx.fillRect(-this.w/2, -this.h/2, this.w, this.h); 
-            ctx.shadowBlur = 0;
+            ctx.fillRect(-this.w/2, -this.h/2, this.w, this.h);   // ohne per-Frame shadowBlur
         }
         else if (this.type === 'MOLOTOV') {
             ctx.rotate(this.angle);

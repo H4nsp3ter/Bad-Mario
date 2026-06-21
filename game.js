@@ -33,7 +33,8 @@ class Game {
         this.gameMode = localStorage.getItem('badMarioMode') || 'NORMAL'; // 'NORMAL' = Story, 'CLASSIC' = Super-Mario-Level
         this.classicMode = (this.gameMode === 'CLASSIC');
         this.audioMode = localStorage.getItem('badMarioAudio') || 'METAL';  // 'METAL' = bisher, 'CLASSIC' = 8-Bit-Mario-Sound
-        this.character = localStorage.getItem('badMarioChar') || 'MARIO';   // MARIO / LUIGI / SONIC
+        this.character = localStorage.getItem('badMarioChar') || 'MARIO';   // MARIO / LUIGI / SONIC / CHUCK
+        this.selectedDiff = 'regular';   // im Menü gewählte Schwierigkeit (Start über Hero-Select)
         this.maxUnlockedLevel = parseInt(localStorage.getItem('badMarioUnlockedLevel')) || 1;
         this.maxClassicUnlocked = parseInt(localStorage.getItem('badMarioClassicUnlocked')) || 1; // freigeschaltete Classic-Level (1-1, 1-2, ...)
         this.maxReachedLevel = 1;
@@ -73,6 +74,7 @@ class Game {
         this.setMode(this.gameMode); // synchronisiert Switch-Optik + Level-Auswahl
         this.setAudioMode(this.audioMode);
         this.setCharacter(this.character);
+        this.selectDifficulty(this.selectedDiff);   // 'regular' vorausgewählt
     }
 
     // Charakter-Auswahl (Mario / Luigi / Sonic) im Startmenü
@@ -80,7 +82,7 @@ class Game {
         if (!CONFIG.CHARACTERS[key]) key = 'MARIO';
         this.character = key;
         localStorage.setItem('badMarioChar', key);
-        const ids = { MARIO: 'btn-char-mario', LUIGI: 'btn-char-luigi', SONIC: 'btn-char-sonic' };
+        const ids = { MARIO: 'btn-char-mario', LUIGI: 'btn-char-luigi', SONIC: 'btn-char-sonic', CHUCK: 'btn-char-chuck' };
         for (const k in ids) {
             const b = document.getElementById(ids[k]); if (!b) continue;
             const active = (k === key);
@@ -88,6 +90,47 @@ class Game {
             b.style.boxShadow = active ? '0 0 15px #FFD700' : 'none';
             b.style.borderColor = active ? '#FFD700' : '';
         }
+        const cards = document.querySelectorAll('#hero-select .hero-card');
+        cards.forEach(c => { c.style.borderColor = (c.dataset.char === key) ? '#FFD700' : ''; });
+    }
+
+    // Schwierigkeit im Menü auswählen (Spielstart erst über Hero-Select)
+    selectDifficulty(d) {
+        this.selectedDiff = d;
+        const ids = { princess: 'btn-princess', regular: 'btn-regular', badass: 'btn-badass' };
+        for (const k in ids) {
+            const b = document.getElementById(ids[k]); if (!b) continue;
+            const a = (k === d);
+            b.style.outline = a ? '3px solid #FFD700' : 'none';
+            b.style.boxShadow = a ? '0 0 16px #FFD700, 3px 3px 0 #000' : '';
+            b.style.transform = a ? 'scale(1.06)' : '';
+        }
+    }
+
+    // Helden-Auswahl-Screen ein-/ausblenden + Porträts rendern
+    showHeroSelect() {
+        const hs = document.getElementById('hero-select'); if (!hs) return;
+        hs.classList.remove('hidden');
+        this.renderHeroPortraits();
+        this.setCharacter(this.character);   // aktuelle Wahl hervorheben
+    }
+    hideHeroSelect() {
+        const hs = document.getElementById('hero-select'); if (hs) hs.classList.add('hidden');
+    }
+    renderHeroPortraits() {
+        const cards = document.querySelectorAll('#hero-select .hero-card');
+        cards.forEach(card => {
+            const cv = card.querySelector('.hero-canvas'); if (!cv) return;
+            const ctx = cv.getContext('2d'); ctx.clearRect(0, 0, cv.width, cv.height);
+            try {
+                const pl = new Player(0, 0, card.dataset.char);
+                pl.facingRight = true; pl.grounded = true; pl.state = 'IDLE';
+                ctx.save();
+                ctx.translate(cv.width / 2, cv.height); ctx.scale(0.82, 0.82); ctx.translate(-cv.width / 2, -cv.height);
+                pl.draw(ctx, 40 - cv.width / 2, 157 - cv.height);   // zentriert, Füße am unteren Rand
+                ctx.restore();
+            } catch (e) {}
+        });
     }
 
     // Sound-Stil umschalten (Heavy Metal vs. klassischer 8-Bit-Mario-Sound)
@@ -181,15 +224,28 @@ class Game {
             else if (t.id === 'btn-mode-classic') { this.setMode('CLASSIC'); return; }
             else if (t.id === 'btn-audio-metal') { this.audio.init(); this.setAudioMode('METAL'); return; }
             else if (t.id === 'btn-audio-classic') { this.audio.init(); this.setAudioMode('CLASSIC'); return; }
-            else if (t.id === 'btn-char-mario') { this.setCharacter('MARIO'); return; }
-            else if (t.id === 'btn-char-luigi') { this.setCharacter('LUIGI'); return; }
-            else if (t.id === 'btn-char-sonic') { this.setCharacter('SONIC'); return; }
-            if (t.id === 'btn-princess' || t.id === 'restart-princess') launchWithDiff('princess');
-            else if (t.id === 'btn-regular' || t.id === 'restart-regular') launchWithDiff('regular');
-            else if (t.id === 'btn-badass' || t.id === 'restart-badass') launchWithDiff('badass');
+            // Schwierigkeit im Hauptmenü = Auswahl (Spielstart erst über Hero-Select)
+            else if (t.id === 'btn-princess') { this.selectDifficulty('princess'); return; }
+            else if (t.id === 'btn-regular') { this.selectDifficulty('regular'); return; }
+            else if (t.id === 'btn-badass') { this.selectDifficulty('badass'); return; }
+            // START -> Helden-Auswahl
+            else if (t.id === 'btn-start') { this.audio.init(); this.showHeroSelect(); return; }
+            else if (t.id === 'hero-back') { this.hideHeroSelect(); return; }
+            // Game-Over-Restart startet direkt mit aktuellem Helden
+            else if (t.id === 'restart-princess') { launchWithDiff('princess'); return; }
+            else if (t.id === 'restart-regular') { launchWithDiff('regular'); return; }
+            else if (t.id === 'restart-badass') { launchWithDiff('badass'); return; }
             else if (t.id === 'continue-btn') {
                 this.requestFullScreen();
                 if (this.state === 'GAMEOVER') this.continueGame();
+                return;
+            }
+            // Helden-Karte angeklickt -> Charakter setzen + starten
+            const card = t.closest && t.closest('.hero-card');
+            if (card && card.dataset.char) {
+                this.setCharacter(card.dataset.char);
+                this.hideHeroSelect();
+                launchWithDiff(this.selectedDiff);
             }
         });
 
@@ -649,8 +705,8 @@ class Game {
             if (this.player.checkCollision(item)) {
                 
                 // BUGFIX: Nutzt jetzt immer playPickup!
-                let isPowerup = ['HEART', 'STAR', 'BOOSTER'].includes(item.type);
-                this.audio.playPickup(isPowerup); 
+                let isPowerup = ['HEART', 'STAR', 'BOOSTER', 'JETPACK'].includes(item.type);
+                this.audio.playPickup(isPowerup);
 
                 if (item.type === 'HEART') { 
                     this.player.hp = Math.min(CONFIG.MAX_HP, this.player.hp + 50); 
@@ -673,10 +729,15 @@ class Game {
                     this.player.starTimer = 10.0;
                     this.particles.spawn(item.x, item.y, '#FFFF00', 50, 400, 1.0, true); 
                 }
-                else if (item.type === 'BOOSTER') { 
+                else if (item.type === 'BOOSTER') {
                     this.player.isBoosted = true;
                     this.player.boostTimer = 15.0;
-                    this.particles.spawn(item.x, item.y, '#00FFCC', 40, 300, 1.0, true); 
+                    this.particles.spawn(item.x, item.y, '#00FFCC', 40, 300, 1.0, true);
+                }
+                else if (item.type === 'JETPACK') {
+                    this.player.hasJetpack = true;
+                    this.player.jetpackFuel = this.player.jetpackMax;   // Volltank (auch beim Nachgreifen)
+                    this.particles.spawn(item.x, item.y, '#33d6ff', 40, 300, 1.0, true);
                 }
                 else if (item.type === 'COIN') { 
                     this.player.score += 50; this.player.coins += 1; 
@@ -801,22 +862,56 @@ class Game {
                 if (enemy.isBoss) this.handleBossDefeat();
                 
                 this.combo++;
-                this.comboTimer = 2.0; 
+                this.comboTimer = 2.0;
                 this.player.score += this.combo * 10;
-                
-                this.levelGen.enemies.splice(i, 1); 
-                continue; 
+                // Kill-Streak: sobald die COMBO-Meldung erscheint (ab x3) lacht der Held böse
+                if (this.combo === 3 || (this.combo > 3 && this.combo % 5 === 0)) {
+                    if (this.audio.playEvilLaugh) this.audio.playEvilLaugh();
+                }
+
+                this.levelGen.enemies.splice(i, 1);
+                continue;
             }
+            // --- ROUNDHOUSE: gekickter Gegner fliegt, schlittert, zerplatzt an Wänden ---
+            if (enemy.kicked) {
+                enemy.spin = (enemy.spin || 0) + dt * 18;
+                enemy.vy += CONFIG.GRAVITY * dt;
+                enemy.x += enemy.vx * dt;
+                enemy.y += enemy.vy * dt;
+                let splat = false;
+                for (const plat of this.levelGen.platforms) {
+                    if (plat.isHazard || !plat.isSolidGround) continue;
+                    if (!enemy.checkCollision(plat)) continue;
+                    const onTop = enemy.vy > 0 && (enemy.y + enemy.h - enemy.vy * dt) <= plat.y + 22;
+                    if (onTop) {                                  // auf Boden -> weiterschlittern
+                        enemy.y = plat.y - enemy.h; enemy.vy = 0; enemy.vx *= 0.95;
+                        if (Math.abs(enemy.vx) < 90) splat = true;
+                    } else { splat = true; }                      // Wand/Röhre/Block -> sofort zerplatzen
+                    if (splat) break;
+                }
+                // mäht andere Gegner um
+                for (const o of this.levelGen.enemies) {
+                    if (o !== enemy && !o.dead && !o.kicked && !o.isBoss && enemy.checkCollision(o) && o.takeDamage) o.takeDamage(1000, this, 'FLAME');
+                }
+                if (splat || enemy.x < this.camera.x - 1600 || enemy.x > this.camera.x + this.logicalWidth + 2600 || enemy.y > this.levelGen.baseY + 800) {
+                    this.particles.spawnBlood(enemy.x + enemy.w / 2, enemy.y + enemy.h / 2, 60);
+                    if (splat) this.triggerShake(14, 0.25);
+                    if (this.audio.playSplatter) this.audio.playSplatter();
+                    enemy.dead = true; this.player.score += 150;
+                }
+                continue;   // normale KI + Spielerkollision überspringen
+            }
+
             enemy.update(dt, this);
-            
+
             if (!enemy.dead && this.player.checkCollision(enemy)) {
                 const aboveNow = this.player.vy > 0 && (this.player.y + this.player.h - this.player.vy * dt) < enemy.y + enemy.h * 0.5;
                 if (this.player.isStar) {
                     enemy.takeDamage(1000, this, 'FLAME');
                 } else if (enemy.isShellAny && enemy.isShellAny()) {           // Koopa-Panzer
                     if (aboveNow) { enemy.takeDamage(100, this); this.player.vy = -CONFIG.JUMP_FORCE * 0.6; } // drauftreten: ruhend->fahren / fahrend->kaputt
-                    else if (enemy.isIdleShell()) { enemy.kick(this.player.x < enemy.x ? 1 : -1, this); }     // seitlich antreten
-                    // fahrender Panzer von der Seite: ungefährlich für den Spieler
+                    else if (enemy.isIdleShell()) { enemy.kick(this.player.x < enemy.x ? 1 : -1, this); }     // ruhenden Panzer seitlich antreten
+                    else { this.player.takeDamage(20, this); }                  // fahrender Panzer trifft seitlich -> verletzt (wie im Original)
                 } else if (enemy.noStomp) {                                     // Piranha-Pflanze: nicht stampfbar
                     this.player.takeDamage(20, this);
                 } else if (aboveNow) {
@@ -875,6 +970,14 @@ class Game {
         const ctx = this.ctx, W = this.logicalWidth, camX = this.camera.x;
         const groundY = 600 - this.camera.y;
 
+        // Wasserlevel (2-2): blauer Unterwasser-Verlauf
+        if (this.levelGen.waterY != null) {
+            const grad = ctx.createLinearGradient(0, 0, 0, this.logicalHeight);
+            grad.addColorStop(0, '#1a73b8'); grad.addColorStop(1, '#063556');
+            ctx.fillStyle = grad; ctx.fillRect(0, 0, W, this.logicalHeight);
+            return;
+        }
+
         // Untergrund-Level (1-2): dunkles Setting, keine Wolken/Hügel
         if (this.levelGen.classicUnder) {
             const grad = ctx.createLinearGradient(0, 0, 0, this.logicalHeight);
@@ -883,10 +986,11 @@ class Game {
             return;
         }
 
-        ctx.fillStyle = '#5C94FC'; ctx.fillRect(0, 0, W, this.logicalHeight);
+        const night = this.levelGen.classicNight;
+        ctx.fillStyle = night ? '#000' : '#5C94FC'; ctx.fillRect(0, 0, W, this.logicalHeight);
 
-        // Wolken
-        ctx.fillStyle = '#FFF';
+        // Wolken (nachts dunkler/bläulich)
+        ctx.fillStyle = night ? '#3a3a5a' : '#FFF';
         for (let i = 0; i < 12; i++) {
             let cx = (i * 760 - camX * 0.12) % 5800; if (cx < -200) cx += 5800;
             let cy = 110 + (i % 3) * 75 - this.camera.y * 0.05;
@@ -896,8 +1000,8 @@ class Game {
             ctx.fillRect(cx, cy, 68, 26);
         }
 
-        // Hügel & Büsche (grün, auf der Bodenlinie)
-        ctx.fillStyle = '#00A800';
+        // Hügel & Büsche (grün, auf der Bodenlinie; nachts dunkler)
+        ctx.fillStyle = night ? '#0a5a0a' : '#00A800';
         for (let i = 0; i < 10; i++) {
             let hx = (i * 1100 - camX * 0.3) % 7000; if (hx < -400) hx += 7000;
             ctx.beginPath(); ctx.arc(hx, groundY, 130, Math.PI, 0); ctx.fill();          // Hügel
@@ -908,6 +1012,32 @@ class Game {
         }
 
         this.drawClassicCastle();
+    }
+
+    // Unterwasser-Schleier + animierte Oberfläche + Luftblasen (Schwimmlevel)
+    drawWater() {
+        const ctx = this.ctx, W = this.logicalWidth, H = this.logicalHeight;
+        const surfY = this.levelGen.waterY - this.camera.y;
+        const top = Math.max(0, surfY);
+        ctx.save();
+        ctx.fillStyle = 'rgba(30, 110, 200, 0.26)';                 // bläulicher Schleier
+        ctx.fillRect(0, top, W, H - top);
+        if (surfY > -20 && surfY < H) {                            // animierte Oberfläche
+            const t = performance.now() / 360;
+            ctx.fillStyle = 'rgba(185, 228, 255, 0.5)';
+            ctx.beginPath(); ctx.moveTo(0, surfY);
+            for (let x = 0; x <= W + 40; x += 40) ctx.lineTo(x, surfY + Math.sin(t + x * 0.03) * 6);
+            ctx.lineTo(W, surfY + 10); ctx.lineTo(0, surfY + 10); ctx.closePath(); ctx.fill();
+        }
+        ctx.fillStyle = 'rgba(255,255,255,0.22)';                   // aufsteigende Luftblasen
+        const now = performance.now();
+        for (let i = 0; i < 12; i++) {
+            const bx = (i * 167 + now / 28) % W;
+            const span = Math.max(60, H - top);
+            const by = H - ((now / 22 + i * 97) % span);
+            ctx.beginPath(); ctx.arc(bx, by, 2 + (i % 3), 0, Math.PI * 2); ctx.fill();
+        }
+        ctx.restore();
     }
 
     drawClassicCastle() {
@@ -951,20 +1081,25 @@ class Game {
         if (this.classicMode) this.drawClassicBackground(); else this.drawBackground(levelData);
 
         const theme = this.classicMode ? 0 : (levelData.theme || 1);
-        for (let i = 0; i < this.levelGen.ladders.length; i++) this.levelGen.ladders[i].draw(this.ctx, this.camera.x, this.camera.y, theme);
-        for (let i = 0; i < this.levelGen.platforms.length; i++) this.levelGen.platforms[i].draw(this.ctx, this.camera.x, this.camera.y, levelData, theme);
+        // Off-Screen-Culling: nur Sichtbares zeichnen (großer Performance-Gewinn bei vielen Elementen)
+        const cL = this.camera.x - 120, cR = this.camera.x + this.logicalWidth + 120;
+        const vis = (o, pad) => (o.x + (o.w || 0) + (pad || 0)) > cL && (o.x - (pad || 0)) < cR;
+        for (let i = 0; i < this.levelGen.ladders.length; i++) { const l = this.levelGen.ladders[i]; if (vis(l)) l.draw(this.ctx, this.camera.x, this.camera.y, theme); }
+        for (let i = 0; i < this.levelGen.platforms.length; i++) { const p = this.levelGen.platforms[i]; if (vis(p)) p.draw(this.ctx, this.camera.x, this.camera.y, levelData, theme); }
         if (this.levelGen.goalX != null) this.drawGoal(this.levelGen.goalX);
-        for (let i = 0; i < this.levelGen.corpses.length; i++) this.levelGen.corpses[i].draw(this.ctx, this.camera.x, this.camera.y);
-        for (let i = 0; i < this.levelGen.items.length; i++) this.levelGen.items[i].draw(this.ctx, this.camera.x, this.camera.y);
-        for (let i = 0; i < this.levelGen.enemies.length; i++) this.levelGen.enemies[i].draw(this.ctx, this.camera.x, this.camera.y);
-        for (let i = 0; i < this.projectiles.length; i++) this.projectiles[i].draw(this.ctx, this.camera.x, this.camera.y);
+        for (let i = 0; i < this.levelGen.corpses.length; i++) { const c = this.levelGen.corpses[i]; if (vis(c, 60)) c.draw(this.ctx, this.camera.x, this.camera.y); }
+        for (let i = 0; i < this.levelGen.items.length; i++) { const it = this.levelGen.items[i]; if (vis(it, 60)) it.draw(this.ctx, this.camera.x, this.camera.y); }
+        for (let i = 0; i < this.levelGen.enemies.length; i++) { const e = this.levelGen.enemies[i]; if (vis(e, 120)) e.draw(this.ctx, this.camera.x, this.camera.y); }
+        for (let i = 0; i < this.projectiles.length; i++) { const pr = this.projectiles[i]; if (vis(pr, 60)) pr.draw(this.ctx, this.camera.x, this.camera.y); }
         
         if (this.player) {
             this.player.draw(this.ctx, this.camera.x, this.camera.y);   // Star-Effekt jetzt günstig per Farb-Flash in drawMarioBody
         }
 
         this.particles.draw(this.ctx, this.camera.x, this.camera.y, this.logicalWidth, this.logicalHeight);
-        
+
+        if (this.levelGen.waterY != null) this.drawWater();   // Unterwasser-Schleier (Schwimmlevel)
+
         const time = performance.now() / 300;
         const startY = this.deathY - this.camera.y;
 
@@ -973,22 +1108,27 @@ class Game {
             lavaGrad.addColorStop(0, levelData.LAVA_TOP); 
             lavaGrad.addColorStop(1, levelData.LAVA_BOTTOM);
             
-            this.ctx.shadowBlur = 50; 
-            this.ctx.shadowColor = levelData.LAVA_TOP; 
             this.ctx.fillStyle = lavaGrad;
-            
-            this.ctx.beginPath(); 
-            this.ctx.moveTo(0, this.logicalHeight); 
+            this.ctx.beginPath();
+            this.ctx.moveTo(0, this.logicalHeight);
             this.ctx.lineTo(0, startY);
-            
             for (let x = 0; x <= this.logicalWidth + 60; x += 60) {
                 this.ctx.lineTo(x, startY + Math.sin(time + x * 0.03) * 25);
             }
-            
-            this.ctx.lineTo(this.logicalWidth, this.logicalHeight); 
-            this.ctx.fill(); 
-            this.ctx.shadowBlur = 0;
-            
+            this.ctx.lineTo(this.logicalWidth, this.logicalHeight);
+            this.ctx.fill();
+
+            // Günstiger Glanz statt teurem shadowBlur: additive, helle Lava-Oberkante
+            this.ctx.globalCompositeOperation = 'lighter';
+            this.ctx.globalAlpha = 0.5; this.ctx.strokeStyle = levelData.LAVA_TOP; this.ctx.lineWidth = 7;
+            this.ctx.beginPath();
+            for (let x = 0; x <= this.logicalWidth + 60; x += 60) {
+                const yy = startY + Math.sin(time + x * 0.03) * 25;
+                if (x === 0) this.ctx.moveTo(x, yy); else this.ctx.lineTo(x, yy);
+            }
+            this.ctx.stroke();
+            this.ctx.globalAlpha = 1; this.ctx.globalCompositeOperation = 'source-over';
+
             this.ctx.fillStyle = 'rgba(255, 255, 255, 0.4)';
             for (let x = 0; x <= this.logicalWidth; x += 90) {
                 this.ctx.fillRect(x + Math.sin(time)*15, startY + Math.sin(time + x * 0.03) * 25 + 8, 20, 8);
@@ -1043,28 +1183,38 @@ class Game {
         if (this.transitionTimer > 0 && this.state === 'PLAYING') {
             const titleTxt = this.classicMode ? ('WORLD ' + (CLASSIC_LABELS[this.level] || '1-1')) : `LEVEL ${this.level}`;
             const decorTxt = this.classicMode ? ({ under: 'UNDERGROUND', castle: 'CASTLE', over: 'CLASSIC' }[this.levelGen.classicTheme] || 'CLASSIC') : CONFIG.LEVELS[this.level].DECOR;
-            this.ctx.fillStyle = `rgba(255, 255, 255, ${Math.min(1.0, this.transitionTimer / 1.5) * 0.8})`;
-            this.ctx.fillRect(0, 0, this.logicalWidth, this.logicalHeight);
-            this.ctx.fillStyle = '#000';
-            this.ctx.font = 'bold 80px monospace';
-            this.ctx.textAlign = 'center';
-            this.ctx.fillText(titleTxt, this.logicalWidth / 2, this.logicalHeight / 2 - 20);
-            this.ctx.fillStyle = '#900';
-            this.ctx.font = 'bold 50px monospace';
-            this.ctx.fillText(decorTxt, this.logicalWidth / 2, this.logicalHeight / 2 + 50);
-            this.ctx.textAlign = 'left';
+            const a = Math.min(1.0, this.transitionTimer / 1.5);
+            const W = this.logicalWidth, H = this.logicalHeight, cx = W / 2, cy = H / 2;
+            // Schwarzer SMB-Intro-Screen
+            this.ctx.fillStyle = `rgba(0, 0, 0, ${a})`;
+            this.ctx.fillRect(0, 0, W, H);
+            this.ctx.textAlign = 'center'; this.ctx.textBaseline = 'middle';
+            // Pixel-Schrift (16-Bit). Press Start 2P ist via index.html geladen.
+            const titleSize = Math.max(22, Math.min(46, Math.floor(W / 22)));
+            this.ctx.font = `${titleSize}px 'Press Start 2P', monospace`;
+            this.ctx.fillStyle = `rgba(10,10,10,${a})`;                       // harter Pixel-Schatten
+            this.ctx.fillText(titleTxt, cx + 4, cy - 30 + 4);
+            this.ctx.fillStyle = `rgba(245,245,245,${a})`;
+            this.ctx.fillText(titleTxt, cx, cy - 30);
+            const decorSize = Math.max(12, Math.min(20, Math.floor(W / 52)));
+            this.ctx.font = `${decorSize}px 'Press Start 2P', monospace`;
+            this.ctx.fillStyle = `rgba(216,40,32,${a})`;                      // SMB-Rot
+            this.ctx.fillText(decorTxt, cx, cy + 26);
+            this.ctx.textAlign = 'left'; this.ctx.textBaseline = 'alphabetic';
         }
         
         if (this.state === 'PAUSED') {
-            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.6)'; 
-            this.ctx.fillRect(0, 0, this.logicalWidth, this.logicalHeight);
-            this.ctx.fillStyle = '#FFF'; 
-            this.ctx.font = 'bold 60px monospace'; 
-            this.ctx.textAlign = 'center';
-            this.ctx.fillText('PAUSED', this.logicalWidth / 2, this.logicalHeight / 2);
-            this.ctx.font = '20px monospace'; 
-            this.ctx.fillText('Press ESC to Resume', this.logicalWidth / 2, this.logicalHeight / 2 + 40);
-            this.ctx.textAlign = 'left';
+            const W = this.logicalWidth, H = this.logicalHeight;
+            this.ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+            this.ctx.fillRect(0, 0, W, H);
+            this.ctx.textAlign = 'center'; this.ctx.textBaseline = 'middle';
+            this.ctx.fillStyle = '#FFF';
+            this.ctx.font = `${Math.max(20, Math.min(40, Math.floor(W / 26)))}px 'Press Start 2P', monospace`;
+            this.ctx.fillText('PAUSED', W / 2, H / 2 - 10);
+            this.ctx.fillStyle = '#d82820';
+            this.ctx.font = `${Math.max(10, Math.min(16, Math.floor(W / 70)))}px 'Press Start 2P', monospace`;
+            this.ctx.fillText('ESC = RESUME', W / 2, H / 2 + 40);
+            this.ctx.textAlign = 'left'; this.ctx.textBaseline = 'alphabetic';
         }
 
         this.ctx.fillStyle = 'rgba(0,0,0,0.3)'; 

@@ -7,6 +7,17 @@ const CONFIG = {
     CLIMB_SPEED: 250,
     JUMP_FORCE: 850,
     MAX_HP: 100,
+    // --- Jetpack (Item-Power-up): Schub nach oben, begrenzter Treibstoff ---
+    JETPACK_FUEL: 3.2,        // Sekunden Volltank
+    JETPACK_THRUST: 2900,     // Aufwärtsbeschleunigung pro s (überwindet Schwerkraft)
+    JETPACK_MAX_RISE: 520,    // maximale Steiggeschwindigkeit
+    JETPACK_REFUEL: 0.5,      // Treibstoff/s, der am Boden nachläuft
+    // --- Schwimmen (Wasserlevel) ---
+    SWIM_GRAVITY: 430,        // sanftes Absinken
+    SWIM_STROKE: 470,         // Auftriebs-Impuls je Schwimmzug (Sprungtaste)
+    SWIM_MAX_RISE: 380,       // max. Steiggeschwindigkeit beim Schwimmen
+    SWIM_MAX_SINK: 240,       // max. Sinkgeschwindigkeit
+    SWIM_SPEED_MUL: 0.6,      // horizontal langsamer im Wasser
     // 10 Level, 5 Settings (Theme wechselt alle 2 Level). theme: 1..5 steuert Hintergrund/Deko-Stil.
     LEVELS: {
         // --- Theme 1: TOXIC FOREST ---
@@ -54,6 +65,12 @@ const CONFIG = {
         LUIGI: { name: 'LUIGI', jump: 1.22, speed: 1.0, dmg: 1.4,  airJumps: 0,   // springt höher, steckt weniger ein
                  hat: 'cap',    shirt: '#1f9e3a', shirtDk: '#0c5a1e', overall: '#243a8a', skin: '#e8b682' },
         SONIC: { name: 'SONIC', jump: 1.05, speed: 1.5, dmg: 1.15, airJumps: 1,   // schnell + Doppelsprung
-                 hat: 'spikes', shirt: '#1565d8', shirtDk: '#0a3a8a', overall: '#1565d8', skin: '#e8b682' }
+                 hat: 'spikes', shirt: '#1565d8', shirtDk: '#0a3a8a', overall: '#1565d8', skin: '#e8b682' },
+        // CHUCK: alle Vorteile vereint (höchster Sprung, schnellste Speed, Doppelsprung,
+        // nimmt am wenigsten Schaden) + Spezial-Roundhouse-Kick. Nackter Oberkörper,
+        // Stirnband, Camo-Shorts, Kampfstiefel.
+        CHUCK: { name: 'CHUCK', jump: 1.22, speed: 1.5, dmg: 0.8, airJumps: 1, roundhouse: true,
+                 hat: 'headband', bare: true, beard: true,
+                 shirt: '#e8b682', shirtDk: '#c98d54', overall: '#586b34', skin: '#e8b682', boots: '#2a2a2e' }
     }
 };

@@ -3,12 +3,14 @@ class LevelGenerator {
         this.platforms = []; this.ladders = []; this.enemies = []; this.items = []; this.corpses = [];
         this.cursorX = 0; this.baseY = 600; this.levelPlan = []; this.bossSpawned = false; this.currentGeneratedLevel = 1; this.goalX = null;
         this.classicMode = false; this._lastClassic = false; this.castleX = null;
+        this.waterY = null;     // Wasseroberfläche (null = kein Wasser)
     }
 
     init(startX, startY) {
         this.platforms = []; this.ladders = []; this.enemies = []; this.items = []; this.corpses = [];
         this.cursorX = startX; this.baseY = 600; this.bossSpawned = false; this.goalX = null;
-        this.platforms.push(new Platform(this.cursorX - 500, this.baseY, 2000, 1000, true));
+        this.waterY = null;
+        this.platforms.push(this._shab(new Platform(this.cursorX - 500, this.baseY, 2000, 1000, true), 'GROUND'));
         this.cursorX += 1500; this.levelPlan = null;
     }
 
@@ -33,20 +35,30 @@ class LevelGenerator {
         this.corpses = this.corpses.filter(c => c.x + c.w > cleanupX);
     }
 
+    // STORY: Terrain aus den Bibliotheks-Elementen im schäbigen Zombie-Look (drawClassic + shabby).
+    _shab(p, style) {
+        if (!this.classicMode) { p.style = style; p.ctheme = 'over'; p.shabby = true; }
+        return p;
+    }
+
     addFloor(width) {
-        this.platforms.push(new Platform(this.cursorX, this.baseY, width, 1500, true));
+        const p = new Platform(this.cursorX, this.baseY, width, 1500, true);
+        this._shab(p, 'GROUND');
+        this.platforms.push(p);
         let oldX = this.cursorX; this.cursorX += width; return oldX;
     }
 
     addPlatform(x, y, w, isCrumbling = false, isBouncy = false) {
         let p = new Platform(x, y, w, 40, false);
         p.isCrumbling = isCrumbling; p.isBouncy = isBouncy;
+        if (!isBouncy && !isCrumbling) this._shab(p, 'STAIR');   // Bouncy/Crumbling behalten Spezial-Optik
         this.platforms.push(p); return p;
     }
 
     addMovingPlatform(x, y, w, range = 250, speed = 2.5) {
         let p = new Platform(x, y, w, 40, false);
         p.isMoving = true; p.moveRange = range; p.moveSpeed = speed;
+        this._shab(p, 'STAIR');
         this.platforms.push(p); return p;
     }
 
@@ -62,7 +74,9 @@ class LevelGenerator {
 
     // Solide Säule (Mario-"Röhre") vom Boden bis (baseY - h) hoch
     addPillar(x, h, w = 90) {
-        this.platforms.push(new Platform(x, this.baseY - h, w, h + 1500, true));
+        const p = new Platform(x, this.baseY - h, w, h + 1500, true);
+        this._shab(p, 'STAIR');
+        this.platforms.push(p);
     }
 
     spawn(EnemyClass, x, y, level, diff, variant = null) {
@@ -294,6 +308,7 @@ class LevelGenerator {
                 this.items.push(new Collectible(sx + 1500, B - 120, 'FLAMETHROWER'));
                 this.items.push(new Collectible(sx + 1800, B - 120, 'MOLOTOV'));
                 this.items.push(new Collectible(sx + 2100, B - 120, 'CHAINSAW'));
+                this.items.push(new Collectible(sx + 2350, B - 120, 'JETPACK'));   // Jetpack-Power-up
                 break;
             }
 
@@ -305,6 +320,7 @@ class LevelGenerator {
                     this.items.push(new Collectible(sx + 700 + i * 540, B - 380 - (i % 2) * 90, i % 2 ? 'LIQUOR' : 'BEER'));
                 }
                 this.items.push(new Collectible(sx + 1350, B - 600, 'STAR'));
+                this.items.push(new Collectible(sx + 1900, B - 360, 'JETPACK'));   // Jetpack hoch oben als Belohnung
                 if (d >= 4) this.spawnThemeEnemy(sx + 2400, lvl, diff, 'flyer');
                 break;
             }

@@ -104,10 +104,8 @@ class Enemy extends Entity {
             ctx.globalCompositeOperation = 'lighter'; 
             ctx.globalAlpha = 0.8; 
         } else if (this.onFire) {
-            ctx.globalCompositeOperation = 'lighter'; 
+            ctx.globalCompositeOperation = 'lighter';   // additiver Brand-Glow (kein teures shadowBlur)
             ctx.globalAlpha = 0.5;
-            ctx.shadowBlur = 20;
-            ctx.shadowColor = '#FF4400';
         }
 
         drawFn();
@@ -987,9 +985,9 @@ class KoopaEnemy extends ClassicWalker {
                 ctx.fillStyle = '#9c7a28';
                 ctx.beginPath(); ctx.ellipse(0, h*0.22, w*0.55, h*0.22, 0, 0, Math.PI); ctx.fill();
                 // dunkelgrüne Kuppel (sitzt höher als der Saum)
-                ctx.fillStyle = '#2f7d2f';
+                ctx.fillStyle = '#12932e';
                 ctx.beginPath(); ctx.ellipse(0, -h*0.05, w*0.48, h*0.42, 0, 0, 7); ctx.fill();
-                ctx.fillStyle = '#46a046';                                          // Glanz oben
+                ctx.fillStyle = '#56c456';                                          // Glanz oben
                 ctx.beginPath(); ctx.ellipse(-w*0.12, -h*0.16, w*0.26, h*0.18, 0, 0, 7); ctx.fill();
                 // Schuppen: zentrale Sechseck-Scute + Ringe
                 ctx.strokeStyle = '#0e3a0e'; ctx.lineWidth = Math.max(2, w*0.05);
@@ -1015,24 +1013,29 @@ class KoopaEnemy extends ClassicWalker {
             ctx.fillStyle = '#caa23a';
             ctx.beginPath(); ctx.ellipse(-w*0.10, h*0.44 + fsh*3, w*0.16, h*0.07, 0, 0, 7); ctx.fill();
             ctx.beginPath(); ctx.ellipse( w*0.20, h*0.44 - fsh*3, w*0.16, h*0.07, 0, 0, 7); ctx.fill();
-            // Hals + Kopf nach vorn
-            ctx.fillStyle = '#d8b24a';
-            ctx.beginPath(); ctx.ellipse(w*0.20, -h*0.20, w*0.16, h*0.16, 0, 0, 7); ctx.fill();
-            ctx.beginPath(); ctx.ellipse(w*0.34, -h*0.30, w*0.20, h*0.15, 0, 0, 7); ctx.fill();
-            ctx.fillStyle = '#caa23a';                        // Schnabel
-            ctx.beginPath(); ctx.moveTo(w*0.46, -h*0.31); ctx.lineTo(w*0.60, -h*0.27); ctx.lineTo(w*0.46, -h*0.23); ctx.fill();
+            // Hals + runder Schildkröten-Kopf nach vorn (kein Vogelschnabel)
+            ctx.fillStyle = '#e6c25a';
+            ctx.beginPath(); ctx.ellipse(w*0.18, -h*0.18, w*0.15, h*0.15, 0, 0, 7); ctx.fill();   // Hals
+            ctx.beginPath(); ctx.ellipse(w*0.36, -h*0.30, w*0.22, h*0.18, 0, 0, 7); ctx.fill();   // Kopf rund
+            ctx.fillStyle = '#f2dca0';                        // helle Schnauze vorn
+            ctx.beginPath(); ctx.ellipse(w*0.50, -h*0.26, w*0.10, h*0.10, 0, 0, 7); ctx.fill();
+            // Mund + 2 kleine Fänge
+            ctx.fillStyle = '#7a5a18';
+            ctx.beginPath(); ctx.ellipse(w*0.52, -h*0.22, w*0.06, h*0.025, 0, 0, 7); ctx.fill();
+            ctx.fillStyle = '#fff';
+            ctx.beginPath(); ctx.moveTo(w*0.50, -h*0.21); ctx.lineTo(w*0.51, -h*0.15); ctx.lineTo(w*0.53, -h*0.21); ctx.fill();
             // böses Auge
-            ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(w*0.38, -h*0.34, w*0.07, 0, 7); ctx.fill();
+            ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(w*0.38, -h*0.34, w*0.075, 0, 7); ctx.fill();
             ctx.fillStyle = '#b00000'; ctx.beginPath(); ctx.arc(w*0.40, -h*0.34, w*0.035, 0, 7); ctx.fill();
             ctx.strokeStyle = '#143a14'; ctx.lineWidth = Math.max(2, w*0.05);
-            ctx.beginPath(); ctx.moveTo(w*0.26, -h*0.42); ctx.lineTo(w*0.46, -h*0.36); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(w*0.26, -h*0.42); ctx.lineTo(w*0.46, -h*0.38); ctx.stroke();
             // Panzer (panzerförmig: gelber Saum + grüne Kuppel + Schuppen)
             const sx = -w*0.08;
             ctx.fillStyle = '#caa23a';
             ctx.beginPath(); ctx.ellipse(sx, h*0.07, w*0.45, h*0.40, 0, 0, 7); ctx.fill();   // Saum
-            ctx.fillStyle = '#2f7d2f';
+            ctx.fillStyle = '#12932e';
             ctx.beginPath(); ctx.ellipse(sx, -h*0.05, w*0.40, h*0.38, 0, 0, 7); ctx.fill();  // Kuppel
-            ctx.fillStyle = '#46a046';
+            ctx.fillStyle = '#56c456';
             ctx.beginPath(); ctx.ellipse(sx - w*0.12, -h*0.17, w*0.18, h*0.15, 0, 0, 7); ctx.fill(); // Glanz
             ctx.strokeStyle = '#0e3a0e'; ctx.lineWidth = Math.max(2, w*0.045);
             ctx.beginPath();
@@ -1106,9 +1109,9 @@ class ParatroopaEnemy extends KoopaEnemy {
 // Piranha-Pflanze: kommt aus einer Röhre, fährt rhythmisch aus/ein. Nicht stampfbar, nur abschießbar.
 class PiranhaPlantEnemy extends Enemy {
     constructor(cx, pipeTopY, level) {
-        super(cx - 30, pipeTopY, 60, 4, 30, level, 'PIRANHA');
+        super(cx - 58, pipeTopY, 116, 4, 30, level, 'PIRANHA');   // deutlich größer (~Röhrenbreite)
         this.pipeTop = pipeTopY;
-        this.maxRise = 150;
+        this.maxRise = 210;
         this.t = Math.random() * 3;
         this.curRise = 0;
         this.noStomp = true;        // Kontakt verletzt den Spieler (kein Stampf-Kill)
@@ -1145,13 +1148,220 @@ class PiranhaPlantEnemy extends Enemy {
         if (this.curRise < 8) return;                                     // in der Röhre versteckt
         this.drawEffects(ctx, () => {
             const cx = this.x - camX + this.w / 2, topY = this.y - camY, baseY = this.pipeTop - camY;
-            ctx.fillStyle = '#2f8a2f'; ctx.fillRect(cx - 7, topY + 16, 14, Math.max(0, baseY - topY - 16));  // Stiel
-            ctx.fillStyle = '#1f5f1f'; ctx.fillRect(cx - 7, topY + 16, 4, Math.max(0, baseY - topY - 16));
-            ctx.fillStyle = '#1f6f1f'; ctx.beginPath(); ctx.arc(cx, topY + 16, 22, 0, 7); ctx.fill();         // Kopf
-            ctx.fillStyle = '#b01020'; ctx.beginPath(); ctx.ellipse(cx, topY + 18, 20, 9, 0, 0, 7); ctx.fill(); // Maul
-            ctx.fillStyle = '#fff';                                                                            // Zähne
-            for (let i = -2; i <= 2; i++) { ctx.beginPath(); ctx.moveTo(cx + i * 8, topY + 10); ctx.lineTo(cx + i * 8 + 4, topY + 18); ctx.lineTo(cx + i * 8 - 4, topY + 18); ctx.fill(); }
-            ctx.beginPath(); ctx.arc(cx - 11, topY + 5, 3, 0, 7); ctx.arc(cx + 11, topY + 7, 3, 0, 7); ctx.fill(); // Sporen
+            const hr = this.w * 0.46;                                     // Kopfradius (große Knolle)
+            const open = (6 + Math.sin(this.t * 6) * 5);                  // Maul öffnet/schließt
+            const headCY = topY + hr * 0.9;                              // Kopfmitte
+
+            // --- Stiel (dick, mit Schattenkante) + zwei Blätter ---
+            const stemW = this.w * 0.30, stemX = cx - stemW / 2, stemTop = headCY;
+            ctx.fillStyle = '#2f9a2f'; ctx.fillRect(stemX, stemTop, stemW, Math.max(0, baseY - stemTop));
+            ctx.fillStyle = '#1f6f1f'; ctx.fillRect(stemX, stemTop, stemW * 0.32, Math.max(0, baseY - stemTop));
+            ctx.fillStyle = '#3fbf3f'; ctx.fillRect(stemX + stemW * 0.72, stemTop, stemW * 0.18, Math.max(0, baseY - stemTop));
+            const leafY = stemTop + (baseY - stemTop) * 0.42;
+            ctx.fillStyle = '#2aa02a';
+            ctx.beginPath(); ctx.ellipse(stemX - hr * 0.5, leafY, hr * 0.55, hr * 0.24, -0.5, 0, 7); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(stemX + stemW + hr * 0.5, leafY, hr * 0.55, hr * 0.24, 0.5, 0, 7); ctx.fill();
+
+            // --- Kopf: zwei rote Kiefer mit weißen Punkten, weißen Zähnen dazwischen ---
+            // Oberkiefer
+            ctx.fillStyle = '#d01020';
+            ctx.beginPath(); ctx.ellipse(cx, headCY - open, hr, hr * 0.78, 0, Math.PI, 0); ctx.fill();
+            ctx.fillRect(cx - hr, headCY - open, hr * 2, 2);
+            // Unterkiefer
+            ctx.fillStyle = '#b00c1a';
+            ctx.beginPath(); ctx.ellipse(cx, headCY + open, hr, hr * 0.62, 0, 0, Math.PI); ctx.fill();
+            // weiße Punkte (oben hell, unten dunkler)
+            ctx.fillStyle = '#f5f5f5';
+            for (let i = -1; i <= 1; i++) ctx.fillRect(cx + i * hr * 0.55 - 4, headCY - open - hr * 0.5, 9, 9);
+            for (let i = -1; i <= 1; i++) ctx.fillRect(cx + i * hr * 0.55 - 4, headCY + open + hr * 0.28, 8, 8);
+            // Lippe (Maulspalt) + Zähne
+            ctx.fillStyle = '#3a0008'; ctx.fillRect(cx - hr * 0.86, headCY - 2, hr * 1.72, 4 + open);
+            ctx.fillStyle = '#fff';
+            for (let i = -3; i <= 3; i++) {                              // obere Zahnreihe
+                ctx.beginPath(); ctx.moveTo(cx + i * hr * 0.26, headCY - open);
+                ctx.lineTo(cx + i * hr * 0.26 + 6, headCY - open + 12);
+                ctx.lineTo(cx + i * hr * 0.26 - 6, headCY - open + 12); ctx.fill();
+            }
+            for (let i = -3; i <= 3; i++) {                              // untere Zahnreihe
+                ctx.beginPath(); ctx.moveTo(cx + i * hr * 0.26, headCY + open);
+                ctx.lineTo(cx + i * hr * 0.26 + 6, headCY + open - 12);
+                ctx.lineTo(cx + i * hr * 0.26 - 6, headCY + open - 12); ctx.fill();
+            }
+        });
+    }
+}
+
+// Bullet Bill: schwarzes Geschoss, fliegt gerade horizontal (keine Schwerkraft), stampfbar/abschießbar.
+class BulletBillEnemy extends Enemy {
+    constructor(x, y, level, dir) {
+        super(x, y, 66, 44, 20, level, 'BULLET');
+        this.vx = (dir || -1) * 240;
+        this.facingLeft = this.vx < 0;
+    }
+    takeDamage(amount, game) {
+        if (this.dead) return;
+        this.dead = true; game.player.score += 100;
+        game.particles.spawnExplosion ? game.particles.spawnExplosion(this.x + this.w/2, this.y + this.h/2, game) : game.particles.spawnBlood(this.x, this.y, 30);
+        if (game.audio.playExplosion) game.audio.playExplosion();
+    }
+    update(dt) { this.x += this.vx * dt; }     // gerade Flugbahn
+    draw(ctx, camX, camY) {
+        this.drawEffects(ctx, () => {
+            const w = this.w, h = this.h;
+            ctx.save(); ctx.translate(this.x - camX + this.w/2, this.y - camY + this.h/2);
+            if (this.vx > 0) ctx.scale(-1, 1);
+            ctx.fillStyle = '#141414'; ctx.beginPath(); ctx.ellipse(2, 0, w*0.5, h*0.5, 0, 0, 7); ctx.fill();
+            ctx.fillStyle = '#000'; ctx.beginPath(); ctx.arc(-w*0.32, 0, h*0.5, Math.PI*0.5, Math.PI*1.5); ctx.fill();
+            ctx.fillStyle = '#3a3a3a'; ctx.beginPath(); ctx.ellipse(w*0.18, -h*0.22, w*0.22, h*0.16, 0, 0, 7); ctx.fill();
+            ctx.fillStyle = '#1a1a1a'; ctx.fillRect(-2, -h*0.6, 7, 13); ctx.fillRect(-2, h*0.45, 7, 13);   // Arme
+            ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(-w*0.2, -h*0.08, 4, 0, 7); ctx.arc(-w*0.04, -h*0.08, 4, 0, 7); ctx.fill();
+            ctx.strokeStyle = '#fff'; ctx.lineWidth = 2.5; ctx.beginPath(); ctx.arc(-w*0.12, h*0.02, 9, 0.15, Math.PI - 0.15); ctx.stroke();
+            ctx.restore();
+        });
+    }
+}
+
+// Hammer-Bro: läuft, hüpft und wirft Hämmer in Bögen. Stampfbar.
+class HammerBroEnemy extends ClassicWalker {
+    constructor(x, y, level) {
+        super(x, y, 84, 150, 90, level, 'HAMMERBRO', 60 + Math.random() * 20);
+        this.throwT = 1 + Math.random() * 1.4;
+    }
+    update(dt, game) {
+        super.update(dt, game);
+        if (this.dead) return;
+        this.throwT -= dt;
+        if (this.throwT <= 0 && Math.abs(game.player.x - this.x) < 950) {
+            const dir = game.player.x < this.x ? -1 : 1;
+            game.projectiles.push(new Projectile(this.x + this.w/2, this.y, dir * 340, -640, true, 'GORE', true));
+            this.throwT = 1.5 + Math.random() * 1.3;
+        }
+        if (this.grounded && Math.random() < 0.012) this.vy = -640;   // hüpfen
+    }
+    draw(ctx, camX, camY) {
+        this.drawEffects(ctx, () => {
+            const w = this.w, h = this.h, fsh = Math.sin(this.animTimer * 11);
+            ctx.save(); ctx.translate(this.x - camX + this.w/2, this.y - camY + this.h/2);
+            if (this.facingLeft) ctx.scale(-1, 1);
+            ctx.fillStyle = '#caa23a';                                              // Beine
+            ctx.beginPath(); ctx.ellipse(-w*0.12, h*0.44 + fsh*2, w*0.16, h*0.07, 0, 0, 7); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(w*0.16, h*0.44 - fsh*2, w*0.16, h*0.07, 0, 0, 7); ctx.fill();
+            ctx.fillStyle = '#12932e';                                              // Körper
+            ctx.beginPath(); ctx.ellipse(0, 0, w*0.36, h*0.42, 0, 0, 7); ctx.fill();
+            ctx.fillStyle = '#d8b24a'; ctx.beginPath(); ctx.ellipse(0, h*0.1, w*0.22, h*0.26, 0, 0, 7); ctx.fill(); // Bauch
+            ctx.fillStyle = '#12932e';                                              // Kopf
+            ctx.beginPath(); ctx.ellipse(w*0.08, -h*0.34, w*0.26, h*0.18, 0, 0, 7); ctx.fill();
+            ctx.fillStyle = '#3a3a44'; ctx.beginPath(); ctx.ellipse(w*0.06, -h*0.44, w*0.30, h*0.1, 0, 0, 7); ctx.fill(); // Helm
+            ctx.fillStyle = '#b00000'; ctx.beginPath(); ctx.arc(w*0.2, -h*0.34, 4, 0, 7); ctx.fill();   // Auge
+            // Hammer-Arm
+            ctx.strokeStyle = '#caa23a'; ctx.lineWidth = 11; ctx.lineCap = 'round';
+            const sw = Math.sin(this.animTimer * 6) * 0.4;
+            ctx.beginPath(); ctx.moveTo(w*0.1, -h*0.05); ctx.lineTo(w*0.3, -h*0.25 + sw*20); ctx.stroke();
+            ctx.save(); ctx.translate(w*0.3, -h*0.25 + sw*20); ctx.rotate(sw);
+            ctx.fillStyle = '#7a4a1e'; ctx.fillRect(-3, 0, 6, 26);                  // Stiel
+            ctx.fillStyle = '#555'; ctx.fillRect(-16, -10, 32, 16);                // Kopf
+            ctx.restore();
+            ctx.restore();
+        });
+    }
+}
+
+// Bowser: Endboss der Burgen. Nicht stampfbar (nur abschießbar), speit Feuer, springt, viel HP.
+class BowserEnemy extends Enemy {
+    constructor(x, y, level) {
+        super(x, y, 184, 196, 6000, level, 'BOWSER');   // echter Boss: steckt viel ein
+        this.isBoss = true; this.noStomp = true; this.facingLeft = true;
+        this.grounded = false; this.animTimer = Math.random() * 3; this.fireT = 2.2;
+    }
+    takeDamage(amount, game, projType = 'NORMAL') {
+        if (this.dead) return;
+        if (projType === 'NORMAL') return;                 // nicht stampfbar
+        this.hp -= amount; this.hurtTimer = 0.12;
+        game.particles.spawnBlood(this.x + this.w/2, this.y + this.h*0.35, 12);
+        if (this.hp <= 0) {
+            this.dead = true; game.player.score += 3000;     // isBoss -> handleBossDefeat() wechselt das Level
+            game.triggerShake(60, 1.2);
+            game.particles.spawnExplosion(this.x + this.w/2, this.y + this.h/2, game);
+            if (game.audio.playExplosion) game.audio.playExplosion();
+        }
+    }
+    update(dt, game) {
+        if (!game) return;
+        this.animTimer += dt; if (this.hurtTimer > 0) this.hurtTimer -= dt;
+        const p = game.player; this.facingLeft = p.x < this.x;
+        const dist = Math.abs(p.x - this.x);
+        this.vx = (dist > 130 && dist < 1500) ? (this.facingLeft ? -1 : 1) * 75 : this.vx * 0.8;
+        this.vy += CONFIG.GRAVITY * dt;
+        this.x += this.vx * dt;
+        for (const plat of game.levelGen.platforms) {
+            if (plat.isHazard) continue;
+            if (this.checkCollision(plat) && (this.y + this.h) > plat.y + 24) {
+                if (this.vx > 0) this.x = plat.x - this.w; else if (this.vx < 0) this.x = plat.x + plat.w; this.vx = 0;
+            }
+        }
+        this.y += this.vy * dt; this.grounded = false;
+        for (const plat of game.levelGen.platforms) {
+            if (plat.isHazard) continue;
+            if (this.checkCollision(plat) && this.vy >= 0 && (this.y + this.h - this.vy * dt) <= plat.y + 44) { this.y = plat.y - this.h; this.vy = 0; this.grounded = true; }
+        }
+        if (this.grounded && Math.random() < 0.008) this.vy = -720;     // springen
+        this.fireT -= dt;
+        if (this.fireT <= 0 && dist < 1150) {
+            const dir = this.facingLeft ? -1 : 1;
+            for (let i = 0; i < 3; i++) game.projectiles.push(new Projectile(this.x + this.w/2 + dir*70, this.y + this.h*0.32, dir * (440 + i*60), -90 + i*80, true, 'FLAME'));
+            if (game.audio.playRoar) game.audio.playRoar();
+            this.fireT = 2.0 + Math.random();
+        }
+    }
+    draw(ctx, camX, camY) {
+        this.drawEffects(ctx, () => {
+            const w = this.w, h = this.h;
+            ctx.save(); ctx.translate(this.x - camX + this.w/2, this.y - camY + this.h/2);
+            if (this.facingLeft) ctx.scale(-1, 1);
+            // Panzer (Stachelschild) hinten + prominente WEISSE Rückenstacheln
+            const shx = -w*0.16, shy = h*0.04, sRx = w*0.42, sRy = h*0.44;
+            ctx.fillStyle = '#f4f4f4';                              // Stacheln (zuerst, ragen hinter dem Panzer hervor)
+            for (let a = 0; a < 6; a++) {
+                const ang = Math.PI*0.5 + a*0.46;                  // obere/hintere Hälfte des Panzers
+                const ex = shx + Math.cos(ang)*sRx, ey = shy + Math.sin(ang)*sRy;
+                const tx2 = shx + Math.cos(ang)*sRx*1.42, ty2 = shy + Math.sin(ang)*sRy*1.42;
+                const px = Math.cos(ang + Math.PI/2), py = Math.sin(ang + Math.PI/2);
+                ctx.beginPath();
+                ctx.moveTo(ex + px*11, ey + py*11);
+                ctx.lineTo(tx2, ty2);
+                ctx.lineTo(ex - px*11, ey - py*11);
+                ctx.closePath(); ctx.fill();
+            }
+            ctx.fillStyle = '#1f6f1f'; ctx.beginPath(); ctx.ellipse(shx, shy, sRx, sRy, 0, 0, 7); ctx.fill();   // Panzer
+            ctx.fillStyle = '#e8d27a'; ctx.beginPath(); ctx.ellipse(shx, shy, sRx*0.66, sRy*0.66, 0, 0, 7); ctx.fill(); // heller Panzerkern
+            ctx.fillStyle = '#1f6f1f'; ctx.lineWidth = 0;
+            // Körper (gelbgrün)
+            ctx.fillStyle = '#8aa83a'; ctx.beginPath(); ctx.ellipse(w*0.05, h*0.08, w*0.32, h*0.4, 0, 0, 7); ctx.fill();
+            ctx.fillStyle = '#e6d27a'; ctx.beginPath(); ctx.ellipse(w*0.1, h*0.14, w*0.2, h*0.3, 0, 0, 7); ctx.fill();   // Bauch
+            // Beine + Krallen
+            ctx.fillStyle = '#8aa83a'; ctx.beginPath(); ctx.ellipse(-w*0.05, h*0.45, w*0.16, h*0.1, 0, 0, 7); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(w*0.22, h*0.45, w*0.16, h*0.1, 0, 0, 7); ctx.fill();
+            ctx.fillStyle = '#fff';
+            for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.moveTo(-w*0.12 + i*6, h*0.5); ctx.lineTo(-w*0.1 + i*6, h*0.56); ctx.lineTo(-w*0.14 + i*6, h*0.56); ctx.fill(); }
+            // Kopf
+            ctx.fillStyle = '#8aa83a'; ctx.beginPath(); ctx.ellipse(w*0.28, -h*0.18, w*0.26, h*0.2, 0, 0, 7); ctx.fill();
+            // Hörner
+            ctx.fillStyle = '#eee';
+            ctx.beginPath(); ctx.moveTo(w*0.2, -h*0.34); ctx.lineTo(w*0.12, -h*0.5); ctx.lineTo(w*0.3, -h*0.36); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(w*0.4, -h*0.34); ctx.lineTo(w*0.5, -h*0.5); ctx.lineTo(w*0.34, -h*0.36); ctx.fill();
+            // rote Mähne
+            ctx.fillStyle = '#a01010'; ctx.beginPath(); ctx.ellipse(w*0.1, -h*0.28, w*0.12, h*0.16, 0, 0, 7); ctx.fill();
+            // Maul + Reißzähne
+            ctx.fillStyle = '#3a2a10'; ctx.beginPath(); ctx.ellipse(w*0.42, -h*0.12, w*0.14, h*0.07, 0, 0, 7); ctx.fill();
+            ctx.fillStyle = '#fff';
+            for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.moveTo(w*0.34 + i*8, -h*0.16); ctx.lineTo(w*0.36 + i*8, -h*0.08); ctx.lineTo(w*0.32 + i*8, -h*0.1); ctx.fill(); }
+            // böses Auge
+            ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(w*0.34, -h*0.24, 7, 0, 7); ctx.fill();
+            ctx.save(); ctx.shadowBlur = 6; ctx.shadowColor = '#ff2a00'; ctx.fillStyle = '#e21000'; ctx.beginPath(); ctx.arc(w*0.36, -h*0.24, 4, 0, 7); ctx.fill(); ctx.restore();
+            ctx.strokeStyle = '#1a2a0a'; ctx.lineWidth = 4; ctx.beginPath(); ctx.moveTo(w*0.24, -h*0.32); ctx.lineTo(w*0.4, -h*0.26); ctx.stroke(); // Braue
+            // Stachel-Armband
+            ctx.fillStyle = '#222'; ctx.fillRect(-w*0.42, h*0.0, w*0.16, 12);
+            ctx.restore();
         });
     }
 }

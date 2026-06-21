@@ -83,14 +83,6 @@
                                 </div>
                             </div>
 
-                            <div id="char-switch" class="menu-section">
-                                <span class="menu-label">Charakter</span>
-                                <div class="btn-row">
-                                    <button id="btn-char-mario" class="opt-btn">MARIO</button>
-                                    <button id="btn-char-luigi" class="opt-btn">LUIGI</button>
-                                    <button id="btn-char-sonic" class="opt-btn">SONIC</button>
-                                </div>
-                            </div>
                         </div>
 
                         <!-- Rechter Block -->
@@ -103,12 +95,17 @@
                             </div>
 
                             <div class="menu-section">
-                                <span class="menu-label">Schwierigkeit &mdash; Start</span>
+                                <span class="menu-label">Schwierigkeit</span>
                                 <div class="difficulty-box">
                                     <button id="btn-princess" class="diff-btn princess">PRINCESS</button>
                                     <button id="btn-regular" class="diff-btn regular">REGULAR</button>
                                     <button id="btn-badass" class="diff-btn badass">BADASS</button>
                                 </div>
+                            </div>
+
+                            <div class="menu-section">
+                                <button id="btn-start" class="start-btn">&#9654; START</button>
+                                <span class="start-hint">Held w&auml;hlen &amp; loslegen</span>
                             </div>
                         </div>
                     </div>
@@ -132,6 +129,36 @@
                 <h1 id="menu-title" class="gore-title">BAD MARIO</h1>
                 <p class="insert-coin-text">CHOOSE YOUR FATE</p>
             </div>
+        </div>
+
+        <!-- HELDEN-AUSWAHL (nach START) -->
+        <div id="hero-select" class="hidden">
+            <h2 class="hero-title">CHOOSE YOUR HERO</h2>
+            <div class="hero-row">
+                <div class="hero-card" data-char="MARIO">
+                    <canvas class="hero-canvas" width="130" height="180"></canvas>
+                    <h3>MARIO</h3>
+                    <p class="hero-desc">Der Allrounder &ndash; ausgewogen in Sprung, Tempo und Panzerung.</p>
+                </div>
+                <div class="hero-card" data-char="LUIGI">
+                    <canvas class="hero-canvas" width="130" height="180"></canvas>
+                    <h3>LUIGI</h3>
+                    <p class="hero-desc">Springt deutlich h&ouml;her, steckt daf&uuml;r mehr Schaden ein.</p>
+                </div>
+                <div class="hero-card" data-char="SONIC">
+                    <canvas class="hero-canvas" width="130" height="180"></canvas>
+                    <h3>SONIC</h3>
+                    <p class="hero-desc">Sehr schnell + <b>Doppelsprung</b> in der Luft.</p>
+                </div>
+                <div class="hero-card" data-char="CHUCK">
+                    <canvas class="hero-canvas" width="130" height="180"></canvas>
+                    <h3>CHUCK</h3>
+                    <p class="hero-desc">Alle Vorteile vereint + <b>Roundhouse-Kick</b>, der Gegner durchs Level schleudert.</p>
+                </div>
+            </div>
+            <p class="hero-controls">STEUERUNG&nbsp; &#8592;&#8594; Laufen &middot; LEER/B Springen &middot; F/A Schie&szlig;en &middot; Q/X Waffe &middot; <b>E/A-Knopf Roundhouse (Chuck)</b></p>
+            <p class="hero-pick">&#9654; W&Auml;HLE DEINEN HELDEN ZUM STARTEN</p>
+            <button id="hero-back" class="opt-btn">&#8592; ZUR&Uuml;CK</button>
         </div>
     </div>
 

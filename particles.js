@@ -44,7 +44,7 @@ class ParticleManager {
     }
 
     spawnBlood(x, y, count) {
-        for (let i = 0; i < count * 3; i++) {
+        for (let i = 0; i < Math.ceil(count * 1.2); i++) {
             const angle = Math.random() * Math.PI * 2;
             const vel = Math.random() * 600; // Spritzt viel weiter
             this.particles.push({
@@ -78,17 +78,13 @@ class ParticleManager {
     }
 
     spawnExplosion(x, y, game) {
-        // MASSIVE EXPLOSION!
-        this.spawn(x, y, '#FF4400', 70, 2000, 2.0, true);  // Riesen Feuerkugel
-        this.spawn(x, y, '#FFFF00', 40, 1200, 1.5, true);  // Greller Kern
-        this.spawn(x, y, '#111111', 70, 1000, 3.0, false); // Gewaltige schwarze Rauchwolke
-        this.spawn(x, y, '#FFFFFF', 25, 2500, 0.5, true);   // Initialer Lichtblitz
-        
-        // Mehrere Schockwellen
-        this.particles.push({ type: 'SHOCKWAVE', x: x, y: y, size: 10, maxSize: 1000, life: 0.5, maxLife: 0.5 });
-        setTimeout(() => {
-            this.particles.push({ type: 'SHOCKWAVE', x: x, y: y, size: 10, maxSize: 800, life: 0.4, maxLife: 0.4 });
-        }, 100);
+        // Wuchtige, aber performante Explosion (deutlich weniger Partikel, kein shadowBlur)
+        this.spawn(x, y, '#FF4400', 22, 1800, 1.6, true);  // Feuerkugel
+        this.spawn(x, y, '#FFFF00', 14, 1100, 1.2, true);  // greller Kern
+        this.spawn(x, y, '#111111', 22, 900, 2.2, false);  // schwarzer Rauch
+        this.spawn(x, y, '#FFFFFF', 8, 2200, 0.4, true);   // Lichtblitz
+
+        this.particles.push({ type: 'SHOCKWAVE', x: x, y: y, size: 10, maxSize: 900, life: 0.45, maxLife: 0.45 });
         
         if (game) {
             game.triggerShake(80, 0.8);
@@ -100,10 +96,10 @@ class ParticleManager {
     }
 
     spawnLevelUp(x, y) {
-        this.spawn(x, y, '#00FF00', 80, 600, 2.0, true);
-        this.spawn(x, y, '#FFFFFF', 40, 800, 1.5, true);
-        
-        for (let i = 0; i < 10; i++) {
+        this.spawn(x, y, '#00FF00', 24, 600, 1.6, true);
+        this.spawn(x, y, '#FFFFFF', 12, 800, 1.2, true);
+
+        for (let i = 0; i < 6; i++) {
             this.particles.push({
                 type: 'LEVELUP_TEXT',
                 x: x, y: y - 50,
@@ -116,9 +112,9 @@ class ParticleManager {
     }
 
     update(dt, platforms) {
-        // Harte Obergrenze, damit die Zeichenkosten über lange Level beschränkt bleiben
-        if (this.particles.length > 1500) {
-            this.particles.splice(0, this.particles.length - 1500);
+        // Harte Obergrenze, damit die Zeichenkosten beschränkt bleiben (Performance)
+        if (this.particles.length > 550) {
+            this.particles.splice(0, this.particles.length - 550);
         }
 
         for (let i = this.particles.length - 1; i >= 0; i--) {
@@ -210,9 +206,7 @@ class ParticleManager {
             else if (p.type === 'LEVELUP_TEXT') {
                 ctx.fillStyle = '#0F0';
                 ctx.font = 'bold 30px monospace';
-                ctx.shadowBlur = 15; ctx.shadowColor = '#0F0';
                 ctx.fillText(p.text, p.x - camX, p.y - camY);
-                ctx.shadowBlur = 0;
             }
             else if (p.type === 'CASING') {
                 ctx.save();
@@ -235,22 +229,15 @@ class ParticleManager {
                 if (b < 0) b = 0;
                 
                 ctx.fillStyle = `rgb(${r},${g},${b})`;
-                ctx.shadowBlur = p.size; 
-                ctx.shadowColor = '#F40';
                 ctx.arc(p.x - camX, p.y - camY, p.size, 0, Math.PI*2);
                 ctx.fill();
-                
+
                 ctx.globalCompositeOperation = 'source-over';
-                ctx.shadowBlur = 0;
             }
             else {
                 ctx.fillStyle = p.color;
-                if (p.glow) { 
-                    ctx.shadowBlur = 30; 
-                    ctx.shadowColor = p.color; 
-                    ctx.globalCompositeOperation = 'lighter';
-                }
-                
+                if (p.glow) ctx.globalCompositeOperation = 'lighter';   // additiv statt teurem shadowBlur
+
                 // Trümmer und Blut sind eckig, Magie/Feuer/Explosionen sind rund
                 if (p.isBlood || p.color === '#111111') {
                     ctx.fillRect(Math.floor(p.x - camX), Math.floor(p.y - camY), Math.floor(p.size), Math.floor(p.size));
@@ -258,10 +245,7 @@ class ParticleManager {
                     ctx.beginPath(); ctx.arc(p.x - camX, p.y - camY, p.size, 0, Math.PI*2); ctx.fill();
                 }
 
-                if (p.glow) {
-                    ctx.shadowBlur = 0;
-                    ctx.globalCompositeOperation = 'source-over';
-                }
+                if (p.glow) ctx.globalCompositeOperation = 'source-over';
             }
         }
         ctx.globalAlpha = 1.0;

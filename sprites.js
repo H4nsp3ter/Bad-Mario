@@ -661,10 +661,22 @@ class SpriteGenerator {
                     ctx.fillStyle = '#DDD'; ctx.fillRect(-10, -35, 20, 5); 
                 } else if (variant === 'LIQUOR') {
                     ctx.shadowBlur = 20; ctx.shadowColor = '#0FF'; ctx.fillStyle = '#E0FFFF';
-                    ctx.fillRect(-20, -15, 40, 45); ctx.fillRect(-10, -40, 20, 25); 
-                    ctx.fillStyle = '#F00'; ctx.fillRect(-20, 0, 40, 15); 
-                    ctx.fillStyle = '#FFD700'; ctx.fillRect(-12, -40, 24, 8); 
-                                } else {
+                    ctx.fillRect(-20, -15, 40, 45); ctx.fillRect(-10, -40, 20, 25);
+                    ctx.fillStyle = '#F00'; ctx.fillRect(-20, 0, 40, 15);
+                    ctx.fillStyle = '#FFD700'; ctx.fillRect(-12, -40, 24, 8);
+                } else if (variant === 'JETPACK') {
+                    ctx.shadowBlur = 26; ctx.shadowColor = '#33d6ff';
+                    // zwei Tanks
+                    ctx.fillStyle = '#c4c8d0'; ctx.fillRect(-28, -32, 22, 56); ctx.fillRect(6, -32, 22, 56);
+                    ctx.fillStyle = '#8a8e96'; ctx.fillRect(-28, -32, 6, 56); ctx.fillRect(6, -32, 6, 56);
+                    ctx.fillStyle = '#e02828'; ctx.fillRect(-28, -32, 22, 8); ctx.fillRect(6, -32, 22, 8); // rote Deckel
+                    ctx.fillStyle = '#3a3e46'; ctx.fillRect(-8, -22, 16, 36);   // Mittelgehäuse
+                    // Düsen unten + Flamme
+                    ctx.fillStyle = '#22252b'; ctx.fillRect(-24, 24, 14, 10); ctx.fillRect(10, 24, 14, 10);
+                    ctx.shadowColor = '#ff8a18'; ctx.fillStyle = '#ffd23a';
+                    ctx.beginPath(); ctx.moveTo(-24, 34); ctx.lineTo(-17, 56); ctx.lineTo(-10, 34); ctx.fill();
+                    ctx.beginPath(); ctx.moveTo(10, 34);  ctx.lineTo(17, 56);  ctx.lineTo(24, 34);  ctx.fill();
+                } else {
                     ctx.shadowBlur = 30; ctx.shadowColor = '#FFF'; ctx.fillStyle = '#222';
                     ctx.fillRect(-45, -30, 90, 60); // Breiterer Koffer
                     ctx.fillStyle = '#444'; ctx.fillRect(-35, -20, 70, 40);
@@ -700,7 +712,7 @@ const Assets = {
         this.playerWalk = SpriteGenerator.generate('PLAYER', 'NORMAL');
         this.playerStar = SpriteGenerator.generate('PLAYER', 'SKELETON'); 
         
-        ['HEART', 'STAR', 'BOOSTER', 'MOLOTOV', 'BEER', 'LIQUOR', 'PISTOL', 'UZI', 'SHOTGUN', 'ASSAULT_RIFLE', 'MINIGUN', 'ROCKET', 'FLAMETHROWER', 'GRENADE', 'KNIFE', 'AXE', 'CHAINSAW'].forEach(type => {
+        ['HEART', 'STAR', 'BOOSTER', 'JETPACK', 'MOLOTOV', 'BEER', 'LIQUOR', 'PISTOL', 'UZI', 'SHOTGUN', 'ASSAULT_RIFLE', 'MINIGUN', 'ROCKET', 'FLAMETHROWER', 'GRENADE', 'KNIFE', 'AXE', 'CHAINSAW'].forEach(type => {
             this.items[type] = SpriteGenerator.generate('ITEM', type);
         });
 

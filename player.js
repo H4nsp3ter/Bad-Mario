@@ -24,6 +24,17 @@ class Player extends Entity {
         this.isCrouching = false;
         this.isDead = false;
         this.deathTimer = 0;
+
+        // Roundhouse-Kick (nur Chuck)
+        this.kickTimer = 0;   // Animations-Dauer
+        this.kickCd = 0;      // Abklingzeit
+        // Jetpack-Power-up
+        this.hasJetpack = false;
+        this.jetpackFuel = 0;
+        this.jetpackMax = CONFIG.JETPACK_FUEL;
+        this.jetpackActive = false;     // für Antriebs-Sound/Effekt diesen Frame
+        // Schwimmen
+        this.inWater = false;
     }
 
     get ammo() { return this.inventory[this.weapon] || 0; }
@@ -63,6 +74,13 @@ class Player extends Entity {
         if (this.invincibleTimer > 0) this.invincibleTimer -= dt;
         if (this.shootCooldown > 0) this.shootCooldown -= dt;
         if (this.flashTimer > 0) this.flashTimer -= dt;
+        if (this.kickTimer > 0) this.kickTimer -= dt;
+        if (this.kickCd > 0) this.kickCd -= dt;
+        this.jetpackActive = false;
+
+        // Wasser-Erkennung (Level kann eine Wasseroberfläche waterY definieren)
+        const waterY = game.levelGen ? game.levelGen.waterY : null;
+        this.inWater = (waterY != null) && (this.y + this.h * 0.5 > waterY);
         
         if (this.isStar) {
             this.starTimer -= dt;
@@ -103,25 +121,52 @@ class Player extends Entity {
             this.vy = moveDirY * CONFIG.CLIMB_SPEED; this.vx = moveDirX * currentSpeed * 0.5;
             if (input.isJustPressed('Space')) { this.isClimbing = false; this.vy = -CONFIG.JUMP_FORCE; game.audio.playJump(); }
         } else {
+            const moveCap = this.inWater ? currentSpeed * CONFIG.SWIM_SPEED_MUL : currentSpeed;
             if (moveDirX !== 0) {
                 this.facingRight = moveDirX === 1;
                 this.vx += moveDirX * CONFIG.PLAYER_ACCEL * dt;
-                if (Math.abs(this.vx) > currentSpeed) this.vx = Math.sign(this.vx) * currentSpeed;
+                if (Math.abs(this.vx) > moveCap) this.vx = Math.sign(this.vx) * moveCap;
             } else {
-                if (this.vx > 0) { this.vx -= CONFIG.PLAYER_FRICTION * dt; if (this.vx < 0) this.vx = 0; }
-                else if (this.vx < 0) { this.vx += CONFIG.PLAYER_FRICTION * dt; if (this.vx > 0) this.vx = 0; }
+                const fr = this.inWater ? CONFIG.PLAYER_FRICTION * 1.7 : CONFIG.PLAYER_FRICTION;
+                if (this.vx > 0) { this.vx -= fr * dt; if (this.vx < 0) this.vx = 0; }
+                else if (this.vx < 0) { this.vx += fr * dt; if (this.vx > 0) this.vx = 0; }
             }
-            this.vy += CONFIG.GRAVITY * dt;
-            if (this.vy > CONFIG.MAX_FALL_SPEED) this.vy = CONFIG.MAX_FALL_SPEED;
-            const jForce = CONFIG.JUMP_FORCE * this.char.jump * (this.isBoosted ? 1.5 : 1);
-            if (input.isJustPressed('Space') && this.grounded && !this.isCrouching) {
-                this.vy = -jForce; this.grounded = false; game.audio.playJump();
-                game.particles.spawn(this.x + this.w/2, this.y + this.h, this.isBoosted ? '#00FFCC' : '#CCC', 30, 200);
-            } else if (input.isJustPressed('Space') && !this.grounded && this.airJumpsLeft > 0) { // Doppelsprung
-                this.vy = -jForce * 0.92; this.airJumpsLeft--; game.audio.playJump();
-                game.particles.spawn(this.x + this.w/2, this.y + this.h, '#FFF', 18, 240);
+
+            if (this.inWater) {
+                // --- Schwimmen: sanftes Sinken, Sprungtaste = Schwimmzug nach oben ---
+                this.vy += CONFIG.SWIM_GRAVITY * dt;
+                if (this.vy > CONFIG.SWIM_MAX_SINK) this.vy = CONFIG.SWIM_MAX_SINK;
+                if (input.isJustPressed('Space')) {
+                    this.vy = -CONFIG.SWIM_STROKE; game.audio.playJump();
+                    game.particles.spawn(this.x + this.w/2, this.y + this.h, '#9fdcff', 8, 130, 0.4, true);
+                }
+                if (moveDirY < 0) this.vy -= CONFIG.SWIM_STROKE * 1.4 * dt;     // Hoch-Taste: stetig auftauchen
+                if (this.vy < -CONFIG.SWIM_MAX_RISE) this.vy = -CONFIG.SWIM_MAX_RISE;
+            } else {
+                // --- normale Schwerkraft + Sprung ---
+                this.vy += CONFIG.GRAVITY * dt;
+                if (this.vy > CONFIG.MAX_FALL_SPEED) this.vy = CONFIG.MAX_FALL_SPEED;
+                const jForce = CONFIG.JUMP_FORCE * this.char.jump * (this.isBoosted ? 1.5 : 1);
+                const jetReady = this.hasJetpack && this.jetpackFuel > 0;
+                if (input.isJustPressed('Space') && this.grounded && !this.isCrouching) {
+                    this.vy = -jForce; this.grounded = false; game.audio.playJump();
+                    game.particles.spawn(this.x + this.w/2, this.y + this.h, this.isBoosted ? '#00FFCC' : '#CCC', 30, 200);
+                } else if (input.isJustPressed('Space') && !this.grounded && this.airJumpsLeft > 0 && !jetReady) { // Doppelsprung (entfällt mit Jetpack)
+                    this.vy = -jForce * 0.92; this.airJumpsLeft--; game.audio.playJump();
+                    game.particles.spawn(this.x + this.w/2, this.y + this.h, '#FFF', 18, 240);
+                }
+                if (input.isJustReleased('Space') && this.vy < 0) this.vy *= 0.5;
+
+                // --- Jetpack: Sprungtaste in der Luft GEHALTEN -> Schub, solange Treibstoff ---
+                if (jetReady && !this.grounded && input.isDown('Space') && !input.isJustPressed('Space')) {
+                    this.vy -= CONFIG.JETPACK_THRUST * dt;
+                    if (this.vy < -CONFIG.JETPACK_MAX_RISE) this.vy = -CONFIG.JETPACK_MAX_RISE;
+                    this.jetpackFuel = Math.max(0, this.jetpackFuel - dt);
+                    this.jetpackActive = true;
+                    game.particles.spawnFire(this.x + this.w * 0.5, this.y + this.h, 2, this.w * 0.5, 8);
+                    if (game.audio.playJetpack) game.audio.playJetpack();
+                }
             }
-            if (input.isJustReleased('Space') && this.vy < 0) this.vy *= 0.5;
         }
         
         const fullH = this.standH, crouchH = this.crouchH, shift = fullH - crouchH;
@@ -132,6 +177,9 @@ class Player extends Entity {
         if (this.x < game.camera.x) { this.x = game.camera.x; this.vx = 0; }
         this.y += this.vy * dt; this.grounded = false; this.handleCollisions(game.levelGen.platforms, 'y', dt, game);
         if (this.grounded) this.airJumpsLeft = this.char.airJumps;   // Luftsprünge am Boden auffüllen
+        if (this.grounded && this.hasJetpack && this.jetpackFuel < this.jetpackMax) {
+            this.jetpackFuel = Math.min(this.jetpackMax, this.jetpackFuel + CONFIG.JETPACK_REFUEL * dt);
+        }
 
         if (this.grounded && !this.isClimbing) {
             for (let p of game.levelGen.platforms) {
@@ -161,12 +209,36 @@ class Player extends Entity {
                 let currentIndex = weaponsList.indexOf(this.weapon);
                 let nextIndex = (currentIndex + 1) % weaponsList.length;
                 this.weapon = weaponsList[nextIndex];
-                if (game.audio.playWeaponPickup) game.audio.playWeaponPickup(); 
+                if (game.audio.playWeaponPickup) game.audio.playWeaponPickup();
                 game.updateHUD();
             }
         }
+
+        // --- SPEZIAL: Roundhouse-Kick (nur Chuck) — katapultiert Gegner durchs Level ---
+        if (this.char.roundhouse && this.kickCd <= 0 && input.isJustPressed('KeyE') && !this.isClimbing && !this.isDead) {
+            this.kickTimer = 0.32; this.kickCd = 0.7;
+            if (game.audio.playRoundhouse) game.audio.playRoundhouse();
+            game.triggerShake(22, 0.3);
+            const dir = this.facingRight ? 1 : -1;
+            const cxp = this.x + this.w / 2, cyp = this.y + this.h / 2;
+            game.particles.spawn(cxp + dir * 70, cyp, '#ffffff', 16, 360, 0.4, true);
+            for (const e of game.levelGen.enemies) {
+                if (e.dead) continue;
+                const ex = e.x + e.w / 2, ey = e.y + e.h / 2;
+                const dx = (ex - cxp) * dir;                       // vor Chuck in Blickrichtung
+                if (dx > -40 && dx < 200 && Math.abs(ey - cyp) < 140) {   // nur etwas weiter als der Schläger (~140px)
+                    if (e.isBoss) { if (e.takeDamage) e.takeDamage(120, game, 'FLAME'); }   // Boss fliegt nicht, kassiert aber
+                    else {
+                        e.kicked = true; e.kickDir = dir; e.noStomp = false;
+                        e.vx = dir * (1500 + Math.random() * 350);
+                        e.vy = -300 - Math.random() * 160;
+                        e.spin = 0;
+                    }
+                }
+            }
+        }
     }
-    
+
     fireWeapon(game, input) {
         const dirX = this.facingRight ? 1 : -1;
         let py = this.y + this.h * (this.isCrouching ? 0.28 : 0.20); // Schulterhöhe, proportional zur Spielergröße
@@ -282,7 +354,14 @@ class Player extends Entity {
                         if (p.isBouncy) { this.vy = -1500; this.grounded = false; }
                     }
                 } else {
-                    if (axis === 'x') { this.x = this.vx > 0 ? p.x - this.w : p.x + p.w; this.vx = 0; }
+                    if (axis === 'x') {
+                        // Nur ECHTE Seitenkollision auflösen. Steht der Held praktisch oben auf
+                        // der Block-/Pfeiler-/Röhren-Kante (vertikale Überlappung minimal), NICHT
+                        // seitlich wegstoßen — das verursachte das "Wegglitschen".
+                        if (this.y + this.h > p.y + 12 && this.y < p.y + p.h - 4) {
+                            this.x = this.vx > 0 ? p.x - this.w : p.x + p.w; this.vx = 0;
+                        }
+                    }
                     else if (axis === 'y') {
                         if (this.vy > 0) { this.y = p.y - this.h; this.grounded = true; }
                         else if (this.vy < 0) { this.y = p.y + p.h; if (p.bumpable && !p.used && game && game.bumpBlock) game.bumpBlock(p); } // CLASSIC: Kopf-Anschlag
@@ -297,6 +376,7 @@ class Player extends Entity {
         if (this.invincibleTimer > 0 || this.isStar) return;
         this.hp = Math.max(0, this.hp - amount * this.char.dmg); this.invincibleTimer = 1.5; this.vy = -500; this.vx = (this.facingRight ? -1 : 1) * 400; this.isClimbing = false;
         game.particles.spawnBlood(this.x + this.w/2, this.y + this.h/2, 60); game.triggerShake(30, 0.4); game.updateHUD();
+        if (game.audio.playPainScream) game.audio.playPainScream();   // Schmerzensschrei
     }
     
     // Prozedurale Spielerfigur (Bad-Mario, böse). Zeichnet im selben lokalen Raum wie das alte
@@ -309,7 +389,8 @@ class Player extends Entity {
         const bob = walk ? -Math.abs(Math.sin(cyc)) * 4 : 0;
 
         let SKIN = this.char.skin, RED = this.char.shirt, BLUE = this.char.overall;
-        const SKINSH = '#c98d54', REDDK = this.char.shirtDk, SHOE = '#3f2713', MUST = '#241405', BTN = '#f5c542';
+        const SKINSH = '#c98d54', REDDK = this.char.shirtDk, SHOE = this.char.boots || '#3f2713', MUST = '#241405', BTN = '#f5c542';
+        const bare = this.char.bare;
         if (this.isStar) {                          // günstiger Stern-Flash (kein filter/shadowBlur)
             const c = ['#ffffff', '#ffe14d', '#54d8ff', '#9dff54'][Math.floor(performance.now() / 70) % 4];
             RED = c; BLUE = c; SKIN = c;
@@ -360,8 +441,12 @@ class Player extends Entity {
         }
 
         // ---- STEHEN / LAUFEN / SPRINGEN ----  (l0 = hinten, l1 = vorne)
+        const kickPose = this.kickTimer > 0 && this.char.roundhouse;
         let l0, l1;
-        if (air) {                                   // Sprung: vorderes Bein angezogen, hinteres gestreckt
+        if (kickPose) {                              // KARATE-ROUNDHOUSE: Trittbein waagerecht ausgestreckt
+            l0 = { h: -6, t: -0.35, k: -0.45 };      // Standbein leicht gebeugt
+            l1 = { h: 6,  t: 1.5,   k: 1.5 };        // Trittbein ~waagerecht nach vorn
+        } else if (air) {                            // Sprung: vorderes Bein angezogen, hinteres gestreckt
             l0 = { h: -7, t: -0.6, k: -0.95 };       // hinteres Bein nach hinten gestreckt
             l1 = { h: 8,  t: 1.2,  k: -0.1 };        // vorderes Bein: Knie hoch, Schienbein getuckt
         } else if (walk) {                           // Gang mit nach HINTEN knickendem Knie (natürlich)
@@ -382,24 +467,46 @@ class Player extends Entity {
             [-34, -16, 2].forEach(sy => { ctx.beginPath(); ctx.moveTo(-16, sy); ctx.lineTo(-42, sy + 9); ctx.lineTo(-14, sy + 22); ctx.closePath(); ctx.fill(); });
         }
 
-        ctx.fillStyle = RED;                                                // Oberkörper (rotes Shirt)
-        ctx.beginPath(); ctx.roundRect(-20, -40, 40, 56, 13); ctx.fill();
-        ctx.fillStyle = BLUE;                                               // Latzhose
-        ctx.beginPath(); ctx.roundRect(-18, -8, 36, 28, 7); ctx.fill();
-        ctx.fillRect(-15, -34, 7, 28); ctx.fillRect(8, -34, 7, 28);         // Träger
-        ctx.fillStyle = BTN; ctx.beginPath(); ctx.arc(-11, -6, 3.5, 0, 7); ctx.fill();
-        ctx.beginPath(); ctx.arc(11, -6, 3.5, 0, 7); ctx.fill();
-        // --- Verschleiß (dezent): Flicken, Riss, Dreck ---
-        ctx.fillStyle = '#1d3290'; ctx.fillRect(2, 2, 12, 10);             // aufgenähter Flicken auf dem Latz
-        ctx.strokeStyle = 'rgba(255,255,255,0.22)'; ctx.lineWidth = 1; ctx.setLineDash([2, 2]);
-        ctx.strokeRect(2, 2, 12, 10); ctx.setLineDash([]);
-        ctx.strokeStyle = REDDK; ctx.lineWidth = 2;                        // Riss im Shirt (Schulter)
-        ctx.beginPath(); ctx.moveTo(-14, -30); ctx.lineTo(-9, -22); ctx.lineTo(-13, -15); ctx.stroke();
-        ctx.fillStyle = 'rgba(0,0,0,0.16)';                               // Dreckflecken
-        ctx.beginPath(); ctx.ellipse(-6, 8, 7, 5, 0.3, 0, 7); ctx.fill();
-        ctx.beginPath(); ctx.ellipse(9, -24, 5, 4, -0.4, 0, 7); ctx.fill();
+        if (bare) {
+            // ---- CHUCK: nackter, muskulöser Oberkörper + Camo-Shorts + Kampfstiefel ----
+            ctx.fillStyle = RED;                                            // Torso (Hautton)
+            ctx.beginPath(); ctx.roundRect(-21, -40, 42, 52, 12); ctx.fill();
+            ctx.strokeStyle = SKINSH; ctx.lineWidth = 2.2;                  // Muskeldefinition
+            ctx.beginPath(); ctx.moveTo(0, -34); ctx.lineTo(0, -4); ctx.stroke();          // Mittellinie
+            ctx.beginPath(); ctx.arc(-10, -27, 8, 0.1, 2.5); ctx.stroke();                 // Brust links
+            ctx.beginPath(); ctx.arc(10, -27, 8, 0.6, 3.0); ctx.stroke();                  // Brust rechts
+            for (let r = 0; r < 3; r++) { ctx.beginPath(); ctx.moveTo(-11, -14 + r * 8); ctx.lineTo(11, -14 + r * 8); ctx.stroke(); } // Bauchmuskeln
+            ctx.fillStyle = 'rgba(0,0,0,0.12)'; ctx.beginPath(); ctx.ellipse(-9, -5, 6, 4, 0.3, 0, 7); ctx.fill(); // Schweiß/Dreck
+            // Camo-Shorts
+            ctx.fillStyle = BLUE; ctx.beginPath(); ctx.roundRect(-19, -6, 38, 24, 6); ctx.fill();
+            ctx.fillStyle = '#3f4d22'; [[-11, 2], [4, 9], [11, 1], [-3, 13], [8, 14]].forEach(c => { ctx.beginPath(); ctx.ellipse(c[0], c[1], 5, 4, 0.3, 0, 7); ctx.fill(); });
+            ctx.fillStyle = '#7a8f4e'; [[-6, 6], [9, 5], [0, 15]].forEach(c => { ctx.beginPath(); ctx.ellipse(c[0], c[1], 3, 3, 0, 0, 7); ctx.fill(); });
+            ctx.fillStyle = '#222'; ctx.fillRect(-19, -6, 38, 4);          // Gürtel
+            ctx.fillStyle = '#c9a227'; ctx.fillRect(-3, -6, 6, 4);         // Gürtelschnalle
+        } else {
+            ctx.fillStyle = RED;                                                // Oberkörper (rotes Shirt)
+            ctx.beginPath(); ctx.roundRect(-20, -40, 40, 56, 13); ctx.fill();
+            ctx.fillStyle = BLUE;                                               // Latzhose
+            ctx.beginPath(); ctx.roundRect(-18, -8, 36, 28, 7); ctx.fill();
+            ctx.fillRect(-15, -34, 7, 28); ctx.fillRect(8, -34, 7, 28);         // Träger
+            ctx.fillStyle = BTN; ctx.beginPath(); ctx.arc(-11, -6, 3.5, 0, 7); ctx.fill();
+            ctx.beginPath(); ctx.arc(11, -6, 3.5, 0, 7); ctx.fill();
+            // --- Verschleiß (dezent): Flicken, Riss, Dreck ---
+            ctx.fillStyle = '#1d3290'; ctx.fillRect(2, 2, 12, 10);             // aufgenähter Flicken auf dem Latz
+            ctx.strokeStyle = 'rgba(255,255,255,0.22)'; ctx.lineWidth = 1; ctx.setLineDash([2, 2]);
+            ctx.strokeRect(2, 2, 12, 10); ctx.setLineDash([]);
+            ctx.strokeStyle = REDDK; ctx.lineWidth = 2;                        // Riss im Shirt (Schulter)
+            ctx.beginPath(); ctx.moveTo(-14, -30); ctx.lineTo(-9, -22); ctx.lineTo(-13, -15); ctx.stroke();
+            ctx.fillStyle = 'rgba(0,0,0,0.16)';                               // Dreckflecken
+            ctx.beginPath(); ctx.ellipse(-6, 8, 7, 5, 0.3, 0, 7); ctx.fill();
+            ctx.beginPath(); ctx.ellipse(9, -24, 5, 4, -0.4, 0, 7); ctx.fill();
+        }
 
         leg(l1.h, l1.t, l1.k);                                              // vorderes Bein (vor dem Körper)
+        if (kickPose) {                                                    // Speed-Lines hinter dem Trittbein
+            ctx.fillStyle = 'rgba(255,255,255,0.4)';
+            ctx.beginPath(); ctx.moveTo(40, 6); ctx.lineTo(86, 4); ctx.lineTo(40, 14); ctx.fill();
+        }
         this._drawHead(ctx, 0, -58, SKIN, SKINSH, RED, REDDK, MUST);
         ctx.restore();
     }
@@ -437,6 +544,18 @@ class Player extends Entity {
         ctx.fillStyle = '#160803'; ctx.beginPath(); ctx.roundRect(1, 17, 15, 5, 2); ctx.fill();
         ctx.fillStyle = '#e8e0c0'; ctx.fillRect(4, 17, 3, 4); ctx.fillRect(9, 17, 3, 4); ctx.fillRect(13, 18, 2, 3);
         ctx.fillStyle = 'rgba(120,0,0,0.6)'; ctx.beginPath(); ctx.arc(22, 12, 1.8, 0, 7); ctx.fill(); // Blutspritzer am Schnauzer
+        if (this.char && this.char.beard) {
+            // Chuck: ikonischer Vollbart (überdeckt Schnauzer/Grinsen)
+            ctx.fillStyle = '#3a2412';
+            ctx.beginPath();
+            ctx.moveTo(-15, 0); ctx.quadraticCurveTo(-17, 18, -2, 24);
+            ctx.quadraticCurveTo(14, 25, 19, 6);
+            ctx.lineTo(14, 7); ctx.quadraticCurveTo(9, 15, 1, 15);
+            ctx.quadraticCurveTo(-7, 15, -11, 2); ctx.closePath(); ctx.fill();
+            ctx.fillRect(-7, 3, 24, 5);                                      // Schnauzteil
+            ctx.fillStyle = '#2a1a0c';                                       // Bart-Struktur
+            for (let i = 0; i < 5; i++) ctx.fillRect(-10 + i * 5, 12 + (i % 2) * 3, 2, 6);
+        }
         if (this.char && this.char.hat === 'spikes') {
             // Stachel-"Frisur" (Überraschungs-Charakter) statt Mütze
             ctx.fillStyle = RED;
@@ -447,6 +566,15 @@ class Player extends Entity {
             ctx.lineTo(-2, -38); ctx.lineTo(10, -16);
             ctx.lineTo(16, -32); ctx.lineTo(18, -10);
             ctx.closePath(); ctx.fill();
+        } else if (this.char && this.char.hat === 'headband') {
+            // Chuck: zurückgekämmtes Haar + rotes Stirnband mit flatternden Enden
+            ctx.fillStyle = '#3a2412';
+            ctx.beginPath(); ctx.roundRect(-19, -27, 38, 17, 7); ctx.fill();        // Haar
+            ctx.fillStyle = '#c0202a'; ctx.fillRect(-20, -16, 40, 8);               // Stirnband
+            ctx.fillStyle = '#8a1018'; ctx.fillRect(-20, -10, 40, 2);
+            ctx.fillStyle = '#c0202a';                                              // Band-Enden hinten
+            ctx.beginPath(); ctx.moveTo(-18, -14); ctx.lineTo(-32, -7); ctx.lineTo(-29, -2); ctx.lineTo(-18, -8); ctx.closePath(); ctx.fill();
+            ctx.beginPath(); ctx.moveTo(-18, -10); ctx.lineTo(-31, -2); ctx.lineTo(-28, 3); ctx.lineTo(-18, -4); ctx.closePath(); ctx.fill();
         } else {
             // Mütze (tief über die Augen für finsteren Blick)
             ctx.fillStyle = RED; ctx.beginPath(); ctx.roundRect(-20, -27, 40, 17, 8); ctx.fill();
@@ -491,7 +619,17 @@ class Player extends Entity {
         } else {
             ctx.translate(this.x - camX + this.w / 2 + (this.facingRight ? lunge : -lunge), this.y - camY + this.h / 2);
         }
-        if (!this.facingRight) ctx.scale(-1, 1);
+        // Roundhouse: Drehung um die EIGENE (senkrechte) Achse — in 2D-Seitenansicht als
+        // horizontale Stauchung (Pirouette), Körper bleibt aufrecht, kein Überschlag.
+        const kicking = this.kickTimer > 0 && this.char.roundhouse;
+        if (kicking && !this.isDead) {
+            const prog = 1 - Math.max(0, this.kickTimer) / 0.32;          // 0 -> 1
+            let sx = Math.cos(prog * Math.PI * 2) * (this.facingRight ? 1 : -1);
+            sx = sx >= 0 ? Math.max(0.08, sx) : Math.min(-0.08, sx);      // nie ganz flach (degeneriert)
+            ctx.scale(sx, 1);
+        } else if (!this.facingRight) {
+            ctx.scale(-1, 1);
+        }
         // Im Classic-Modus ist der Spieler kleiner (standH < 140): Grafik mitskalieren
         // und die Füße exakt auf die Hitbox-Unterkante (Bodenlinie) setzen.
         const vis = this.standH / 140;
@@ -547,6 +685,8 @@ class Player extends Entity {
             else if (up) attackRot -= Math.PI / 2.1;
             else if (down && !this.grounded) attackRot += Math.PI / 2.1;
         }
+
+        if (kicking && !this.isDead) { attackRot = -Math.PI / 2; distHand = 48; }   // Roundhouse: Waffe nach oben recken
 
         let fhx = sX + Math.cos(attackRot) * distHand;
         let fhy = sY + Math.sin(attackRot) * distHand;
@@ -779,5 +919,26 @@ class Player extends Entity {
         ctx.restore();
 
         ctx.restore();
+
+        // --- Jetpack: Rucksack, Düsenflamme & Treibstoffanzeige (Bildschirmkoordinaten) ---
+        if (this.hasJetpack && !this.isDead) {
+            const sx = this.x - camX, sy = this.y - camY, w = this.w, h = this.h;
+            const bx = this.facingRight ? sx - 12 : sx + w - 4;     // Tank auf dem Rücken
+            ctx.fillStyle = '#b8bcc4'; ctx.fillRect(bx, sy + h * 0.26, 16, h * 0.42);
+            ctx.fillStyle = '#7a7e86'; ctx.fillRect(bx + (this.facingRight ? 11 : 0), sy + h * 0.26, 5, h * 0.42);
+            ctx.fillStyle = '#e02828'; ctx.fillRect(bx, sy + h * 0.26, 16, 5);   // roter Deckel
+            if (this.jetpackActive) {                              // Düsenflamme
+                const fx = bx + 8, fy = sy + h * 0.68;
+                ctx.fillStyle = '#ffd23a';
+                ctx.beginPath(); ctx.moveTo(fx - 8, fy); ctx.lineTo(fx, fy + 26 + Math.random() * 16); ctx.lineTo(fx + 8, fy); ctx.fill();
+                ctx.fillStyle = '#ff7a18';
+                ctx.beginPath(); ctx.moveTo(fx - 4, fy); ctx.lineTo(fx, fy + 16 + Math.random() * 10); ctx.lineTo(fx + 4, fy); ctx.fill();
+            }
+            // Treibstoffbalken über dem Kopf
+            const by = sy - 16, f = this.jetpackFuel / this.jetpackMax;
+            ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(sx, by, w, 8);
+            ctx.fillStyle = f > 0.3 ? '#33d6ff' : '#ff5454'; ctx.fillRect(sx + 1, by + 1, (w - 2) * Math.max(0, f), 6);
+        }
+
     }
 }

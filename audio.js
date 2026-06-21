@@ -55,6 +55,21 @@ class AudioManager {
                 this.loadTrack('SFX_CHAINSAW',  SF + 'chainsaw.mp3',        false);
                 this.loadTrack('SFX_EXPLOSION', SF + 'bomb-explosion.mp3',  false);
                 this.loadTrack('SFX_ROAR',      SF + 'low-monster-roar.mp3',false);
+                // Roundhouse-Kick (Chuck) — mehrere mögliche Dateinamen, der vorhandene gewinnt
+                this.loadTrack('SFX_ROUNDHOUSE', SF + 'roundhouse%20kick.mp3', false);
+                this.loadTrack('SFX_ROUNDHOUSE', SF + 'roundhouse-kick.mp3',   false);
+                this.loadTrack('SFX_ROUNDHOUSE', SF + 'roundhouse_kick.mp3',   false);
+                this.loadTrack('SFX_ROUNDHOUSE', SF + 'roundhouse.mp3',        false);
+                // Evil Laugh (Kill-Streak)
+                this.loadTrack('SFX_EVILLAUGH',  SF + 'evil%20laugh.mp3', false);
+                this.loadTrack('SFX_EVILLAUGH',  SF + 'evil-laugh.mp3',   false);
+                this.loadTrack('SFX_EVILLAUGH',  SF + 'evil_laugh.mp3',   false);
+                this.loadTrack('SFX_EVILLAUGH',  SF + 'evil laugh.mp3',   false);
+                // Pain Scream (Held verletzt)
+                this.loadTrack('SFX_PAIN',       SF + 'pain%20scream.mp3', false);
+                this.loadTrack('SFX_PAIN',       SF + 'pain-scream.mp3',   false);
+                this.loadTrack('SFX_PAIN',       SF + 'pain_scream.mp3',   false);
+                this.loadTrack('SFX_PAIN',       SF + 'pain scream.mp3',   false);
             } catch(e) {
                 console.error("AudioContext Error:", e);
             }
@@ -136,6 +151,23 @@ class AudioManager {
     }
 
     playRoar() { this.playSfx('SFX_ROAR', 0.95, 0.95 + Math.random() * 0.1); }
+
+    // Roundhouse-Kick (Chuck): nutzt das gelieferte Sample, sonst synthetischer Whoosh+Impact
+    playRoundhouse() {
+        if (this.sfxBuffers && this.sfxBuffers['SFX_ROUNDHOUSE']) { this.playSfx('SFX_ROUNDHOUSE', 1.0, 1, 0.05); return; }
+        if (this.playSwing) this.playSwing();
+        if (this.playExplosion) this.playExplosion();
+    }
+
+    // Böses Lachen bei Kill-Streak (nur wenn Sample vorhanden; throttle gegen Überlappung)
+    playEvilLaugh() {
+        if (this.sfxBuffers && this.sfxBuffers['SFX_EVILLAUGH']) this.playSfx('SFX_EVILLAUGH', 1.0, 1, 1.5);
+    }
+
+    // Schmerzensschrei, wenn der Held getroffen wird
+    playPainScream() {
+        if (this.sfxBuffers && this.sfxBuffers['SFX_PAIN']) this.playSfx('SFX_PAIN', 1.0, 0.95 + Math.random() * 0.1, 0.4);
+    }
 
     makeDistortionCurve(amount) {
         const k = amount;
