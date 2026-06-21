@@ -143,9 +143,7 @@ class Game {
 
             for (let i = 1; i <= maxLvl; i++) {
                 const btn = document.createElement('button');
-                btn.className = 'diff-btn regular';
-                btn.style.width = '60px';
-                btn.style.minWidth = '60px';
+                btn.className = 'opt-btn lvl-btn';
                 btn.innerText = this.classicMode ? (CLASSIC_LABELS[i] || i) : i;
 
                 if (i === this.level) {
@@ -251,11 +249,10 @@ class Game {
 
         resize() {
             const isPortrait = window.matchMedia("(orientation: portrait)").matches && window.innerWidth <= 950;
-        
-            // Mobile UI Force-Show
-            if (window.innerWidth <= 950) {
-                if(this.ui.mobileControls) this.ui.mobileControls.classList.remove('hidden');
-            }
+
+            // Touch-Geräte erkennen -> Steuerung erscheint per CSS nur im Spiel (body.in-game.touch)
+            const isTouch = ('ontouchstart' in window) || navigator.maxTouchPoints > 0 || window.innerWidth <= 950;
+            document.body.classList.toggle('touch', isTouch);
 
             if (isPortrait) {
             this.canvas.width = window.innerHeight;
@@ -536,7 +533,8 @@ class Game {
         this.lastTime = timestamp; 
         if (dt > 0.1) dt = 0.1; 
         
-        window.gameInstance = this; 
+        window.gameInstance = this;
+        document.body.classList.toggle('in-game', this.state === 'PLAYING' || this.state === 'PAUSED'); // Controls/Zoom nur im Spiel
 
         if (this.state === 'PLAYING') {
             this.update(dt);

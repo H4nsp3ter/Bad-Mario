@@ -69,6 +69,7 @@ body::after {
 
 /* WICHTIG: Wenn das Smartphone hochkant gehalten wird, drehen wir den Container.
    Alle Kind-Elemente (Canvas, UI, Buttons) passen sich JETZT automatisch an! */
+/* Querformat erzwingen (Menü UND Spiel) — auf dem Handy bitte quer halten */
 @media (orientation: portrait) and (max-width: 950px) {
     #game-container {
         width: 100vh;
@@ -186,57 +187,155 @@ body::after {
     background-size: cover;
     background-position: center;
     background-repeat: no-repeat;
-    background-color: rgba(0, 0, 0, 0.5); 
-    background-blend-mode: multiply; 
+    background-color: rgba(0, 0, 0, 0.35);
+    background-blend-mode: multiply;
     display: flex;
     flex-direction: column;
-    justify-content: center; 
-    align-items: center;     
-    padding: 15px;
+    justify-content: center;
+    align-items: center;
+    padding: 0;
     z-index: 25;
     pointer-events: auto;
 }
 
+/* Panel füllt den ganzen Screen; Inhalt wird absolut platziert -> Mitte bleibt frei */
 .menu-panel {
-    background: rgba(0, 0, 0, 0.88);
-    padding: 30px;
-    border: 4px solid #900;
+    position: absolute;
+    inset: 0;
+    background: transparent;
+    border: none;
+    box-shadow: none;
+    backdrop-filter: none;
     text-align: center;
-    backdrop-filter: blur(3px);
+}
+#start-screen-prompt { position: absolute; inset: 0; }
+
+/* Zwei Blöcke: ganz links & ganz rechts am Rand, vertikal zentriert, Mitte frei */
+.menu-cols {
+    position: absolute;
+    top: 50%;
+    left: 0;
+    right: 0;
+    transform: translateY(-50%);
     display: flex;
-    flex-direction: column;
+    justify-content: space-between;
     align-items: center;
-    width: 100%;
-    max-width: 580px;
-    box-shadow: 0 0 30px rgba(0, 0, 0, 0.8);
+    padding: 0 14px;
+}
+.menu-col {
+    flex: 0 0 auto;
+    /* vmax/vmin statt vw/vh: passt auch im um 90° gedrehten Container (Handy) */
+    width: min(34vmax, 360px);
+    background: rgba(12, 2, 2, 0.6);
+    border: 3px solid #e62222;
+    border-radius: 4px;
+    backdrop-filter: blur(2px);
+    box-shadow: 0 0 22px rgba(255, 0, 0, 0.4), inset 0 0 30px rgba(0, 0, 0, 0.55);
+    padding: 12px 14px;
+    max-height: 84vmin;
+    overflow-y: auto;
+    scrollbar-width: thin;
+}
+.menu-col::-webkit-scrollbar { width: 8px; }
+.menu-col::-webkit-scrollbar-thumb { background: #900; border: 2px solid #000; }
+.menu-col .menu-section:last-child { margin-bottom: 0; }
+
+/* Untere Titelleiste (an der unteren Kante ausgerichtet) */
+#title-bar {
+    position: absolute;
+    bottom: 16px;
+    left: 0;
+    right: 0;
+    text-align: center;
+    pointer-events: none;
+    z-index: 2;
+}
+#title-bar h1 { margin: 0 0 2px 0; }
+#title-bar .insert-coin-text { margin: 0 !important; }
+
+/* Game-Over: eigenes, zentriertes Panel */
+#game-over-stats {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: rgba(12, 2, 2, 0.7);
+    border: 3px solid #e62222;
+    border-radius: 4px;
+    backdrop-filter: blur(2px);
+    box-shadow: 0 0 24px rgba(255, 0, 0, 0.45), inset 0 0 36px rgba(0, 0, 0, 0.6);
+    padding: 22px 26px;
+    width: 90%;
+    max-width: 460px;
 }
 
+
 #menu-overlay h1 {
-    font-size: 3rem;
-    margin-bottom: 15px;
-    color: #ff0000;
+    font-size: clamp(1.7rem, 6vw, 2.8rem);
+    margin-bottom: 6px;
+    color: #ff1a1a;
     text-transform: uppercase;
     letter-spacing: 4px;
-    line-height: 1.2;
-    text-shadow: -4px -4px 0 #000, 4px -4px 0 #000, -4px 4px 0 #000, 4px 4px 0 #000, 6px 6px 0 #000, 0 0 30px rgba(255, 0, 0, 0.8);
+    line-height: 1.1;
+    text-shadow: -3px -3px 0 #000, 3px -3px 0 #000, -3px 3px 0 #000, 3px 3px 0 #000, 0 0 26px rgba(255, 0, 0, 0.8);
 }
 
 #menu-overlay p {
-    font-size: 0.9rem;
-    margin-bottom: 25px;
+    font-size: 0.85rem;
+    margin-bottom: 14px;
     color: #cccccc;
-    line-height: 1.6;
+    line-height: 1.5;
     letter-spacing: 1px;
     text-transform: uppercase;
     text-shadow: -2px -2px 0 #000, 2px -2px 0 #000, -2px 2px 0 #000, 2px 2px 0 #000;
 }
 
 .insert-coin-text {
-    color: #ffff00 !important;
-    font-size: 1.1rem !important;
-    animation: blink 1s infinite;
-    text-shadow: -2px -2px 0 #000, 2px -2px 0 #000, 0 0 15px rgba(255, 255, 0, 0.6) !important;
+    color: #ffd400 !important;
+    font-size: 0.85rem !important;
+    margin-bottom: 16px !important;
+    animation: blink 1.2s infinite;
+    text-shadow: -2px -2px 0 #000, 2px -2px 0 #000, 0 0 15px rgba(255, 215, 0, 0.6) !important;
 }
+
+/* --- Menü-Sektionen mit Labels --- */
+.menu-section { width: 100%; margin-bottom: 12px; }
+.menu-label {
+    display: block;
+    font-size: 0.58rem;
+    color: #ff8c8c;
+    letter-spacing: 3px;
+    margin-bottom: 7px;
+    text-transform: uppercase;
+    text-shadow: 2px 2px 0 #000;
+}
+.btn-row { display: flex; gap: 8px; justify-content: center; align-items: stretch; width: 100%; }
+.btn-row.wrap, #level-buttons { flex-wrap: wrap; }
+
+/* Auswahl-Buttons (Modus/Sound/Charakter) */
+.opt-btn {
+    flex: 1 1 0;
+    min-width: 84px;
+    padding: 11px 8px;
+    font-family: "Press Start 2P", cursive;
+    font-size: 0.62rem;
+    letter-spacing: 1px;
+    color: #d4f5d4;
+    background: rgba(0, 36, 0, 0.5);
+    border: 2px solid #2faa2f;
+    border-radius: 3px;
+    box-shadow: 3px 3px 0 #000;
+    cursor: pointer;
+    text-transform: uppercase;
+    text-shadow: 2px 2px 0 #000;
+    transition: transform .08s, background .1s;
+}
+.opt-btn:hover { background: rgba(0, 95, 0, 0.7); transform: translateY(-2px); }
+.opt-btn:active { transform: translate(2px, 2px); box-shadow: 0 0 0 #000; }
+
+/* Level-Wahl-Buttons (kompakt, umbrechend) */
+#level-buttons { gap: 6px; }
+.lvl-btn { flex: 0 0 auto; min-width: 52px; padding: 8px 6px; font-size: 0.55rem; }
 
 @keyframes blink {
     0%, 100% { opacity: 1; }
@@ -251,28 +350,34 @@ body::after {
     text-shadow: -4px -4px 0 #000, 4px -4px 0 #000, 0 0 30px #ff0000;
 }
 
-/* Schwierigkeitsgrad-Box */
+/* Schwierigkeitsgrad-Box: nebeneinander, sind zugleich die START-Buttons */
 .difficulty-box {
     display: flex;
-    flex-direction: column;
-    align-items: center;
-    gap: 12px;
-    margin: 10px 0;
+    flex-direction: row;
+    flex-wrap: nowrap;
+    justify-content: center;
+    align-items: stretch;
+    gap: 7px;
+    margin: 2px 0;
     width: 100%;
 }
 
 .diff-btn {
-    width: 100%;
-    max-width: 260px;
-    padding: 12px !important;
-    font-size: 0.9rem !important;
+    flex: 1 1 0;
+    min-width: 0;
+    max-width: none;
+    padding: 13px 4px !important;
+    font-size: 0.58rem !important;
+    font-family: "Press Start 2P", cursive;
     transition: transform 0.1s;
-    background: #400; 
+    background: #400;
     border: 2px solid #f00;
     color: #fff;
-    font-family: 'Courier New', Courier, monospace;
     cursor: pointer;
+    border-radius: 3px;
     box-shadow: 3px 3px 0px #000;
+    text-transform: uppercase;
+    text-shadow: 2px 2px 0 #000;
 }
 
 .diff-btn:hover {
@@ -328,13 +433,15 @@ button:active {
 /* ========================================================================= */
 #mobile-controls {
     position: absolute;
-    top: 0; 
-    left: 0; 
-    width: 100%; 
+    top: 0;
+    left: 0;
+    width: 100%;
     height: 100%;
-    z-index: 9999; 
-    pointer-events: none; 
+    z-index: 9999;
+    pointer-events: none;
+    display: none;                 /* nur im Spiel auf Touch-Geräten sichtbar */
 }
+body.in-game.touch #mobile-controls { display: block; }
 
 #mobile-controls button {
     padding: 0;
@@ -402,17 +509,18 @@ button:active {
 .action-btn.b-btn { bottom: 0; left: 50%; transform: translateX(-50%); background-color: #FFDE00 !important; color: #000 !important; text-shadow: none !important; } 
 .action-btn.a-btn { top: 50%; right: 0; transform: translateY(-50%); background-color: #ED1C24 !important; } 
 
-/* ZOOM CONTROLS */
+/* ZOOM CONTROLS — nur im Spiel sichtbar */
 #zoom-controls {
     position: absolute;
     top: 20px;
     left: 50%;
     transform: translateX(-50%);
-    display: flex;
+    display: none;
     gap: 15px;
     pointer-events: auto;
     z-index: 50;
 }
+body.in-game #zoom-controls { display: flex; }
 
 #zoom-controls button {
     background-color: rgba(0, 0, 0, 0.7) !important;
@@ -481,46 +589,35 @@ button:active {
 /* HANDY-SKALIERUNGEN (ANPASSUNG AN LEISTEN FÜR CHROME, SAFARI, EDGE, FIREFOX)*/
 /* ========================================================================= */
 @media (max-width: 950px) {
-    #mobile-controls {
-        display: block !important;
-        visibility: visible !important;
-        opacity: 1 !important;
-    }
-    
     #hud {
-        top: 5px !important;
-        left: 5px !important;
-        right: 5px !important;
+        top: 6px !important;
+        left: 8px !important;
+        right: 8px !important;
     }
-    
-    .hud-top-left, .hud-top-right {
-        transform: scale(0.6) !important;
+    .hud-top-left  { transform: scale(0.72); transform-origin: top left; }
+    .hud-top-right { transform: scale(0.72); transform-origin: top right; }
+
+    /* WPN-Zeile ist redundant zur Inventar-Leiste -> auf dem Handy ausblenden */
+    #weapon-display { display: none; }
+
+    /* Inventar kompakter, knapp über dem unteren Rand zwischen den Pads */
+    #hud-inventory {
+        bottom: 8px;
+        transform: translateX(-50%) scale(0.7);
+        transform-origin: bottom center;
     }
 
-        #zoom-controls {
-        top: 70px !important;
-        transform: translateX(-50%) scale(1.1) !important;
+    /* Zoom/Pause klein oben mittig (zwischen HP links und Score rechts) */
+    #zoom-controls {
+        top: 6px !important;
+        transform: translateX(-50%) scale(0.8) !important;
+        gap: 10px !important;
     }
 
-        /* MASSIVE BUTTONS FOR MOBILE */
-    #dpad {
-        width: 180px !important;
-        height: 180px !important;
-    }
-    #action-pad {
-        width: 180px !important;
-        height: 180px !important;
-    }
-    .action-btn {
-        width: 70px !important;
-        height: 70px !important;
-        font-size: 2.2rem !important;
-    }
-    .dpad-btn {
-        border-width: 6px !important;
-    }
+    /* Touch-Pads: groß & gut erreichbar, dezent transparent */
+    #dpad { width: 170px !important; height: 170px !important; bottom: 14px !important; left: 14px !important; opacity: 0.7; }
+    #action-pad { width: 170px !important; height: 170px !important; bottom: 14px !important; right: 14px !important; opacity: 0.8; }
+    .action-btn { width: 66px !important; height: 66px !important; font-size: 2rem !important; }
+    .dpad-btn { border-width: 6px !important; }
 }
 
-@media (min-width: 951px) {
-    #mobile-controls { display: none !important; }
-}
