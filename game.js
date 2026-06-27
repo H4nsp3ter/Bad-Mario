@@ -22,8 +22,10 @@ class Game {
         this.lastTime = 0; 
         this.camera = { x: 0, y: 0 }; 
         this.levelGen = new LevelGenerator();
-        this.player = null; 
-        this.projectiles = []; 
+        this.player = null;
+        this.projectiles = [];
+        this.railBeams = [];        // leuchtende Railgun-Spuren (verblassen über ein paar Sekunden)
+        this.customMode = false; this.testFromEditor = false; this.customLevelData = null;   // Editor-Level
         this.bgLayers = [];
         this.shakeMag = 0; 
         this.shakeTime = 0; 
@@ -238,7 +240,9 @@ class Game {
             try {
                 this.requestFullScreen();
             } catch (e) {}
-            
+
+            this.customMode = false; this.testFromEditor = false;   // normaler Modus (kein Editor-Level)
+            document.body.classList.remove('editor-testing');
             this.audio.init();
             this.startPlay(this.level, diff);
         };
@@ -303,6 +307,7 @@ class Game {
                 else if (this.state === 'MENU') launchWithDiff('regular'); 
             }
             if (e.code === 'Escape') {
+                if (this.customMode && this.testFromEditor) { this.finishCustom(false); return; } // Test abbrechen -> Editor
                 if (this.state === 'PLAYING') this.state = 'PAUSED';
                 else if (this.state === 'PAUSED') this.state = 'PLAYING';
             }
@@ -397,9 +402,13 @@ class Game {
         const wasted = document.querySelector('.wasted-text'); if (wasted) wasted.innerText = 'WASTED';
 
         this.levelGen.classicMode = this.classicMode;
+        // Custom/Editor-Flags an den LevelGenerator durchreichen (playCustomLevel setzt sie danach ggf. wieder)
+        this.levelGen.customMode = this.customMode;
+        this.levelGen.customData = this.customMode ? this.customLevelData : null;
         this.levelGen.currentGeneratedLevel = -1; // erzwingt sauberen (Neu-)Aufbau im ersten update()
         this.levelGen.init(0, 500);
         this.projectiles = [];
+        this.railBeams = [];
         this.particles.particles = [];
         this.screenBlood = [];
         this.combo = 0;
@@ -411,8 +420,48 @@ class Game {
         this.audio.audioTheme = this.audioMode;
         this.audio.startBGM();
         this.transitionTimer = 3.0;
-        this.levelFlashTimer = 0; 
+        this.levelFlashTimer = 0;
         this.lastTime = performance.now();
+    }
+
+    // Editor-Level spielen (Test aus dem Editor: fromEditor=true; aus "Meine Levels": false)
+    playCustomLevel(data, fromEditor) {
+        try { this.requestFullScreen(); } catch (e) {}
+        this.audio.init();
+        this.customLevelData = data;
+        this.customMode = true;
+        this.testFromEditor = !!fromEditor;
+        const isClassic = !!data.classic;
+        this.classicMode = isClassic;
+        data.spriteLevel = isClassic ? 1 : ((data.storyTheme || 1) * 2 - 1);
+        const lvl = isClassic ? 1 : data.spriteLevel;
+        this.difficulty = data.difficulty || this.difficulty || 'regular';
+        this.startPlay(lvl, this.difficulty);     // baut via buildCustom (customMode ist gesetzt)
+        if (data.start) {
+            this.player.x = data.start.x;
+            this.player.y = data.start.y - this.player.h;
+            this.player.vx = 0; this.player.vy = 0;
+        }
+        this.camera.x = Math.max(0, this.player.x - this.logicalWidth * 0.4);
+        document.body.classList.add('editor-testing');
+    }
+
+    // Custom-Test/-Level beenden -> zurück in den Editor (falls von dort gestartet) oder ins Menü
+    finishCustom(won) {
+        const toEditor = this.testFromEditor;
+        this.customMode = false; this.testFromEditor = false;
+        this.levelGen.customMode = false; this.levelGen.customData = null;
+        this.levelGen.currentGeneratedLevel = -99;
+        document.body.classList.remove('editor-testing');
+        if (this.audio.stopBGM) this.audio.stopBGM();
+        this.state = 'MENU';
+        if (toEditor && window.levelEditor) {
+            window.levelEditor.open(won ? 'Level geschafft!' : null);
+        } else {
+            if (this.ui.menuOverlay) this.ui.menuOverlay.classList.remove('hidden');
+            const sp = document.getElementById('start-screen-prompt'); if (sp) sp.classList.remove('hidden');
+            if (this.ui.mobileControls) this.ui.mobileControls.classList.add('hidden');
+        }
     }
 
     continueGame() {
@@ -436,8 +485,9 @@ class Game {
 
         this.camera.x = 0; 
         this.camera.y = 0; 
-        this.deathY = 2000; 
+        this.deathY = 2000;
         this.projectiles = [];
+        this.railBeams = [];
         this.screenBlood = [];
         
         this.particles.spawnExplosion(this.player.x, this.player.y, this); 
@@ -497,6 +547,7 @@ class Game {
         this.triggerShake(80, 2.5);
         this.audio.playExplosion();
         this.player.score += 5000;
+        if (this.customMode) { this.finishCustom(true); return; }   // Editor-Level: Boss besiegt = geschafft
         this.advanceLevel();
     }
 
@@ -526,7 +577,7 @@ class Game {
             if (this.classicMode) {
                 this.player.x = 100; this.player.y = 200; this.player.vx = 0; this.player.vy = 0;
                 this.camera.x = 0; this.camera.y = 0; this.deathY = 2000;
-                this.projectiles = [];
+                this.projectiles = []; this.railBeams = [];
             }
             // Level wird automatisch neu generiert (LevelGenerator erkennt den Levelwechsel)
         } else {
@@ -546,6 +597,9 @@ class Game {
     }
 
     triggerGameOver() {
+        // Editor-Level (Test oder "Meine Levels"): kein normaler Game-Over-Restart,
+        // sondern zurück in den Editor bzw. ins Menü.
+        if (this.customMode) { this.finishCustom(false); return; }
         this.state = 'GAMEOVER';
         this.audio.stopBGM();
         
@@ -722,11 +776,12 @@ class Game {
             }
         }
         
-        // Level-Ende auf Nicht-Boss-Leveln: Ziel-Flagge erreicht -> nächstes Level
+        // Level-Ende auf Nicht-Boss-Leveln: Ziel-Flagge erreicht -> nächstes Level (bzw. Editor-Ende)
         if (this.levelGen.goalX != null && this.player.x > this.levelGen.goalX) {
             this.levelGen.goalX = null;
             this.audio.playPickup(true);
-            this.advanceLevel();
+            if (this.customMode) this.finishCustom(true);
+            else this.advanceLevel();
         }
 
         for (let i = this.levelGen.items.length - 1; i >= 0; i--) {
@@ -783,11 +838,15 @@ class Game {
                     else if (item.type === 'SHOTGUN') ammoAmount = 15; 
                     else if (item.type === 'ASSAULT_RIFLE') ammoAmount = 60; 
                     else if (item.type === 'MINIGUN') ammoAmount = 150; 
-                    else if (item.type === 'GRENADE' || item.type === 'MOLOTOV') ammoAmount = 5; 
+                    else if (item.type === 'GRENADE' || item.type === 'MOLOTOV') ammoAmount = 5;
                     else if (item.type === 'FLAMETHROWER') ammoAmount = 150;
+                    else if (item.type === 'ALIEN_LASER') ammoAmount = 80;
+                    else if (item.type === 'RAILGUN') ammoAmount = 8;
                     
                     this.player.inventory[item.type] += ammoAmount;
-                    this.player.weapon = item.type; 
+                    // Aktuelle Waffe in der Hand behalten — nur Munition auffüllen.
+                    // Nur automatisch wechseln, wenn man bisher bloß die Fäuste/den Schläger (BAT) trägt.
+                    if (this.player.weapon === 'BAT') this.player.weapon = item.type;
                 }
                 this.updateHUD(); 
                 this.levelGen.items.splice(i, 1);
@@ -878,14 +937,20 @@ class Game {
                 }
             }
             
-            if (hit) { 
+            if (hit) {
                 if ((proj.type === 'ROCKET' && !proj.isEnemy) || proj.type === 'GRENADE') {
-                    this.particles.spawnExplosion(proj.x, proj.y, this); 
+                    this.particles.spawnExplosion(proj.x, proj.y, this);
                 }
-                this.projectiles.splice(i, 1); 
+                this.projectiles.splice(i, 1);
             }
         }
-        
+
+        // Railgun-Spuren verblassen über ein paar Sekunden
+        for (let i = this.railBeams.length - 1; i >= 0; i--) {
+            this.railBeams[i].life -= dt;
+            if (this.railBeams[i].life <= 0) this.railBeams.splice(i, 1);
+        }
+
         for (let i = this.levelGen.enemies.length - 1; i >= 0; i--) {
             let enemy = this.levelGen.enemies[i];
             if (enemy.dead) { 
@@ -947,7 +1012,11 @@ class Game {
             enemy.update(dt, this);
 
             if (!enemy.dead && this.player.checkCollision(enemy)) {
-                const aboveNow = this.player.vy > 0 && (this.player.y + this.player.h - this.player.vy * dt) < enemy.y + enemy.h * 0.5;
+                // Stampfer großzügig erkennen: Spieler fällt UND seine Füße sind im oberen Bereich
+                // des Gegners. Die alte (zu strenge) Prüfung ließ echte Sprünge durchrutschen, sodass
+                // man in den "seitlicher Treffer"-Zweig fiel und grundlos Schaden kassierte
+                // (Phantomschaden) — auch beim Landen auf Koopa-Panzern.
+                const aboveNow = this.player.vy > 0 && (this.player.y + this.player.h) <= enemy.y + enemy.h * 0.6;
                 if (this.player.isStar) {
                     enemy.takeDamage(1000, this, 'FLAME');
                 } else if (enemy.isShellAny && enemy.isShellAny()) {           // Koopa-Panzer
@@ -969,6 +1038,28 @@ class Game {
             if (typeof this.player.die === 'function') this.player.die(this); 
             this.triggerGameOver(); 
         }
+    }
+
+    // Railgun-Spuren: helle, verblassende Linie quer durchs Bild
+    drawRailBeams() {
+        if (!this.railBeams.length) return;
+        const ctx = this.ctx;
+        ctx.save();
+        ctx.globalCompositeOperation = 'lighter';
+        for (const b of this.railBeams) {
+            const a = Math.max(0, b.life / b.maxLife);
+            const x1 = b.x1 - this.camera.x, y1 = b.y1 - this.camera.y;
+            const x2 = b.x2 - this.camera.x, y2 = b.y2 - this.camera.y;
+            ctx.globalAlpha = a;
+            ctx.shadowBlur = 24; ctx.shadowColor = '#66ffff';
+            ctx.strokeStyle = '#66ffff'; ctx.lineWidth = 9 * a + 1;
+            ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+            ctx.shadowBlur = 0;
+            ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 3 * a + 0.5;
+            ctx.beginPath(); ctx.moveTo(x1, y1); ctx.lineTo(x2, y2); ctx.stroke();
+        }
+        ctx.restore();
+        ctx.globalAlpha = 1;
     }
 
     drawBackground(levelData) {
@@ -1133,7 +1224,8 @@ class Game {
         for (let i = 0; i < this.levelGen.items.length; i++) { const it = this.levelGen.items[i]; if (vis(it, 60)) it.draw(this.ctx, this.camera.x, this.camera.y); }
         for (let i = 0; i < this.levelGen.enemies.length; i++) { const e = this.levelGen.enemies[i]; if (vis(e, 120)) e.draw(this.ctx, this.camera.x, this.camera.y); }
         for (let i = 0; i < this.projectiles.length; i++) { const pr = this.projectiles[i]; if (vis(pr, 60)) pr.draw(this.ctx, this.camera.x, this.camera.y); }
-        
+        this.drawRailBeams();
+
         if (this.player) {
             this.player.draw(this.ctx, this.camera.x, this.camera.y);   // Star-Effekt jetzt günstig per Farb-Flash in drawMarioBody
         }

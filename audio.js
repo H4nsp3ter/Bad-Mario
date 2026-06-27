@@ -94,7 +94,7 @@ class AudioManager {
     }
 
     // Einmaliges Sample (Schuss, Explosion, Brüllen ...)
-    playSfx(name, volume = 1, rate = 1, throttle = 0) {
+    playSfx(name, volume = 1, rate = 1, throttle = 0, maxDur = 0) {
         if (!this.ctx || this.isMuted) return;
         const buf = this.sfxBuffers[name];
         if (!buf) return;
@@ -108,6 +108,15 @@ class AudioManager {
         const g = this.ctx.createGain(); g.gain.value = volume;
         src.connect(g).connect(this.masterGain);
         src.start(now);
+        // maxDur > 0: Sample hart begrenzen (z.B. Schrei auf 1s) mit kurzem Ausblenden gegen Knackser
+        if (maxDur > 0) {
+            const fade = Math.min(0.08, maxDur * 0.5);
+            try {
+                g.gain.setValueAtTime(volume, now + maxDur - fade);
+                g.gain.linearRampToValueAtTime(0.0001, now + maxDur);
+                src.stop(now + maxDur);
+            } catch (e) {}
+        }
         src.onended = () => { try { src.disconnect(); g.disconnect(); } catch(e){} };
         return src;
     }
@@ -166,7 +175,51 @@ class AudioManager {
 
     // Schmerzensschrei, wenn der Held getroffen wird
     playPainScream() {
-        if (this.sfxBuffers && this.sfxBuffers['SFX_PAIN']) this.playSfx('SFX_PAIN', 1.0, 0.95 + Math.random() * 0.1, 0.4);
+        if (this.sfxBuffers && this.sfxBuffers['SFX_PAIN']) this.playSfx('SFX_PAIN', 1.0, 0.95 + Math.random() * 0.1, 0.4, 1.0); // Schrei auf max. 1s begrenzt
+    }
+
+    // --- NEUE WAFFEN-SOUNDS (synthetisiert) ---
+    playLaser() {                        // Alien-Laser: greller, fallender Säge-Zap
+        if (!this.ctx || this.isMuted) return;
+        const now = this.ctx.currentTime;
+        const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+        o.type = 'sawtooth';
+        o.frequency.setValueAtTime(1500 * (0.95 + Math.random() * 0.1), now);
+        o.frequency.exponentialRampToValueAtTime(430, now + 0.16);
+        g.gain.setValueAtTime(0.0001, now);
+        g.gain.exponentialRampToValueAtTime(0.45, now + 0.01);
+        g.gain.exponentialRampToValueAtTime(0.0001, now + 0.18);
+        o.connect(g).connect(this.masterGain);
+        o.start(now); o.stop(now + 0.2);
+    }
+    playRailCharge(dur = 0.8) {          // ansteigendes Aufladen
+        if (!this.ctx || this.isMuted) return;
+        const now = this.ctx.currentTime;
+        const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+        o.type = 'triangle';
+        o.frequency.setValueAtTime(120, now);
+        o.frequency.exponentialRampToValueAtTime(1700, now + dur);
+        g.gain.setValueAtTime(0.0001, now);
+        g.gain.exponentialRampToValueAtTime(0.32, now + dur * 0.75);
+        g.gain.exponentialRampToValueAtTime(0.0001, now + dur + 0.05);
+        o.connect(g).connect(this.masterGain);
+        o.start(now); o.stop(now + dur + 0.1);
+    }
+    playRailgun() {                      // Entladung: Rausch-Burst + tiefer Boom
+        if (!this.ctx || this.isMuted) return;
+        const now = this.ctx.currentTime;
+        const noise = this.ctx.createBufferSource();
+        const buf = this.ctx.createBuffer(1, Math.floor(this.ctx.sampleRate * 0.4), this.ctx.sampleRate);
+        const d = buf.getChannelData(0);
+        for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / d.length, 2);
+        noise.buffer = buf;
+        const ng = this.ctx.createGain(); ng.gain.value = 0.5;
+        const bp = this.ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = 1800; bp.Q.value = 0.6;
+        noise.connect(bp).connect(ng).connect(this.masterGain); noise.start(now);
+        const o = this.ctx.createOscillator(), og = this.ctx.createGain();
+        o.type = 'sine'; o.frequency.setValueAtTime(230, now); o.frequency.exponentialRampToValueAtTime(40, now + 0.3);
+        og.gain.setValueAtTime(0.6, now); og.gain.exponentialRampToValueAtTime(0.0001, now + 0.35);
+        o.connect(og).connect(this.masterGain); o.start(now); o.stop(now + 0.4);
     }
 
     makeDistortionCurve(amount) {
@@ -198,6 +251,7 @@ class AudioManager {
         if (!this.ctx || this.isMuted) return;
         const r = () => 0.95 + Math.random() * 0.1; // minimale Tonhöhen-Variation gegen "Maschinengewehr-Klone"
         switch (weaponType) {
+            case 'ALIEN_LASER':   this.playLaser(); break;
             case 'PISTOL':        this.playSfx('SFX_PISTOL', 0.9, r()); break;
             case 'SHOTGUN':       this.playSfx('SFX_SHOTGUN', 1.0, r()); break;
             case 'ROCKET':        this.playSfx('SFX_ROCKET', 1.0, 1.0); break;

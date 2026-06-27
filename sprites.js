@@ -676,6 +676,25 @@ class SpriteGenerator {
                     ctx.shadowColor = '#ff8a18'; ctx.fillStyle = '#ffd23a';
                     ctx.beginPath(); ctx.moveTo(-24, 34); ctx.lineTo(-17, 56); ctx.lineTo(-10, 34); ctx.fill();
                     ctx.beginPath(); ctx.moveTo(10, 34);  ctx.lineTo(17, 56);  ctx.lineTo(24, 34);  ctx.fill();
+                } else if (variant === 'RAILGUN') {
+                    // Railgun: langer Lauf mit leuchtenden Energiespulen
+                    ctx.shadowBlur = 26; ctx.shadowColor = '#33ccff';
+                    ctx.fillStyle = '#23262e'; ctx.fillRect(-50, -12, 96, 24);          // Lauf
+                    ctx.fillStyle = '#33373f'; ctx.fillRect(-50, -12, 96, 4);
+                    ctx.fillStyle = '#0c0d11'; ctx.fillRect(-56, -16, 14, 32);          // Receiver
+                    ctx.fillStyle = '#19b0dc';                                          // Spulen
+                    for (let cx = -34; cx <= 34; cx += 16) ctx.fillRect(cx, -16, 6, 32);
+                    ctx.shadowColor = '#7ff'; ctx.fillStyle = '#bff'; ctx.beginPath(); ctx.arc(48, 0, 9, 0, Math.PI*2); ctx.fill(); // Mündungsglühen
+                    ctx.fillStyle = '#16161a'; ctx.fillRect(-18, 12, 14, 18);           // Griff
+                } else if (variant === 'ALIEN_LASER') {
+                    // Alien-Laser: organischer Korpus in Giftgrün
+                    ctx.shadowBlur = 28; ctx.shadowColor = '#5dff3a';
+                    ctx.fillStyle = '#1b3a1b'; ctx.beginPath(); ctx.ellipse(-12, 0, 34, 18, 0, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#2f7a2f'; ctx.beginPath(); ctx.ellipse(-18, -5, 16, 8, 0, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#0e240e'; ctx.fillRect(14, -9, 46, 18);            // Emitter
+                    ctx.fillStyle = '#173f17'; ctx.fillRect(14, -9, 46, 3);
+                    ctx.fillStyle = '#7dff5a'; ctx.beginPath(); ctx.arc(62, 0, 9, 0, Math.PI*2); ctx.fill(); // glühende Mündung
+                    ctx.fillStyle = '#caffb0'; for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(-22 + i*11, 0, 4, 0, Math.PI*2); ctx.fill(); }
                 } else {
                     ctx.shadowBlur = 30; ctx.shadowColor = '#FFF'; ctx.fillStyle = '#222';
                     ctx.fillRect(-45, -30, 90, 60); // Breiterer Koffer
@@ -712,7 +731,7 @@ const Assets = {
         this.playerWalk = SpriteGenerator.generate('PLAYER', 'NORMAL');
         this.playerStar = SpriteGenerator.generate('PLAYER', 'SKELETON'); 
         
-        ['HEART', 'STAR', 'BOOSTER', 'JETPACK', 'MOLOTOV', 'BEER', 'LIQUOR', 'PISTOL', 'UZI', 'SHOTGUN', 'ASSAULT_RIFLE', 'MINIGUN', 'ROCKET', 'FLAMETHROWER', 'GRENADE', 'KNIFE', 'AXE', 'CHAINSAW'].forEach(type => {
+        ['HEART', 'STAR', 'BOOSTER', 'JETPACK', 'MOLOTOV', 'BEER', 'LIQUOR', 'PISTOL', 'UZI', 'SHOTGUN', 'ASSAULT_RIFLE', 'MINIGUN', 'ROCKET', 'FLAMETHROWER', 'GRENADE', 'KNIFE', 'AXE', 'CHAINSAW', 'RAILGUN', 'ALIEN_LASER'].forEach(type => {
             this.items[type] = SpriteGenerator.generate('ITEM', type);
         });
 

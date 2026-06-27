@@ -1,3 +1,27 @@
+// Mündungsgeschwindigkeit je Waffe (px/s). Jede Waffe feuert spürbar anders schnell;
+// der Raketenwerfer fliegt bewusst langsam, Alien-Laser flott, die Railgun quasi instant.
+const WEAPON_MUZZLE_SPEED = {
+    PISTOL: 1500, UZI: 1600, SHOTGUN: 1300, ASSAULT_RIFLE: 1850, MINIGUN: 2200,
+    ROCKET: 520, GRENADE: 1200, MOLOTOV: 1200, FLAMETHROWER: 760,
+    ALIEN_LASER: 2600, RAILGUN: 9000
+};
+const RAIL_CHARGE_TIME = 0.8;   // Sekunden Aufladen, bevor sich der Railgun-Schuss löst
+
+// Strecken-gegen-AABB-Schnitt (Liang–Barsky) — für den durchschlagenden Railgun-Strahl
+function segIntersectsAABB(x1, y1, x2, y2, bx, by, bw, bh) {
+    let t0 = 0, t1 = 1; const dx = x2 - x1, dy = y2 - y1;
+    const p = [-dx, dx, -dy, dy], q = [x1 - bx, bx + bw - x1, y1 - by, by + bh - y1];
+    for (let i = 0; i < 4; i++) {
+        if (p[i] === 0) { if (q[i] < 0) return false; }
+        else {
+            const r = q[i] / p[i];
+            if (p[i] < 0) { if (r > t1) return false; if (r > t0) t0 = r; }
+            else { if (r < t0) return false; if (r < t1) t1 = r; }
+        }
+    }
+    return true;
+}
+
 class Player extends Entity {
     constructor(x, y, charKey) {
         super(x, y, 80, 140);
@@ -12,6 +36,7 @@ class Player extends Entity {
         
         this.weapon = 'BAT';
         this.inventory = { 'BAT': Infinity };
+        this.railCharge = 0;            // Railgun-Ladezustand (0..RAIL_CHARGE_TIME)
         this.score = 0; this.coins = 0;
 
         this.flashTimer = 0; this.lastSafePlatform = null; this.animTimer = 0;
@@ -202,7 +227,19 @@ class Player extends Entity {
         const firePressed = semiAuto
             ? (input.isJustPressed('KeyF') || input.isJustPressed('MouseLeft'))
             : (input.isDown('KeyF') || input.isDown('MouseLeft'));
-        if (firePressed && this.shootCooldown <= 0) this.fireWeapon(game, input);
+        if (this.weapon === 'RAILGUN') {
+            // RAILGUN: erst aufladen (Taste halten), dann löst sich der durchschlagende Schuss
+            const holding = input.isDown('KeyF') || input.isDown('MouseLeft');
+            if (holding && this.ammo > 0 && this.shootCooldown <= 0) {
+                if (this.railCharge === 0 && game.audio.playRailCharge) game.audio.playRailCharge(RAIL_CHARGE_TIME);
+                this.railCharge += dt;
+                const mx = this.facingRight ? this.x + this.w + 24 : this.x - 24;       // Funken am Lauf beim Laden
+                if (Math.random() > 0.35) game.particles.spawn(mx + (Math.random()-0.5)*30, this.y + this.h*0.24 + (Math.random()-0.5)*30, '#9ff', 1, 140, 0.25, true);
+                if (this.railCharge >= RAIL_CHARGE_TIME) { this.fireRailgun(game, input); this.railCharge = 0; }
+            } else {
+                this.railCharge = 0;
+            }
+        } else if (firePressed && this.shootCooldown <= 0) this.fireWeapon(game, input);
         if (input.isJustPressed('KeyQ')) {
             const weaponsList = Object.keys(this.inventory);
             if (weaponsList.length > 1) {
@@ -246,7 +283,7 @@ class Player extends Entity {
         let py = this.y + this.h * (this.isCrouching ? 0.28 : 0.20); // Schulterhöhe, proportional zur Spielergröße
         let px = this.facingRight ? this.x + this.w + 10 : this.x - 30;
         let vx = 0, vy = 0;
-        let speed = 1200;
+        let speed = WEAPON_MUZZLE_SPEED[this.weapon] || 1200;   // je Waffe eigene Geschossgeschwindigkeit
         let up = input && (input.isDown('KeyW') || input.isDown('ArrowUp'));
         let down = input && (input.isDown('KeyS') || input.isDown('ArrowDown'));
         let right = input && (input.isDown('KeyD') || input.isDown('ArrowRight'));
@@ -313,12 +350,17 @@ class Player extends Entity {
                     this.shootCooldown = 0.85; this.inventory[this.weapon]--; game.triggerShake(25, 0.3); pushback = 250; spawnShells(2);
                 } else if (this.weapon === 'ASSAULT_RIFLE') {
                     // Sturmgewehr: ~670 RPM, leichtes Streuen
-                    game.triggerShake(8, 0.05); game.projectiles.push(new Projectile(px, py, vx * 1.5 + (Math.random() - 0.5)*80, vy * 1.5 + (Math.random() - 0.5)*80, false, 'PISTOL')); this.shootCooldown = 0.09; this.inventory[this.weapon]--; pushback = 40; spawnShells(1);
+                    game.triggerShake(8, 0.05); game.projectiles.push(new Projectile(px, py, vx + (Math.random() - 0.5)*80, vy + (Math.random() - 0.5)*80, false, 'PISTOL')); this.shootCooldown = 0.09; this.inventory[this.weapon]--; pushback = 40; spawnShells(1);
                 } else if (this.weapon === 'MINIGUN') {
                     game.triggerShake(15, 0.1);
-                    game.projectiles.push(new Projectile(px + (Math.random()-0.5)*20, py + (Math.random()-0.5)*20, vx * 1.8 + (Math.random() - 0.5) * 200, vy * 1.8 + (Math.random() - 0.5) * 200, false, 'PISTOL'));
+                    game.projectiles.push(new Projectile(px + (Math.random()-0.5)*20, py + (Math.random()-0.5)*20, vx + (Math.random() - 0.5) * 200, vy + (Math.random() - 0.5) * 200, false, 'PISTOL'));
                     game.particles.spawn(px, py, '#FFAA00', 3, 400, 0.1, true); game.particles.spawn(this.x + this.w/2, this.y + this.h/2, '#FFFF00', 1, 300, 0.5);
                     this.shootCooldown = 0.02; this.inventory[this.weapon]--; pushback = 20; spawnShells(1);
+                } else if (this.weapon === 'ALIEN_LASER') {
+                    // Alien-Laser: grüner Energiebolzen, setzt getroffene Gegner in Flammen (proj 'LASER')
+                    game.triggerShake(4, 0.04);
+                    game.projectiles.push(new Projectile(px, py, vx, vy, false, 'LASER'));
+                    this.shootCooldown = 0.16; this.inventory[this.weapon]--;
                 } else if (this.weapon === 'GRENADE') {
                     game.projectiles.push(new Projectile(px, py - 20, vx * 0.6, vy ? vy * 0.8 : -600, false, 'GRENADE', true)); this.shootCooldown = 1.0; this.inventory[this.weapon]--;
                 }
@@ -328,7 +370,39 @@ class Player extends Entity {
         }
         game.updateHUD();
     }
-    
+
+    // RAILGUN: instantaner Strahl, der ALLES durchschlägt (Wände + Gegner) und eine
+    // leuchtende Spur in der Luft hinterlässt. Das Projektil ist zu schnell, um es zu sehen.
+    fireRailgun(game, input) {
+        const dirX = this.facingRight ? 1 : -1;
+        const up = input && (input.isDown('KeyW') || input.isDown('ArrowUp'));
+        const down = input && (input.isDown('KeyS') || input.isDown('ArrowDown'));
+        const right = input && (input.isDown('KeyD') || input.isDown('ArrowRight'));
+        const left = input && (input.isDown('KeyA') || input.isDown('ArrowLeft'));
+        let dx = dirX, dy = 0;
+        if ((up || down) && (right || left)) { dx = (right ? 1 : -1) * 0.7071; dy = (up ? -1 : 1) * 0.7071; }
+        else if (up) { dx = 0; dy = -1; }
+        else if (down && !this.grounded) { dx = 0; dy = 1; }
+
+        const px = this.facingRight ? this.x + this.w : this.x;
+        const py = this.y + this.h * 0.22;
+        const len = 7000;
+        const x2 = px + dx * len, y2 = py + dy * len;
+
+        // Trefferlinie geht durch alle Gegner hindurch (kein Stopp an Wänden)
+        for (const e of game.levelGen.enemies) {
+            if (e.dead) continue;
+            if (segIntersectsAABB(px, py, x2, y2, e.x, e.y, e.w, e.h)) e.takeDamage(300, game, 'ROCKET');
+        }
+        game.railBeams.push({ x1: px, y1: py, x2, y2, life: 2.5, maxLife: 2.5 });
+        game.triggerShake(30, 0.5);
+        this.flashTimer = 0.12;
+        if (game.audio.playRailgun) game.audio.playRailgun();
+        this.inventory[this.weapon]--; this.shootCooldown = 0.5;
+        if (this.inventory[this.weapon] <= 0) { delete this.inventory[this.weapon]; this.weapon = 'BAT'; }
+        game.updateHUD();
+    }
+
     handleCollisions(platforms, axis, dt, game) {
         for (let p of platforms) {
             if (p.isCrumbling && this.checkCollision(p) && axis === 'y' && this.vy >= 0) p.touched = true; 
@@ -604,6 +678,7 @@ class Player extends Entity {
         else if (this.weapon === 'CHAINSAW') maxCd = 0.08; else if (this.weapon === 'SHOTGUN') maxCd = 0.8; else if (this.weapon === 'ASSAULT_RIFLE') maxCd = 0.08;
         else if (this.weapon === 'MINIGUN') maxCd = 0.02; else if (this.weapon === 'GRENADE') maxCd = 1.0;
         else if (this.weapon === 'FLAMETHROWER') maxCd = 0.04;
+        else if (this.weapon === 'ALIEN_LASER') maxCd = 0.16; else if (this.weapon === 'RAILGUN') maxCd = 0.5;
 
         let progress = Math.max(0, Math.min(1, this.shootCooldown > 0 ? this.shootCooldown / maxCd : 0));
         let isMelee = ['KNIFE', 'AXE', 'BAT', 'CHAINSAW'].includes(this.weapon);
@@ -909,12 +984,38 @@ class Player extends Entity {
                 ctx.fillStyle = '#444'; ctx.fillRect(-6, -2, 12, 13);           // Griff/Ventil
                 ctx.strokeStyle = '#555'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(-8, 9); ctx.quadraticCurveTo(2, 18, 6, 5); ctx.stroke(); // Schlauch
                 ctx.fillStyle = '#FA0'; ctx.beginPath(); ctx.arc(66, 0, 4, 0, Math.PI*2); ctx.fill(); // Zündflamme
+            } else if (this.weapon === 'RAILGUN') {
+                // --- Railgun: massiver Lauf mit Spulen + Lade-Glühen an der Mündung ---
+                ctx.fillStyle = '#23262e'; ctx.fillRect(-34, -10, 96, 20);        // langer Lauf
+                ctx.fillStyle = '#33373f'; ctx.fillRect(-34, -10, 96, 3);         // Highlight oben
+                ctx.fillStyle = '#0c0d11'; ctx.fillRect(-40, -13, 14, 26);        // Receiver hinten
+                ctx.fillStyle = '#11a0c8';                                        // Energiespulen
+                for (let cx = -22; cx <= 40; cx += 16) ctx.fillRect(cx, -13, 6, 26);
+                ctx.fillStyle = '#1a1c22'; ctx.fillRect(-10, 8, 12, 14);          // Griff
+                const ch = Math.min(1, this.railCharge / RAIL_CHARGE_TIME);
+                if (ch > 0) {                                                     // Lade-Glühen wächst an der Mündung
+                    ctx.globalCompositeOperation = 'lighter';
+                    ctx.fillStyle = '#7ff'; ctx.beginPath(); ctx.arc(62, 0, 4 + ch * 16, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(62, 0, 2 + ch * 7, 0, Math.PI*2); ctx.fill();
+                    ctx.globalCompositeOperation = 'source-over';
+                }
+            } else if (this.weapon === 'ALIEN_LASER') {
+                // --- Alien-Laser: organisch-glänzende Bio-Waffe in giftgrün ---
+                ctx.fillStyle = '#1b3a1b'; ctx.beginPath(); ctx.ellipse(-6, 0, 26, 12, 0, 0, Math.PI*2); ctx.fill(); // Korpus
+                ctx.fillStyle = '#2f7a2f'; ctx.beginPath(); ctx.ellipse(-10, -3, 12, 6, 0, 0, Math.PI*2); ctx.fill(); // Highlight
+                ctx.fillStyle = '#0e240e'; ctx.fillRect(14, -6, 40, 12);          // Emitter-Rohr
+                ctx.fillStyle = '#173f17'; ctx.fillRect(14, -6, 40, 2);
+                ctx.globalCompositeOperation = 'lighter';
+                ctx.fillStyle = '#7dff5a'; ctx.beginPath(); ctx.arc(56, 0, 6 + Math.random()*2, 0, Math.PI*2); ctx.fill(); // glühende Mündung
+                ctx.fillStyle = '#caffb0'; for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(-12 + i*10, 0, 3, 0, Math.PI*2); ctx.fill(); } // Energiezellen
+                ctx.globalCompositeOperation = 'source-over';
+                ctx.fillStyle = '#16161a'; ctx.fillRect(-12, 6, 11, 14);          // Griff
             }
 
 
             if (this.flashTimer > 0 && this.weapon !== 'GRENADE') { 
                 ctx.fillStyle = '#FFFF00'; 
-                let flashX = ['ROCKET', 'MINIGUN', 'ASSAULT_RIFLE', 'FLAMETHROWER', 'SHOTGUN'].includes(this.weapon) ? 70 : 35;
+                let flashX = ['ROCKET', 'MINIGUN', 'ASSAULT_RIFLE', 'FLAMETHROWER', 'SHOTGUN', 'RAILGUN', 'ALIEN_LASER'].includes(this.weapon) ? 70 : 35;
                 ctx.beginPath(); ctx.arc(flashX, -2, 20 + Math.random()*25, 0, Math.PI*2); ctx.fill(); 
             }
         }

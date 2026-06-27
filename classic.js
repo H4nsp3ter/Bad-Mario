@@ -225,7 +225,7 @@ LevelGenerator.prototype.eBrickRow = function(tx, row, pattern, world) {
 
 // Waffen-/Power-up-Auswahl, gewichtet nach Welt — sorgt für Abwechslung
 const C_WEAPONS_EARLY = ['PISTOL', 'SHOTGUN', 'UZI', 'GRENADE', 'MOLOTOV', 'AXE', 'KNIFE', 'BAT'];
-const C_WEAPONS_LATE  = ['ASSAULT_RIFLE', 'MINIGUN', 'ROCKET', 'FLAMETHROWER', 'CHAINSAW', 'SHOTGUN', 'UZI', 'GRENADE'];
+const C_WEAPONS_LATE  = ['ASSAULT_RIFLE', 'MINIGUN', 'ROCKET', 'FLAMETHROWER', 'CHAINSAW', 'SHOTGUN', 'UZI', 'GRENADE', 'ALIEN_LASER', 'RAILGUN'];
 const C_POWERUPS      = ['HEART', 'STAR', 'BOOSTER', 'JETPACK'];
 LevelGenerator.prototype.cWeapon = function(world) {
     if (Math.random() < 0.18) return C_POWERUPS[Math.floor(Math.random() * C_POWERUPS.length)];

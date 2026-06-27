@@ -30,9 +30,9 @@ class Enemy extends Entity {
             game.particles.spawnBlood(this.x + this.w/2, this.y + this.h/2, 30);
         }
 
-        if (projType === 'FLAME' || projType === 'MOLOTOV_FIRE') {
+        if (projType === 'FLAME' || projType === 'MOLOTOV_FIRE' || projType === 'LASER') {
             this.onFire = true;
-            this.fireTimer = 3.0; 
+            this.fireTimer = 3.0;
         }
 
         if (this.enemyType !== 'TANK' && this.enemyType !== 'CRAWLER' && !this.isBoss) {
@@ -805,6 +805,7 @@ class ClassicWalker extends Enemy {
         if (this.dead) return;
         this.hp -= amount;
         this.hurtTimer = 0.2;
+        if (projType === 'FLAME' || projType === 'MOLOTOV_FIRE' || projType === 'LASER') { this.onFire = true; this.fireTimer = 3.0; } // in Flammen aufgehen
         game.particles.spawnBlood(this.x + this.w/2, this.y + this.h/2, amount > 50 ? 35 : 12);
         if (this.hp <= 0) {
             this.dead = true;
@@ -821,6 +822,8 @@ class ClassicWalker extends Enemy {
     update(dt, game) {
         if (!game) return;
         if (this.hurtTimer > 0) this.hurtTimer -= dt;
+        this.updateFire(dt, game);                         // Brand-Schaden + Flammen (Alien-Laser)
+        if (this.dead) return;
         this.animTimer += dt;
 
         if (this.hurtTimer > 0) this.vx *= 0.9;            // Knockback ausgleiten

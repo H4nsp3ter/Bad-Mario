@@ -466,6 +466,7 @@ class Projectile extends Entity {
         if (type === 'ROCKET') { w = 24; h = 12; }
         if (type === 'GORE') { w = 18; h = 18; }
         if (type === 'BULLET') { w = 20; h = 4; }
+        if (type === 'LASER') { w = 30; h = 8; }
         if (type === 'FLAME') { w = 30; h = 30; }
         if (type === 'MOLOTOV') { w = 16; h = 24; isBallistic = true; } 
         if (type === 'MOLOTOV_FIRE') { w = 80; h = 60; } 
@@ -476,7 +477,8 @@ class Projectile extends Entity {
         
         this.color = '#FFF';
         if (this.type === 'GORE') this.color = '#880000';
-        else if (this.type === 'BULLET') this.color = '#FFD700'; 
+        else if (this.type === 'LASER') this.color = '#66ff33';
+        else if (this.type === 'BULLET') this.color = '#FFD700';
         else if (this.type === 'GRENADE') this.color = '#006400';
         else if (this.type === 'FLAME' || this.type === 'MOLOTOV_FIRE') this.color = '#FF6600';
         else if (CONFIG.COLORS) this.color = isEnemy ? CONFIG.COLORS.PROJECTILE_ENEMY : (type === 'ROCKET' ? CONFIG.COLORS.PROJECTILE_ROCKET : CONFIG.COLORS.PROJECTILE_PLAYER);
@@ -550,10 +552,18 @@ class Projectile extends Entity {
             ctx.fillStyle = this.color;
             ctx.fillRect(-this.w/2, -this.h/2, this.w, this.h);   // ohne per-Frame shadowBlur
         }
+        else if (this.type === 'LASER') {
+            ctx.rotate(this.angle);
+            ctx.globalCompositeOperation = 'lighter';             // glühender Alien-Laserbolzen
+            ctx.fillStyle = '#aaffaa'; ctx.fillRect(-this.w/2, -this.h/2 - 3, this.w, this.h + 6);
+            ctx.fillStyle = '#33ff33'; ctx.fillRect(-this.w/2, -this.h/2, this.w, this.h);
+            ctx.fillStyle = '#ffffff'; ctx.fillRect(-this.w/2, -2, this.w, 4);
+            ctx.globalCompositeOperation = 'source-over';
+        }
         else if (this.type === 'MOLOTOV') {
             ctx.rotate(this.angle);
-            ctx.fillStyle = '#004400'; ctx.fillRect(-6, -10, 12, 20); 
-            ctx.fillStyle = '#FFF'; ctx.fillRect(-4, -15, 8, 5); 
+            ctx.fillStyle = '#004400'; ctx.fillRect(-6, -10, 12, 20);
+            ctx.fillStyle = '#FFF'; ctx.fillRect(-4, -15, 8, 5);
         }
         else {
             ctx.fillStyle = this.color;

@@ -4,6 +4,7 @@ class LevelGenerator {
         this.cursorX = 0; this.baseY = 600; this.levelPlan = []; this.bossSpawned = false; this.currentGeneratedLevel = 1; this.goalX = null;
         this.classicMode = false; this._lastClassic = false; this.castleX = null;
         this.waterY = null;     // Wasseroberfläche (null = kein Wasser)
+        this.customMode = false; this._lastCustom = false; this.customData = null;  // Editor-Level
     }
 
     init(startX, startY) {
@@ -15,15 +16,17 @@ class LevelGenerator {
     }
 
     update(camX, screenWidth, gameLevel, difficulty = 'regular') {
-        // (Neu-)Aufbau bei Levelwechsel ODER Moduswechsel (Story <-> Classic)
-        if (this.currentGeneratedLevel !== gameLevel || this._lastClassic !== this.classicMode) {
+        // (Neu-)Aufbau bei Levelwechsel ODER Moduswechsel (Story <-> Classic <-> Custom)
+        if (this.currentGeneratedLevel !== gameLevel || this._lastClassic !== this.classicMode || this._lastCustom !== this.customMode) {
             this.currentGeneratedLevel = gameLevel;
             this._lastClassic = this.classicMode;
-            if (this.classicMode) this.buildClassic(gameLevel, difficulty);
+            this._lastCustom = this.customMode;
+            if (this.customMode) this.buildCustom(difficulty);
+            else if (this.classicMode) this.buildClassic(gameLevel, difficulty);
             else { this.init(camX, 600); }
         }
-        // Story-Level werden lazily aus dem Bauplan erweitert; Classic-Level stehen komplett.
-        if (!this.classicMode) {
+        // Story-Level werden lazily aus dem Bauplan erweitert; Classic/Custom stehen komplett.
+        if (!this.classicMode && !this.customMode) {
             if (!this.levelPlan) this.loadBlueprint(gameLevel);
             while (this.levelPlan.length > 0 && this.cursorX < camX + screenWidth + 1200) {
                 let nextModule = this.levelPlan.shift(); this.buildModule(nextModule, gameLevel, difficulty);
@@ -255,7 +258,7 @@ class LevelGenerator {
                 this.addMovingPlatform(sx + 500, B - 220, 240, 150 + d * 6, 1.4);
                 this.addMovingPlatform(sx + 900, B - 400, 240, 140 + d * 6, 1.6);
                 this.addPlatform(sx + 1300, B - 540, 360);
-                this.items.push(new Collectible(sx + 1430, B - 620, d >= 6 ? 'MINIGUN' : 'ROCKET'));
+                this.items.push(new Collectible(sx + 1430, B - 620, d >= 6 ? 'RAILGUN' : 'ROCKET')); // Railgun ganz oben als Belohnung
                 this.ladders.push(new Ladder(sx + 1660, B - 540, 70, 540));
                 this.spawnThemeEnemy(sx + 1850, lvl, diff, 'ranged');
                 break;
@@ -284,6 +287,7 @@ class LevelGenerator {
                 const roles = ['basic', 'fast', 'tank', 'ranged', 'special'];
                 for (let i = 0; i < n; i++) this.spawnThemeEnemy(sx + 600 + i * Math.floor(1500 / Math.max(1, n)), lvl, diff, roles[i % roles.length]);
                 this.items.push(new Collectible(sx + 300, B - 110, 'CHAINSAW')); // Kettensäge!
+                if (d >= 3) this.items.push(new Collectible(sx + 900, B - 110, 'ALIEN_LASER')); // Alien-Laser
                 this.items.push(new Collectible(sx + 600, B - 110, 'HEART'));
                 this.items.push(new Collectible(sx + 1250, B - 110, 'BEER'));
                 this.items.push(new Collectible(sx + 2100, B - 130, 'STAR'));
@@ -308,7 +312,9 @@ class LevelGenerator {
                 this.items.push(new Collectible(sx + 1500, B - 120, 'FLAMETHROWER'));
                 this.items.push(new Collectible(sx + 1800, B - 120, 'MOLOTOV'));
                 this.items.push(new Collectible(sx + 2100, B - 120, 'CHAINSAW'));
+                this.items.push(new Collectible(sx + 1950, B - 320, 'ALIEN_LASER')); // Alien-Laser (entzündet Gegner)
                 this.items.push(new Collectible(sx + 2350, B - 120, 'JETPACK'));   // Jetpack-Power-up
+                this.items.push(new Collectible(sx + 2500, B - 120, d >= 5 ? 'RAILGUN' : 'ALIEN_LASER')); // schwere Railgun ab Level 5
                 break;
             }
 
@@ -394,5 +400,76 @@ class LevelGenerator {
 
             default: this.addFloor(1500); break;
         }
+    }
+
+    // ========================================================================
+    //  CUSTOM (Editor): Level aus gespeicherten Objekten an absoluten Koordinaten
+    // ========================================================================
+    buildCustom(difficulty = 'regular') {
+        this.platforms = []; this.ladders = []; this.enemies = []; this.items = []; this.corpses = [];
+        this.cursorX = 0; this.baseY = 600; this.bossSpawned = false;
+        this.goalX = null; this.waterY = null; this.classicNight = false;
+        const d = this.customData;
+        if (!d) { this.init(0, 600); return; }
+        this.classicTheme = d.ctheme || 'over';
+        this.goalX = (d.goalX != null) ? d.goalX : null;
+        this.waterY = (d.water != null) ? d.water : null;
+        const spriteLevel = d.spriteLevel || 1;
+        for (const o of (d.objects || [])) {
+            if (!o) continue;
+            if (o.k === 'plat') this._customPlatform(o);
+            else if (o.k === 'lad') this.ladders.push(new Ladder(o.x, o.y, o.w || 70, o.h || 300));
+            else if (o.k === 'item') this.items.push(new Collectible(o.x, o.y, o.type || 'BEER'));
+            else if (o.k === 'foe') this._customEnemy(o, spriteLevel, difficulty);
+        }
+    }
+
+    _customPlatform(o) {
+        const w = o.w || 92, h = o.h || 92;
+        const SOLID = { GROUND: 1, PIPE: 1, STAIR: 1, QUESTION: 1, BRICK: 1, HIDDEN: 1, USED: 1, CANNON: 1 };
+        let solid = !!SOLID[o.style];
+        if (o.bouncy || o.crumbling || o.moving || o.spiky) solid = false;   // einseitige Spezialplattformen
+        if (o.fireTrap) solid = true;
+        const p = new Platform(o.x, o.y, w, h, solid);
+        if (o.spiky) { p.isSpiky = true; this.platforms.push(p); return; }          // reine Stachelreihe
+        if (o.fireTrap) { p.isFireTrap = true; this.platforms.push(p); return; }     // Feuerfalle
+        if (o.bouncy) p.isBouncy = true;
+        if (o.crumbling) p.isCrumbling = true;
+        if (o.moving) { p.isMoving = true; p.moveRange = o.moveRange || 150; p.moveSpeed = o.moveSpeed || 1.5; p.startX = o.x; p.startY = o.y; }
+        // Classic-Optik nur, wenn kein eigener Spezial-Look (Trampolin/bröckelnd) aktiv ist
+        if (o.style && !o.bouncy && !o.crumbling) {
+            p.style = o.style; p.ctheme = o.ctheme || this.classicTheme || 'over';
+            if (o.style === 'QUESTION' || o.style === 'BRICK' || o.style === 'HIDDEN') {
+                p.bumpable = true;
+                p.content = o.content || (o.style === 'QUESTION' ? 'BEER' : (o.style === 'HIDDEN' ? 'COIN' : null));
+            }
+            if (o.style === 'CANNON' || o.cannon) p.isCannon = true;
+        } else if (o.cannon) { p.isCannon = true; }
+        this.platforms.push(p);
+    }
+
+    _customEnemy(o, lvl, diff) {
+        const S = (Cls, variant) => this.spawn(Cls, o.x, o.y, lvl, diff, variant || null);
+        const map = {
+            ZOMBIE:    () => S(ZombieEnemy, o.variant || 'NORMAL'),
+            SOLDIER:   () => S(SoldierEnemy),
+            SPIDER:    () => S(SpiderEnemy),
+            DEMON:     () => S(DemonEnemy),
+            TRIDENT:   () => S(TridentDemonEnemy),
+            HELLHOUND: () => S(HellhoundEnemy),
+            BLOATER:   () => S(BloaterEnemy),
+            GIANT:     () => S(GiantZombieEnemy),
+            GOOMBA:    () => S(GoombaEnemy),
+            KOOPA:     () => S(KoopaEnemy),
+            PARATROOPA:() => S(ParatroopaEnemy),
+            PIRANHA:   () => S(PiranhaPlantEnemy),
+            BULLETBILL:() => S(BulletBillEnemy),
+            HAMMERBRO: () => S(HammerBroEnemy),
+            BOWSER:    () => S(BowserEnemy),
+            BOSS_GOLEM:() => { const b = S(BossGolem); if (b) b.isBoss = true; },
+            BOSS_MECH: () => { const b = S(BossMech);  if (b) b.isBoss = true; },
+            BOSS_HELL: () => { const b = S(BossHell);  if (b) b.isBoss = true; }
+        };
+        (map[o.cls] || map.GOOMBA)();
     }
 }
