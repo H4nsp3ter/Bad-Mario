@@ -471,19 +471,19 @@ button:active {
     font-family: "Press Start 2P", cursive; color: #ff2a2a; font-size: 1.6rem;
     text-shadow: 3px 3px 0 #000, 0 0 18px #f00; letter-spacing: 3px; margin: 0 0 1vmin;
 }
-.hero-row { display: flex; gap: 1.4vmax; justify-content: center; align-items: stretch; flex-wrap: nowrap; }
+.hero-row { display: flex; gap: 1.2vmin; justify-content: center; align-items: stretch; flex-wrap: nowrap; width: 100%; max-width: 100%; }
 .hero-card {
-    width: min(20vmax, 230px);
+    flex: 1 1 0; min-width: 0; max-width: 220px;
     background: rgba(20, 4, 4, 0.85);
     border: 3px solid #e62222; border-radius: 6px;
-    padding: 1.2vmin 1vmin; cursor: pointer;
+    padding: 1vmin 0.8vmin; cursor: pointer;
     display: flex; flex-direction: column; align-items: center;
     box-shadow: inset 0 0 24px rgba(0,0,0,0.6); transition: transform 0.12s, box-shadow 0.12s;
 }
-.hero-card:hover { transform: translateY(-6px) scale(1.04); border-color: #FFD700; box-shadow: 0 0 22px rgba(255,215,0,0.7); }
-.hero-canvas { position: static !important; flex: 0 0 auto; width: 130px !important; height: 180px !important; image-rendering: pixelated; z-index: auto; }
-.hero-card h3 { font-family: "Press Start 2P", cursive; color: #ffd54a; font-size: 0.95rem; margin: 6px 0; text-shadow: 2px 2px 0 #000; }
-.hero-desc { font-family: "Press Start 2P", cursive; color: #d4f5d4; font-size: 0.5rem; line-height: 1.6; text-align: center; margin: 0; }
+.hero-card:hover { transform: translateY(-4px) scale(1.03); border-color: #FFD700; box-shadow: 0 0 22px rgba(255,215,0,0.7); }
+.hero-canvas { position: static !important; flex: 0 0 auto; width: 100% !important; height: auto !important; aspect-ratio: 13 / 18; max-width: 130px; image-rendering: pixelated; z-index: auto; }
+.hero-card h3 { font-family: "Press Start 2P", cursive; color: #ffd54a; font-size: clamp(0.5rem, 1.3vmax, 0.95rem); margin: 6px 0; text-shadow: 2px 2px 0 #000; text-align: center; }
+.hero-desc { font-family: "Press Start 2P", cursive; color: #d4f5d4; font-size: clamp(0.36rem, 0.9vmax, 0.5rem); line-height: 1.5; text-align: center; margin: 0; }
 .hero-desc b { color: #ff8c3c; }
 .hero-controls { font-family: "Press Start 2P", cursive; color: #cfe0ff; font-size: 0.55rem; text-align: center; margin-top: 1.4vmin; letter-spacing: 1px; }
 .hero-controls b { color: #ffd54a; }
@@ -498,17 +498,18 @@ button:active {
 
 /* ===== Menü-Assistent (Wizard-Schritte) ===== */
 .wizard { position: absolute; inset: 0; z-index: 50; background: rgba(6, 1, 1, 0.93);
-    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.4vmin; padding: 2vmin; }
-.wiz-title { font-family: "Press Start 2P", cursive; color: #ff2a2a; font-size: 1.5rem; text-shadow: 3px 3px 0 #000, 0 0 18px #f00; letter-spacing: 3px; margin: 0 0 1vmin; }
-.wiz-row { display: flex; gap: 2vmax; justify-content: center; align-items: stretch; flex-wrap: wrap; }
-.wiz-card { width: min(28vmax, 320px); background: rgba(20, 4, 4, 0.85); border: 3px solid #e62222; border-radius: 8px;
-    padding: 1.4vmin 1.2vmin; cursor: pointer; display: flex; flex-direction: column; align-items: center;
+    display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 1.2vmin; padding: 2vmin; overflow: auto; }
+.wiz-title { font-family: "Press Start 2P", cursive; color: #ff2a2a; font-size: clamp(0.9rem, 3vmin, 1.5rem); text-shadow: 3px 3px 0 #000, 0 0 18px #f00; letter-spacing: 2px; margin: 0 0 0.8vmin; text-align: center; }
+/* Karten bleiben IMMER in einer Reihe und schrumpfen mit (kein Überlaufen) */
+.wiz-row { display: flex; gap: 1.4vmin; justify-content: center; align-items: stretch; flex-wrap: nowrap; width: 100%; max-width: 100%; }
+.wiz-card { flex: 1 1 0; min-width: 0; max-width: 300px; background: rgba(20, 4, 4, 0.85); border: 3px solid #e62222; border-radius: 8px;
+    padding: 1.2vmin 1vmin; cursor: pointer; display: flex; flex-direction: column; align-items: center;
     box-shadow: inset 0 0 24px rgba(0,0,0,0.6); transition: transform 0.12s, box-shadow 0.12s; }
-.wiz-card:hover { transform: translateY(-6px) scale(1.04); border-color: #FFD700; box-shadow: 0 0 24px rgba(255,215,0,0.7); }
-.wiz-card h3 { font-family: "Press Start 2P", cursive; color: #ffd54a; font-size: 1.1rem; margin: 12px 0 6px; text-shadow: 2px 2px 0 #000; }
-.wiz-desc { font-family: "Press Start 2P", cursive; color: #d4f5d4; font-size: 0.55rem; line-height: 1.7; text-align: center; margin: 0; }
+.wiz-card:hover { transform: translateY(-4px) scale(1.03); border-color: #FFD700; box-shadow: 0 0 24px rgba(255,215,0,0.7); }
+.wiz-card h3 { font-family: "Press Start 2P", cursive; color: #ffd54a; font-size: clamp(0.5rem, 1.5vmax, 1.05rem); margin: 1vmin 0 0.5vmin; text-shadow: 2px 2px 0 #000; text-align: center; }
+.wiz-desc { font-family: "Press Start 2P", cursive; color: #d4f5d4; font-size: clamp(0.36rem, 0.95vmax, 0.55rem); line-height: 1.5; text-align: center; margin: 0; }
 .wiz-desc b { color: #ff8c3c; }
-.mode-preview { position: static !important; width: 260px !important; height: 150px !important; flex: 0 0 auto; border: 2px solid #000; border-radius: 4px; image-rendering: pixelated; z-index: auto; }
+.mode-preview { position: static !important; width: 100% !important; height: auto !important; aspect-ratio: 26 / 15; max-width: 260px; flex: 0 0 auto; border: 2px solid #000; border-radius: 4px; image-rendering: pixelated; z-index: auto; }
 .wiz-icon { font-size: 2.6rem; }
 .wiz-hint { font-family: "Press Start 2P", cursive; color: #ffd54a; font-size: 0.55rem; text-align: center; margin: 0.4vmin 0 1vmin; }
 .wiz-back { flex: 0 0 auto !important; width: auto !important; min-width: 0 !important; align-self: center; margin-top: 1vmin; padding: 12px 26px !important; font-size: 0.7rem !important; }
