@@ -60,7 +60,16 @@
                 <button class="action-btn b-btn" id="btn-b">B</button>
             </div>
         </div>
-        
+
+        <!-- PAUSE-MENÜ (über dem Spiel, nur sichtbar bei Pause) -->
+        <div id="pause-menu">
+            <div class="pause-panel">
+                <h2 class="pause-title">PAUSE</h2>
+                <button id="btn-resume" class="pause-btn">&#9654; WEITER</button>
+                <button id="btn-quit" class="pause-btn pause-quit">&#9209; SPIEL BEENDEN</button>
+            </div>
+        </div>
+
         <!-- STARTSCREEN: nur Titel + START -->
         <div id="menu-overlay">
             <div class="menu-panel">
@@ -68,10 +77,6 @@
                     <div class="start-main">
                         <h1 class="gore-title start-title">BAD MARIO</h1>
                         <button id="btn-start" class="start-btn">&#9654; START</button>
-                        <div class="start-extra">
-                            <button id="btn-editor" class="start-btn start-sub">&#128296; LEVEL-EDITOR</button>
-                            <button id="btn-mylevels" class="start-btn start-sub">&#127918; MEINE LEVELS</button>
-                        </div>
                     </div>
                 </div>
 
@@ -102,6 +107,16 @@
                     <canvas class="mode-preview" width="260" height="150"></canvas>
                     <h3>CLASSIC MODE</h3>
                     <p class="wiz-desc">Originalgetreue Super-Mario-Level (8 Welten, 32 Stages) im ranzigen Bad-Mario-Stil.</p>
+                </div>
+                <div class="wiz-card mode-card" data-action="mylevels">
+                    <canvas class="mode-preview" width="260" height="150"></canvas>
+                    <h3>MEINE LEVELS</h3>
+                    <p class="wiz-desc">Spiele deine selbst gebauten Level &ndash; gespeichert direkt im Browser.</p>
+                </div>
+                <div class="wiz-card mode-card" data-action="editor">
+                    <canvas class="mode-preview" width="260" height="150"></canvas>
+                    <h3>LEVEL-EDITOR</h3>
+                    <p class="wiz-desc">Baue eigene Level visuell per Drag &amp; Drop und teste sie sofort.</p>
                 </div>
             </div>
             <button class="wiz-back" data-back="start">&#8592; ZUR&Uuml;CK</button>
@@ -181,7 +196,9 @@
     <script src="player.js"></script>
     <script src="level.js"></script>
     <script src="classic.js"></script>
+    <script src="weapons.js"></script>
     <script src="game.js"></script>
     <script src="editor.js"></script>
+    <script src="menunav.js"></script>
 </body>
 </html>

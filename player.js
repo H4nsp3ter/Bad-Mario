@@ -3,7 +3,9 @@
 const WEAPON_MUZZLE_SPEED = {
     PISTOL: 1500, UZI: 1600, SHOTGUN: 1300, ASSAULT_RIFLE: 1850, MINIGUN: 2200,
     ROCKET: 520, GRENADE: 1200, MOLOTOV: 1200, FLAMETHROWER: 760,
-    ALIEN_LASER: 2600, RAILGUN: 9000
+    ALIEN_LASER: 2600, RAILGUN: 9000,
+    CROSSBOW: 1900, BUZZSAW: 950, POISON_GAS: 1150,
+    DEAGLE: 2400, FIFTY_MG: 2700, G11: 2050
 };
 const RAIL_CHARGE_TIME = 0.8;   // Sekunden Aufladen, bevor sich der Railgun-Schuss löst
 
@@ -45,7 +47,8 @@ class Player extends Entity {
         this.starTimer = 0;
         this.isBoosted = false;
         this.boostTimer = 0;
-        
+        this.lsdTimer = 0; this.lsdActive = false;   // LSD-Trip
+
         this.isCrouching = false;
         this.isDead = false;
         this.deathTimer = 0;
@@ -117,6 +120,12 @@ class Player extends Entity {
             if (this.grounded && Math.random() > 0.7) game.particles.spawn(this.x + this.w/2, this.y + this.h, '#00FFCC', 2, 100, 0.3, true);
             if (this.boostTimer <= 0) this.isBoosted = false;
         }
+        // LSD-Trip: alles wird bunt & nebelig, Blut wird zu Herzchen, Gegner wirken niedlich
+        if (this.lsdTimer > 0) {
+            this.lsdTimer -= dt;
+            if (Math.random() > 0.6) game.particles.spawn(this.x + Math.random()*this.w, this.y + Math.random()*this.h, ['#ff66ff','#66ffff','#ffee55','#88ff88'][Math.floor(Math.random()*4)], 1, 60, 0.6, true);
+        }
+        this.lsdActive = this.lsdTimer > 0;
         
         let moveDirX = 0, moveDirY = 0;
         this.isCrouching = (input.isDown('KeyS') || input.isDown('ArrowDown')) && this.grounded && !this.isClimbing;
@@ -223,7 +232,7 @@ class Player extends Entity {
         else this.state = 'IDLE';
         
         // Pistole & Schrotflinte feuern halbautomatisch (ein Schuss pro Trigger-Druck), der Rest ist Dauerfeuer
-        const semiAuto = (this.weapon === 'PISTOL' || this.weapon === 'SHOTGUN');
+        const semiAuto = (this.weapon === 'PISTOL' || this.weapon === 'SHOTGUN' || this.weapon === 'DEAGLE');
         const firePressed = semiAuto
             ? (input.isJustPressed('KeyF') || input.isJustPressed('MouseLeft'))
             : (input.isDown('KeyF') || input.isDown('MouseLeft'));
@@ -331,7 +340,8 @@ class Player extends Entity {
                 }
                 this.shootCooldown = 0.04; this.inventory[this.weapon]--; pushback = 10; 
             } else {
-                game.audio.playShoot(this.weapon);
+                // Deploy-Waffen (Luftangriff/Geschütz) haben kein Schussgeräusch beim Auslösen
+                if (this.weapon !== 'AIRSTRIKE' && this.weapon !== 'TURRET') game.audio.playShoot(this.weapon);
                 if (this.weapon === 'PISTOL') {
                     // Halbautomatik: präzise, kein Streuen, knackige Feuerrate
                     game.triggerShake(5, 0.05); game.projectiles.push(new Projectile(px, py, vx, vy, false, 'PISTOL')); this.shootCooldown = 0.16; spawnShells(1); this.inventory[this.weapon]--;
@@ -363,12 +373,72 @@ class Player extends Entity {
                     this.shootCooldown = 0.16; this.inventory[this.weapon]--;
                 } else if (this.weapon === 'GRENADE') {
                     game.projectiles.push(new Projectile(px, py - 20, vx * 0.6, vy ? vy * 0.8 : -600, false, 'GRENADE', true)); this.shootCooldown = 1.0; this.inventory[this.weapon]--;
+                } else if (this.weapon === 'CROSSBOW') {
+                    // Armbrust: Bolzen bleibt in Wand/Gegner stecken und ist wieder aufsammelbar (siehe game.js)
+                    game.triggerShake(5, 0.05); game.projectiles.push(new Projectile(px, py, vx, vy, false, 'BOLT')); this.shootCooldown = 0.5; this.inventory[this.weapon]--;
+                } else if (this.weapon === 'BUZZSAW') {
+                    // Sägeblatt: prallt von Wänden ab und zersägt mehrere Gegner
+                    game.triggerShake(4, 0.04); game.projectiles.push(new Projectile(px, py, vx, vy, false, 'BUZZSAW')); this.shootCooldown = 0.45; this.inventory[this.weapon]--;
+                } else if (this.weapon === 'POISON_GAS') {
+                    // Giftgas-Werfer: Kanister fliegt im Bogen, zerplatzt zur Giftwolke
+                    game.triggerShake(5, 0.08); game.projectiles.push(new Projectile(px, py - 20, vx * 0.6, vy ? vy * 0.8 : -560, false, 'GAS_CANISTER', true)); this.shootCooldown = 0.9; this.inventory[this.weapon]--;
+                } else if (this.weapon === 'BLACKHOLE') {
+                    // Singularitäts-Granate: bildet ein saugendes Schwarzes Loch
+                    game.triggerShake(8, 0.15); game.projectiles.push(new Projectile(px, py - 20, vx * 0.7, vy ? vy * 0.8 : -650, false, 'SINGULARITY', true)); this.shootCooldown = 1.3; this.inventory[this.weapon]--;
+                } else if (this.weapon === 'TESLA') {
+                    this.fireTesla(game, px, py, dirX); this.shootCooldown = 0.12; this.inventory[this.weapon]--;
+                } else if (this.weapon === 'AIRSTRIKE') {
+                    // Luftangriff anfordern: Jet fliegt durch und wirft Napalmbomben
+                    if (game.fx) game.fx.push(new NapalmJet(game, this.facingRight ? 1 : -1));
+                    game.triggerShake(6, 0.2); this.shootCooldown = 1.5; this.inventory[this.weapon]--;
+                } else if (this.weapon === 'TURRET') {
+                    // Geschütz aufstellen
+                    if (game.fx) game.fx.push(new Turret(this.x + this.w / 2, this.y + this.h - 8));
+                    this.shootCooldown = 1.0; this.inventory[this.weapon]--;
+                } else if (this.weapon === 'DEAGLE') {
+                    // .50er Desert Eagle: halbautomatisch, brachialer Einzelschuss mit Pump-Gun-Rückstoß
+                    this.vx = vx ? -Math.sign(vx) * 800 : 0; this.vy = vy ? -Math.sign(vy) * 400 : -150;
+                    const b = new Projectile(px, py, vx, vy, false, 'BULLET'); b.dmg = 85; b.w = 26; b.h = 8; b.pierce = 3; b.hitEnemies = []; game.projectiles.push(b);
+                    this.shootCooldown = 0.3; this.inventory[this.weapon]--; pushback = 250; game.triggerShake(20, 0.2); spawnShells(1);
+                } else if (this.weapon === 'FIFTY_MG') {
+                    // Schwere .50er (M2) aus der Hand: gewaltiger Vollautomat, kräftiger Rückstoß (etwas gezähmt fürs Dauerfeuer)
+                    this.vx = vx ? -Math.sign(vx) * 560 : 0; this.vy = vy ? -Math.sign(vy) * 300 : -130;
+                    const b = new Projectile(px, py, vx + (Math.random() - 0.5) * 90, vy + (Math.random() - 0.5) * 90, false, 'BULLET'); b.dmg = 70; b.w = 30; b.h = 9; b.pierce = 3; b.hitEnemies = []; game.projectiles.push(b);
+                    this.shootCooldown = 0.13; this.inventory[this.weapon]--; pushback = 150; game.triggerShake(18, 0.1); spawnShells(1);
+                } else if (this.weapon === 'G11') {
+                    // H&K G11: hülsenloser Vollautomat mit extrem hoher Kadenz (Dauerfeuer)
+                    const pr = new Projectile(px, py, vx + (Math.random() - 0.5) * 70, vy + (Math.random() - 0.5) * 70, false, 'PISTOL'); pr.dmg = 26; game.projectiles.push(pr);
+                    this.shootCooldown = 0.035; this.inventory[this.weapon]--; pushback = 14; game.triggerShake(5, 0.04); spawnShells(1);
                 }
             }
             if (this.inventory[this.weapon] <= 0) { delete this.inventory[this.weapon]; this.weapon = 'BAT'; }
             if (pushback > 0 && !this.isCrouching) { if (vx) this.vx -= Math.sign(vx) * pushback; }
         }
         game.updateHUD();
+    }
+
+    // TESLA / Kettenblitz: trifft den nächsten Gegner und springt auf weitere über
+    fireTesla(game, px, py, dirX) {
+        const alive = game.levelGen.enemies.filter(e => !e.dead);
+        const hit = new Set();
+        let src = { x: px, y: py }, range = 720;          // deutlich mehr Reichweite
+        for (let chain = 0; chain < 5; chain++) {
+            let tgt = null, best = range;
+            for (const e of alive) {
+                if (hit.has(e)) continue;
+                const d = Math.hypot((e.x + e.w / 2) - src.x, (e.y + e.h / 2) - src.y);
+                if (d < best) { best = d; tgt = e; }
+            }
+            if (!tgt) break;
+            hit.add(tgt);
+            const ex = tgt.x + tgt.w / 2, ey = tgt.y + tgt.h / 2;
+            if (game.fx) game.fx.push(new LightningArc(src.x, src.y, ex, ey));
+            tgt.takeDamage(24, game);
+            game.particles.spawn(ex, ey, '#aef', 6, 220, 0.3, true);
+            src = { x: ex, y: ey }; range = 520;          // Folgesprünge etwas kürzer, aber weiter als zuvor
+        }
+        if (hit.size === 0 && game.fx) game.fx.push(new LightningArc(px, py, px + dirX * 480, py)); // Leerschuss
+        game.triggerShake(6, 0.06);
     }
 
     // RAILGUN: instantaner Strahl, der ALLES durchschlägt (Wände + Gegner) und eine
@@ -439,9 +509,20 @@ class Player extends Entity {
                         }
                     }
                     else if (axis === 'y') {
-                        if (this.vy > 0) { this.y = p.y - this.h; this.grounded = true; }
-                        else if (this.vy < 0) { this.y = p.y + p.h; if (p.bumpable && !p.used && game && game.bumpBlock) game.bumpBlock(p); } // CLASSIC: Kopf-Anschlag
-                        this.vy = 0;
+                        if (this.vy > 0) { this.y = p.y - this.h; this.grounded = true; this.vy = 0; }
+                        else if (this.vy < 0) {
+                            const underside = p.y + p.h;
+                            // Kopf-Anschlag NUR bei echtem Unterkanten-Treffer. Hohe Röhren/Wände
+                            // (h bis ~2100) haben ihre Unterkante weit unter dem Boden — dort darf der
+                            // Spieler NICHT hinteleportiert werden (sonst "plötzlich verwundet" beim
+                            // seitlichen Hochspringen). Stattdessen seitlich wegschieben, Sprung läuft weiter.
+                            if (Math.abs(this.y - underside) < 90) {
+                                this.y = underside; this.vy = 0;
+                                if (p.bumpable && !p.used && game && game.bumpBlock) game.bumpBlock(p); // CLASSIC: Block anstoßen
+                            } else {
+                                this.x = (this.x + this.w / 2 < p.x + p.w / 2) ? p.x - this.w : p.x + p.w;
+                            }
+                        }
                     }
                 }
             }
@@ -679,6 +760,10 @@ class Player extends Entity {
         else if (this.weapon === 'MINIGUN') maxCd = 0.02; else if (this.weapon === 'GRENADE') maxCd = 1.0;
         else if (this.weapon === 'FLAMETHROWER') maxCd = 0.04;
         else if (this.weapon === 'ALIEN_LASER') maxCd = 0.16; else if (this.weapon === 'RAILGUN') maxCd = 0.5;
+        else if (this.weapon === 'CROSSBOW') maxCd = 0.5; else if (this.weapon === 'BUZZSAW') maxCd = 0.45;
+        else if (this.weapon === 'POISON_GAS') maxCd = 0.9; else if (this.weapon === 'BLACKHOLE') maxCd = 1.3;
+        else if (this.weapon === 'TESLA') maxCd = 0.12; else if (this.weapon === 'AIRSTRIKE') maxCd = 1.5; else if (this.weapon === 'TURRET') maxCd = 1.0;
+        else if (this.weapon === 'DEAGLE') maxCd = 0.3; else if (this.weapon === 'FIFTY_MG') maxCd = 0.13; else if (this.weapon === 'G11') maxCd = 0.035;
 
         let progress = Math.max(0, Math.min(1, this.shootCooldown > 0 ? this.shootCooldown / maxCd : 0));
         let isMelee = ['KNIFE', 'AXE', 'BAT', 'CHAINSAW'].includes(this.weapon);
@@ -1010,12 +1095,89 @@ class Player extends Entity {
                 ctx.fillStyle = '#caffb0'; for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(-12 + i*10, 0, 3, 0, Math.PI*2); ctx.fill(); } // Energiezellen
                 ctx.globalCompositeOperation = 'source-over';
                 ctx.fillStyle = '#16161a'; ctx.fillRect(-12, 6, 11, 14);          // Griff
+            } else if (this.weapon === 'DEAGLE') {
+                // --- .50er Desert Eagle (wuchtige Pistole mit Gold-Akzent) ---
+                ctx.fillStyle = '#45454e'; ctx.fillRect(-14, -15, 52, 13); ctx.fillStyle = '#56565f'; ctx.fillRect(-14, -15, 52, 2);
+                ctx.fillStyle = '#caa23a'; ctx.fillRect(-12, -4, 34, 7);
+                ctx.fillStyle = '#0e0e12'; ctx.fillRect(36, -13, 5, 7);
+                ctx.save(); ctx.translate(-4, 3); ctx.rotate(0.34); ctx.fillStyle = '#2a2a30'; ctx.fillRect(-7, 0, 15, 26); ctx.restore();
+                ctx.strokeStyle = '#2a2a30'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(0, 8, 7, Math.PI*0.05, Math.PI*0.95); ctx.stroke();
+            } else if (this.weapon === 'FIFTY_MG') {
+                // --- schwere .50er (M2) aus der Hand ---
+                ctx.fillStyle = '#2a2e36'; ctx.fillRect(-30, -13, 40, 26); ctx.fillStyle = '#3a3f49'; ctx.fillRect(-30, -13, 40, 3);
+                ctx.fillStyle = '#16161a'; ctx.fillRect(8, -5, 64, 10);
+                ctx.fillStyle = '#3a3f49'; for (let i = 0; i < 6; i++) ctx.fillRect(18 + i*9, -7, 3, 14);
+                ctx.fillStyle = '#0a0a0e'; ctx.fillRect(72, -6, 6, 12);
+                ctx.fillStyle = '#caa23a'; for (let i = 0; i < 5; i++) ctx.fillRect(-30 + i*7, 12, 5, 7);
+                ctx.fillStyle = '#16161a'; ctx.fillRect(-16, 6, 10, 16);
+            } else if (this.weapon === 'G11') {
+                // --- H&K G11 (kantiges Bullpup) ---
+                ctx.fillStyle = '#22242a'; ctx.fillRect(-26, -15, 88, 28); ctx.fillStyle = '#2e313a'; ctx.fillRect(-26, -15, 88, 4);
+                ctx.fillStyle = '#16161a'; ctx.fillRect(58, -4, 16, 6);
+                ctx.fillStyle = '#3a3f49'; ctx.fillRect(-20, -11, 12, 7);
+                ctx.fillStyle = '#0e0e12'; ctx.fillRect(-4, 13, 14, 13);
+            } else if (this.weapon === 'CROSSBOW') {
+                // --- Armbrust ---
+                ctx.fillStyle = '#5a3a1c'; ctx.fillRect(-26, -3, 64, 6);
+                ctx.strokeStyle = '#7a8a96'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(30, -24); ctx.quadraticCurveTo(42, 0, 30, 24); ctx.stroke();
+                ctx.strokeStyle = '#cfd6dd'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(32, -22); ctx.lineTo(-6, 0); ctx.lineTo(32, 22); ctx.stroke();
+                ctx.fillStyle = '#6a4a2a'; ctx.fillRect(-2, -1.5, 40, 3); ctx.fillStyle = '#cfd6dd'; ctx.beginPath(); ctx.moveTo(38, -4); ctx.lineTo(46, 0); ctx.lineTo(38, 4); ctx.fill();
+                ctx.fillStyle = '#3a2a18'; ctx.fillRect(-22, 2, 12, 18);
+            } else if (this.weapon === 'BUZZSAW') {
+                // --- Sägeblatt-Werfer (rotierende Klinge) ---
+                ctx.fillStyle = '#2a2e36'; ctx.fillRect(-30, -9, 40, 18);
+                ctx.fillStyle = '#16161a'; ctx.fillRect(-34, -5, 8, 16);
+                ctx.save(); ctx.translate(36, 0); ctx.rotate(performance.now() / 120);
+                ctx.fillStyle = '#b8bdc4'; ctx.beginPath(); ctx.arc(0, 0, 20, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = '#dfe4ea'; ctx.beginPath(); ctx.arc(0, 0, 14, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = '#8a8f98'; for (let i = 0; i < 8; i++) { const a = i/8*Math.PI*2; ctx.beginPath(); ctx.moveTo(Math.cos(a)*20, Math.sin(a)*20); ctx.lineTo(Math.cos(a+0.25)*26, Math.sin(a+0.25)*26); ctx.lineTo(Math.cos(a+0.5)*20, Math.sin(a+0.5)*20); ctx.fill(); }
+                ctx.fillStyle = '#333'; ctx.beginPath(); ctx.arc(0, 0, 4, 0, Math.PI*2); ctx.fill();
+                ctx.restore();
+            } else if (this.weapon === 'POISON_GAS') {
+                // --- Giftgas-Werfer ---
+                ctx.fillStyle = '#2a2e36'; ctx.fillRect(-28, -9, 30, 18);
+                ctx.fillStyle = '#3a4232'; ctx.fillRect(0, -13, 42, 26);
+                ctx.fillStyle = '#1a1d22'; ctx.beginPath(); ctx.arc(44, 0, 13, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = '#7CFC00'; ctx.beginPath(); ctx.arc(44, 0, 7, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = '#16161a'; ctx.fillRect(-24, 9, 9, 16);
+            } else if (this.weapon === 'BLACKHOLE') {
+                // --- Singularitäts-Werfer ---
+                ctx.fillStyle = '#2a2436'; ctx.fillRect(-28, -9, 36, 18);
+                ctx.fillStyle = '#16161a'; ctx.fillRect(-24, 8, 9, 16);
+                ctx.save(); ctx.translate(40, 0);
+                const gh = ctx.createRadialGradient(0, 0, 1, 0, 0, 16); gh.addColorStop(0, '#000'); gh.addColorStop(0.5, '#5a1a8a'); gh.addColorStop(1, 'rgba(160,80,255,0)');
+                ctx.fillStyle = gh; ctx.beginPath(); ctx.arc(0, 0, 16, 0, Math.PI*2); ctx.fill();
+                ctx.strokeStyle = '#c080ff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, 9, performance.now()/200, performance.now()/200 + 4); ctx.stroke();
+                ctx.restore();
+            } else if (this.weapon === 'TESLA') {
+                // --- Tesla / Kettenblitz ---
+                ctx.fillStyle = '#2a2e36'; ctx.fillRect(-28, -8, 36, 16);
+                ctx.fillStyle = '#16161a'; ctx.fillRect(-24, 8, 9, 15);
+                ctx.fillStyle = '#b88a3a'; ctx.fillRect(2, -10, 18, 20);
+                ctx.fillStyle = '#caa23a'; for (let i = 0; i < 4; i++) ctx.fillRect(2, -10 + i*5, 18, 2);
+                ctx.globalCompositeOperation = 'lighter';
+                ctx.fillStyle = '#cfeaff'; ctx.beginPath(); ctx.arc(34, 0, 8, 0, Math.PI*2); ctx.fill();
+                ctx.strokeStyle = '#7cf'; ctx.lineWidth = 2; for (let i = 0; i < 4; i++) { const a = Math.random()*Math.PI*2; ctx.beginPath(); ctx.moveTo(34, 0); ctx.lineTo(34 + Math.cos(a)*14, Math.sin(a)*14); ctx.stroke(); }
+                ctx.globalCompositeOperation = 'source-over';
+            } else if (this.weapon === 'AIRSTRIKE') {
+                // --- Funkgerät zum Luftangriff-Anfordern ---
+                ctx.fillStyle = '#3a4a2a'; ctx.fillRect(-6, -16, 24, 34); ctx.fillStyle = '#2a3620'; ctx.fillRect(-6, -16, 24, 5);
+                ctx.fillStyle = '#16161a'; ctx.fillRect(12, -30, 4, 16);
+                ctx.fillStyle = '#88ff88'; ctx.fillRect(-2, -8, 16, 9);
+                ctx.fillStyle = '#16161a'; ctx.fillRect(-10, 4, 10, 14);
+            } else if (this.weapon === 'TURRET') {
+                // --- tragbares Geschütz ---
+                ctx.fillStyle = '#2a2e36'; ctx.fillRect(-10, -2, 30, 16);
+                ctx.fillStyle = '#454b57'; ctx.beginPath(); ctx.arc(4, -2, 11, Math.PI, 0); ctx.fill();
+                ctx.fillStyle = '#16161a'; ctx.fillRect(4, -6, 26, 6);
+                ctx.fillStyle = '#ffcb3a'; ctx.beginPath(); ctx.arc(0, -4, 3.5, 0, Math.PI*2); ctx.fill();
+                ctx.fillStyle = '#16161a'; ctx.fillRect(-12, 8, 9, 14);
             }
 
 
-            if (this.flashTimer > 0 && this.weapon !== 'GRENADE') { 
-                ctx.fillStyle = '#FFFF00'; 
-                let flashX = ['ROCKET', 'MINIGUN', 'ASSAULT_RIFLE', 'FLAMETHROWER', 'SHOTGUN', 'RAILGUN', 'ALIEN_LASER'].includes(this.weapon) ? 70 : 35;
+            if (this.flashTimer > 0 && this.weapon !== 'GRENADE') {
+                ctx.fillStyle = '#FFFF00';
+                let flashX = ['ROCKET', 'MINIGUN', 'ASSAULT_RIFLE', 'FLAMETHROWER', 'SHOTGUN', 'RAILGUN', 'ALIEN_LASER', 'FIFTY_MG', 'G11', 'POISON_GAS', 'TESLA'].includes(this.weapon) ? 70 : 35;
                 ctx.beginPath(); ctx.arc(flashX, -2, 20 + Math.random()*25, 0, Math.PI*2); ctx.fill(); 
             }
         }

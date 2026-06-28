@@ -695,6 +695,185 @@ class SpriteGenerator {
                     ctx.fillStyle = '#173f17'; ctx.fillRect(14, -9, 46, 3);
                     ctx.fillStyle = '#7dff5a'; ctx.beginPath(); ctx.arc(62, 0, 9, 0, Math.PI*2); ctx.fill(); // glühende Mündung
                     ctx.fillStyle = '#caffb0'; for (let i = 0; i < 3; i++) { ctx.beginPath(); ctx.arc(-22 + i*11, 0, 4, 0, Math.PI*2); ctx.fill(); }
+                } else if (variant === 'PISTOL') {
+                    ctx.save(); ctx.translate(-12, 0); ctx.shadowBlur = 16; ctx.shadowColor = '#ffd24a';
+                    ctx.fillStyle = '#45454e'; ctx.fillRect(-13, -13, 45, 11);        // Schlitten
+                    ctx.fillStyle = '#33333a'; ctx.fillRect(-11, -3, 31, 9);          // Rahmen
+                    ctx.fillStyle = '#0e0e12'; ctx.fillRect(29, -11, 4, 5);           // Mündung
+                    ctx.save(); ctx.translate(-2, 2); ctx.rotate(0.34); ctx.fillStyle = '#5a4630'; ctx.fillRect(-6, 0, 13, 25); ctx.restore(); // Griff
+                    ctx.strokeStyle = '#2a2a30'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(1, 7, 6, Math.PI*0.05, Math.PI*0.95); ctx.stroke();
+                    ctx.restore();
+                } else if (variant === 'UZI') {
+                    ctx.save(); ctx.translate(-16, 0); ctx.shadowBlur = 16; ctx.shadowColor = '#ffd24a';
+                    ctx.fillStyle = '#1f1f24'; ctx.fillRect(-16, -13, 42, 23);
+                    ctx.fillStyle = '#34343c'; ctx.fillRect(-16, -13, 42, 3);
+                    ctx.fillStyle = '#0e0e12'; ctx.fillRect(26, -8, 32, 7);           // Lauf
+                    ctx.fillStyle = '#16161a'; ctx.fillRect(0, 8, 15, 30);            // Magazin
+                    ctx.fillStyle = '#16161a'; ctx.fillRect(-13, -2, 11, 16);         // Griff
+                    ctx.restore();
+                } else if (variant === 'SHOTGUN') {
+                    ctx.save(); ctx.translate(-18, 0); ctx.shadowBlur = 16; ctx.shadowColor = '#ffd24a';
+                    ctx.fillStyle = '#1e1e22'; ctx.fillRect(-30, -7, 22, 15);         // Schaft
+                    ctx.fillStyle = '#26262b'; ctx.fillRect(-9, -10, 24, 18);         // Gehäuse
+                    ctx.fillStyle = '#0f0f13'; ctx.fillRect(15, -8, 54, 7);           // Lauf
+                    ctx.fillStyle = '#16161a'; ctx.fillRect(15, 1, 48, 5);            // Röhrenmagazin
+                    ctx.fillStyle = '#16161a'; ctx.fillRect(-9, 6, 9, 13);            // Griff
+                    ctx.restore();
+                } else if (variant === 'ASSAULT_RIFLE') {
+                    ctx.save(); ctx.translate(-18, 0); ctx.shadowBlur = 16; ctx.shadowColor = '#ffd24a';
+                    ctx.fillStyle = '#5a4226'; ctx.fillRect(-32, -4, 27, 11);         // Holzschaft
+                    ctx.fillStyle = '#2a2a2e'; ctx.fillRect(-7, -11, 30, 18);         // Receiver
+                    ctx.fillStyle = '#5a4226'; ctx.fillRect(23, -9, 22, 10);          // Handschutz
+                    ctx.fillStyle = '#16161a'; ctx.fillRect(45, -7, 24, 5);           // Lauf
+                    ctx.fillStyle = '#0a0a0e'; ctx.fillRect(69, -9, 6, 8);            // Mündung
+                    ctx.save(); ctx.translate(5, 7); ctx.rotate(0.05); ctx.fillStyle = '#3a2e1a';
+                    ctx.beginPath(); ctx.moveTo(-8, 0); ctx.lineTo(11, 0); ctx.quadraticCurveTo(17, 18, 9, 31); ctx.quadraticCurveTo(3, 33, -3, 31); ctx.quadraticCurveTo(-6, 16, -8, 0); ctx.closePath(); ctx.fill(); ctx.restore();
+                    ctx.fillStyle = '#1a1a1e'; ctx.fillRect(-7, 5, 9, 13);            // Griff
+                    ctx.restore();
+                } else if (variant === 'MINIGUN') {
+                    ctx.save(); ctx.translate(-14, 0); ctx.shadowBlur = 16; ctx.shadowColor = '#ffd24a';
+                    ctx.fillStyle = '#22222a'; ctx.beginPath(); ctx.ellipse(-8, 0, 20, 22, 0, 0, Math.PI*2); ctx.fill(); // Gehäuse
+                    ctx.fillStyle = '#16161a'; ctx.beginPath(); ctx.ellipse(8, 0, 9, 16, 0, 0, Math.PI*2); ctx.fill();   // Laufträger
+                    for (let i = 0; i < 6; i++) { const oy = Math.sin(i * (Math.PI/3)) * 11; ctx.fillStyle = oy > 0 ? '#0e0e12' : '#3a3a44'; ctx.fillRect(10, oy - 3, 72, 6); }
+                    ctx.fillStyle = '#0a0a0e'; ctx.fillRect(80, -13, 9, 26);          // Mündungsplatte
+                    ctx.restore();
+                } else if (variant === 'ROCKET') {
+                    ctx.save(); ctx.translate(-16, 0); ctx.shadowBlur = 18; ctx.shadowColor = '#ff7a3a';
+                    ctx.fillStyle = '#566b2e'; ctx.fillRect(-34, -11, 84, 22);        // Rohr
+                    ctx.fillStyle = '#15150e'; ctx.beginPath(); ctx.moveTo(-34, -14); ctx.lineTo(-48, -19); ctx.lineTo(-48, 19); ctx.lineTo(-34, 14); ctx.closePath(); ctx.fill(); // Abgastrichter
+                    ctx.fillStyle = '#3a2a18'; ctx.fillRect(0, 9, 26, 8);             // Griff
+                    ctx.fillStyle = '#6e1f1f'; ctx.beginPath(); ctx.moveTo(50, -14); ctx.lineTo(80, 0); ctx.lineTo(50, 14); ctx.closePath(); ctx.fill(); // Sprengkopf
+                    ctx.restore();
+                } else if (variant === 'FLAMETHROWER') {
+                    ctx.save(); ctx.translate(-10, 0); ctx.shadowBlur = 18; ctx.shadowColor = '#ff6a00';
+                    ctx.fillStyle = '#7a1010'; ctx.beginPath(); ctx.ellipse(-22, 2, 14, 21, 0, 0, Math.PI*2); ctx.fill(); // Tank
+                    ctx.fillStyle = '#a02424'; ctx.beginPath(); ctx.ellipse(-25, -3, 6, 11, 0, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#222'; ctx.fillRect(-4, -7, 52, 14);             // Rohr
+                    ctx.fillStyle = '#0f0f13'; ctx.fillRect(48, -9, 10, 18);          // Düse
+                    ctx.fillStyle = '#FA0'; ctx.beginPath(); ctx.arc(60, 0, 6, 0, Math.PI*2); ctx.fill(); // Flamme
+                    ctx.restore();
+                } else if (variant === 'GRENADE') {
+                    ctx.shadowBlur = 14; ctx.shadowColor = '#9bd06a';
+                    ctx.fillStyle = '#33401f'; ctx.beginPath(); ctx.arc(0, 6, 24, 0, Math.PI*2); ctx.fill(); // Körper
+                    ctx.fillStyle = '#2a3318'; for (let gx = -16; gx <= 16; gx += 8) ctx.fillRect(gx, -14, 3, 40); for (let gy = -12; gy <= 20; gy += 8) ctx.fillRect(-22, gy, 44, 3);
+                    ctx.fillStyle = '#555'; ctx.fillRect(-8, -30, 16, 12);            // Zünderkopf
+                    ctx.strokeStyle = '#aaa'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(14, -26, 8, 0, Math.PI*1.6); ctx.stroke(); // Ring
+                } else if (variant === 'KNIFE') {
+                    ctx.save(); ctx.rotate(-0.5); ctx.shadowBlur = 14; ctx.shadowColor = '#cfe8ff';
+                    ctx.fillStyle = '#c8d2dc'; ctx.beginPath(); ctx.moveTo(-6, -40); ctx.lineTo(6, -38); ctx.lineTo(6, 8); ctx.lineTo(-6, 8); ctx.closePath(); ctx.fill(); // Klinge
+                    ctx.fillStyle = '#eef4fa'; ctx.fillRect(-2, -40, 3, 46);          // Glanzkante
+                    ctx.fillStyle = '#777'; ctx.fillRect(-12, 6, 24, 5);              // Parierstange
+                    ctx.fillStyle = '#3a2a18'; ctx.fillRect(-9, 10, 18, 30);          // Griff
+                    ctx.restore();
+                } else if (variant === 'AXE') {
+                    ctx.save(); ctx.shadowBlur = 14; ctx.shadowColor = '#ffcaa0';
+                    ctx.fillStyle = '#5a3a1c'; ctx.fillRect(-5, -30, 10, 66);         // Stiel
+                    ctx.fillStyle = '#b8c0c8'; ctx.beginPath(); ctx.moveTo(2, -34); ctx.lineTo(40, -26); ctx.quadraticCurveTo(50, -10, 40, 4); ctx.lineTo(2, -6); ctx.closePath(); ctx.fill(); // Blatt
+                    ctx.fillStyle = '#e6edf2'; ctx.beginPath(); ctx.moveTo(40, -26); ctx.quadraticCurveTo(50, -10, 40, 4); ctx.lineTo(47, -11); ctx.closePath(); ctx.fill(); // Schneide
+                    ctx.restore();
+                } else if (variant === 'CHAINSAW') {
+                    ctx.save(); ctx.translate(-12, 0); ctx.shadowBlur = 16; ctx.shadowColor = '#ff8a2a';
+                    ctx.fillStyle = '#d35400'; ctx.fillRect(-30, -16, 34, 32);        // Motorblock
+                    ctx.fillStyle = '#a04000'; ctx.fillRect(-30, -16, 34, 6);
+                    ctx.fillStyle = '#1a1a1e'; ctx.fillRect(-34, -6, 8, 20);          // Griff hinten
+                    ctx.fillStyle = '#8a8f98'; ctx.fillRect(4, -7, 66, 14);           // Schwert
+                    ctx.fillStyle = '#bbb'; ctx.beginPath(); ctx.arc(70, 0, 7, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#3a3a3a'; for (let i = 0; i < 10; i++) { ctx.fillRect(8 + i*6, -12, 4, 4); ctx.fillRect(8 + i*6, 8, 4, 4); } // Zähne
+                    ctx.restore();
+                } else if (variant === 'BAT') {
+                    ctx.save(); ctx.rotate(-0.6); ctx.shadowBlur = 12; ctx.shadowColor = '#caa46a';
+                    const bg = ctx.createLinearGradient(-9, 0, 9, 0); bg.addColorStop(0, '#7a5a2e'); bg.addColorStop(0.5, '#b98a44'); bg.addColorStop(1, '#6a4d26');
+                    ctx.fillStyle = bg;
+                    ctx.beginPath(); ctx.moveTo(-8, -42); ctx.quadraticCurveTo(-13, 0, -6, 32); ctx.lineTo(6, 32); ctx.quadraticCurveTo(13, 0, 8, -42); ctx.closePath(); ctx.fill(); // dicker Schläger
+                    ctx.fillStyle = '#5a4022'; ctx.fillRect(-5, 30, 10, 14);          // Griff
+                    ctx.fillStyle = '#cdd3da'; [[-8, -30], [7, -20], [-9, -8], [8, 2]].forEach(n => { ctx.beginPath(); ctx.arc(n[0], n[1], 3, 0, Math.PI*2); ctx.fill(); }); // Nägel
+                    ctx.restore();
+                } else if (variant === 'DEAGLE') {
+                    ctx.save(); ctx.translate(-12, 0); ctx.shadowBlur = 16; ctx.shadowColor = '#ffd24a';
+                    ctx.fillStyle = '#4a4a52'; ctx.fillRect(-15, -15, 52, 14); ctx.fillStyle = '#5a5a64'; ctx.fillRect(-15, -15, 52, 3);
+                    ctx.fillStyle = '#caa23a'; ctx.fillRect(-13, -4, 34, 6);                                    // goldener .50-Rahmen
+                    ctx.fillStyle = '#0e0e12'; ctx.fillRect(35, -13, 5, 7);
+                    ctx.save(); ctx.translate(-4, 3); ctx.rotate(0.32); ctx.fillStyle = '#222'; ctx.fillRect(-7, 0, 15, 28); ctx.restore();
+                    ctx.strokeStyle = '#2a2a30'; ctx.lineWidth = 3; ctx.beginPath(); ctx.arc(-1, 9, 7, Math.PI*0.05, Math.PI*0.95); ctx.stroke();
+                    ctx.restore();
+                } else if (variant === 'FIFTY_MG') {
+                    ctx.save(); ctx.translate(-6, 0); ctx.shadowBlur = 16; ctx.shadowColor = '#ffd24a';
+                    ctx.fillStyle = '#2a2e36'; ctx.fillRect(-30, -12, 40, 26); ctx.fillStyle = '#3a3f49'; ctx.fillRect(-30, -12, 40, 4);
+                    ctx.fillStyle = '#16161a'; ctx.fillRect(8, -5, 56, 10);
+                    ctx.fillStyle = '#3a3f49'; for (let i = 0; i < 6; i++) ctx.fillRect(18 + i*8, -7, 3, 14);     // Kühlmantel
+                    ctx.fillStyle = '#0a0a0e'; ctx.fillRect(64, -6, 6, 12);
+                    ctx.fillStyle = '#16161a'; ctx.fillRect(-26, 14, 6, 16); ctx.fillRect(-6, 14, 6, 16);          // Bipod
+                    ctx.fillStyle = '#caa23a'; ctx.fillRect(-30, 6, 40, 4);                                       // Gurt
+                    ctx.restore();
+                } else if (variant === 'G11') {
+                    ctx.save(); ctx.translate(-14, 0); ctx.shadowBlur = 16; ctx.shadowColor = '#ffd24a';
+                    ctx.fillStyle = '#22242a'; ctx.fillRect(-22, -16, 84, 30); ctx.fillStyle = '#2e313a'; ctx.fillRect(-22, -16, 84, 5);
+                    ctx.fillStyle = '#16161a'; ctx.fillRect(54, -5, 14, 6);
+                    ctx.fillStyle = '#0e0e12'; ctx.fillRect(-2, 14, 14, 14);
+                    ctx.fillStyle = '#3a3f49'; ctx.fillRect(-18, -12, 10, 8);                                     // Tragegriff-Optik
+                    ctx.restore();
+                } else if (variant === 'CROSSBOW') {
+                    ctx.save(); ctx.shadowBlur = 14; ctx.shadowColor = '#cfe8ff';
+                    ctx.fillStyle = '#5a3a1c'; ctx.fillRect(-30, -3, 64, 6);
+                    ctx.strokeStyle = '#7a8a96'; ctx.lineWidth = 5; ctx.beginPath(); ctx.moveTo(28, -26); ctx.quadraticCurveTo(40, 0, 28, 26); ctx.stroke();
+                    ctx.strokeStyle = '#cfd6dd'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.moveTo(30, -24); ctx.lineTo(-10, 0); ctx.lineTo(30, 24); ctx.stroke();
+                    ctx.fillStyle = '#6a4a2a'; ctx.fillRect(-6, -1.5, 40, 3); ctx.fillStyle = '#cfd6dd'; ctx.beginPath(); ctx.moveTo(34, -4); ctx.lineTo(42, 0); ctx.lineTo(34, 4); ctx.fill();
+                    ctx.fillStyle = '#3a2a18'; ctx.fillRect(-30, 0, 12, 18);
+                    ctx.restore();
+                } else if (variant === 'BUZZSAW') {
+                    ctx.save(); ctx.shadowBlur = 16; ctx.shadowColor = '#ffd24a';
+                    ctx.fillStyle = '#2a2e36'; ctx.fillRect(-34, -8, 36, 18); ctx.fillStyle = '#16161a'; ctx.fillRect(-40, -5, 8, 14);
+                    ctx.translate(20, 0); ctx.fillStyle = '#b8bdc4'; ctx.beginPath(); ctx.arc(0, 0, 22, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#dfe4ea'; ctx.beginPath(); ctx.arc(0, 0, 16, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#8a8f98'; for (let i = 0; i < 8; i++) { const a = i/8*Math.PI*2; ctx.beginPath(); ctx.moveTo(Math.cos(a)*22, Math.sin(a)*22); ctx.lineTo(Math.cos(a+0.25)*28, Math.sin(a+0.25)*28); ctx.lineTo(Math.cos(a+0.5)*22, Math.sin(a+0.5)*22); ctx.fill(); }
+                    ctx.fillStyle = '#333'; ctx.beginPath(); ctx.arc(0, 0, 5, 0, Math.PI*2); ctx.fill();
+                    ctx.restore();
+                } else if (variant === 'POISON_GAS') {
+                    ctx.save(); ctx.translate(-8, 0); ctx.shadowBlur = 18; ctx.shadowColor = '#7CFC00';
+                    ctx.fillStyle = '#2a2e36'; ctx.fillRect(-30, -8, 30, 18);
+                    ctx.fillStyle = '#3a4232'; ctx.fillRect(-2, -13, 40, 26);
+                    ctx.fillStyle = '#1a1d22'; ctx.beginPath(); ctx.arc(40, 0, 13, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#7CFC00'; ctx.beginPath(); ctx.arc(40, 0, 7, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#16161a'; ctx.fillRect(-26, 10, 8, 16);
+                    ctx.restore();
+                } else if (variant === 'BLACKHOLE') {
+                    ctx.save(); ctx.translate(-6, 0); ctx.shadowBlur = 20; ctx.shadowColor = '#b060ff';
+                    ctx.fillStyle = '#2a2436'; ctx.fillRect(-30, -8, 34, 18); ctx.fillStyle = '#16161a'; ctx.fillRect(-26, 8, 8, 16);
+                    ctx.translate(20, 0); const gh = ctx.createRadialGradient(0,0,1,0,0,18); gh.addColorStop(0,'#000'); gh.addColorStop(0.5,'#5a1a8a'); gh.addColorStop(1,'rgba(160,80,255,0)');
+                    ctx.fillStyle = gh; ctx.beginPath(); ctx.arc(0, 0, 18, 0, Math.PI*2); ctx.fill();
+                    ctx.strokeStyle = '#c080ff'; ctx.lineWidth = 2; ctx.beginPath(); ctx.arc(0, 0, 10, 0, 5); ctx.stroke();
+                    ctx.restore();
+                } else if (variant === 'TESLA') {
+                    ctx.save(); ctx.translate(-8, 0); ctx.shadowBlur = 18; ctx.shadowColor = '#7cf';
+                    ctx.fillStyle = '#2a2e36'; ctx.fillRect(-30, -7, 34, 16); ctx.fillStyle = '#16161a'; ctx.fillRect(-26, 9, 8, 15);
+                    ctx.fillStyle = '#b88a3a'; ctx.fillRect(2, -10, 18, 20); ctx.fillStyle = '#caa23a'; for (let i = 0; i < 4; i++) ctx.fillRect(2, -10 + i*5, 18, 2);
+                    ctx.globalCompositeOperation = 'lighter';
+                    ctx.fillStyle = '#cfeaff'; ctx.beginPath(); ctx.arc(30, 0, 9, 0, Math.PI*2); ctx.fill();
+                    ctx.strokeStyle = '#7cf'; ctx.lineWidth = 2; for (let i = 0; i < 4; i++) { const a = i/4*Math.PI*2; ctx.beginPath(); ctx.moveTo(30, 0); ctx.lineTo(30 + Math.cos(a)*16, Math.sin(a)*16); ctx.stroke(); }
+                    ctx.restore();
+                } else if (variant === 'AIRSTRIKE') {
+                    ctx.save(); ctx.shadowBlur = 14; ctx.shadowColor = '#ffd24a';
+                    ctx.fillStyle = '#3a4a2a'; ctx.fillRect(-22, -18, 30, 44); ctx.fillStyle = '#2a3620'; ctx.fillRect(-22, -18, 30, 6);
+                    ctx.fillStyle = '#16161a'; ctx.fillRect(-8, -30, 4, 14);
+                    ctx.fillStyle = '#88ff88'; ctx.fillRect(-18, -10, 22, 10);
+                    ctx.save(); ctx.translate(22, -22); ctx.fillStyle = '#9bb'; ctx.beginPath(); ctx.moveTo(-14, 0); ctx.lineTo(10, -3); ctx.lineTo(16, 0); ctx.lineTo(10, 3); ctx.closePath(); ctx.fill(); ctx.beginPath(); ctx.moveTo(-2, 0); ctx.lineTo(-10, -7); ctx.lineTo(2, -1); ctx.fill(); ctx.restore();
+                    ctx.restore();
+                } else if (variant === 'TURRET') {
+                    ctx.save(); ctx.shadowBlur = 14; ctx.shadowColor = '#ffd24a';
+                    ctx.fillStyle = '#2a2e36'; ctx.fillRect(-22, 6, 44, 16);
+                    ctx.fillStyle = '#3a3f49'; ctx.fillRect(-8, -2, 16, 14);
+                    ctx.fillStyle = '#454b57'; ctx.beginPath(); ctx.arc(0, -8, 16, Math.PI, 0); ctx.fill();
+                    ctx.fillStyle = '#16161a'; ctx.fillRect(0, -12, 28, 7);
+                    ctx.fillStyle = '#ffcb3a'; ctx.beginPath(); ctx.arc(-4, -10, 4, 0, Math.PI*2); ctx.fill();
+                    ctx.restore();
+                } else if (variant === 'LSD') {
+                    ctx.save(); ctx.shadowBlur = 26; ctx.shadowColor = '#ff66ff';
+                    const cols = ['#ff3fa2', '#ff8a3f', '#ffe23f', '#54e07a', '#3fb6ff', '#a05fff'];
+                    for (let i = 0; i < cols.length; i++) { ctx.fillStyle = cols[i]; ctx.beginPath(); ctx.moveTo(0, 0); ctx.arc(0, 0, 34, i/cols.length*Math.PI*2, (i+1)/cols.length*Math.PI*2); ctx.closePath(); ctx.fill(); }
+                    ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(0, 0, 12, 0, Math.PI*2); ctx.fill();
+                    ctx.fillStyle = '#222'; ctx.beginPath(); ctx.arc(-4, -3, 1.8, 0, Math.PI*2); ctx.arc(4, -3, 1.8, 0, Math.PI*2); ctx.fill();
+                    ctx.strokeStyle = '#222'; ctx.lineWidth = 1.5; ctx.beginPath(); ctx.arc(0, 0, 6, 0.2, Math.PI - 0.2); ctx.stroke();
+                    ctx.restore();
                 } else {
                     ctx.shadowBlur = 30; ctx.shadowColor = '#FFF'; ctx.fillStyle = '#222';
                     ctx.fillRect(-45, -30, 90, 60); // Breiterer Koffer
@@ -731,7 +910,7 @@ const Assets = {
         this.playerWalk = SpriteGenerator.generate('PLAYER', 'NORMAL');
         this.playerStar = SpriteGenerator.generate('PLAYER', 'SKELETON'); 
         
-        ['HEART', 'STAR', 'BOOSTER', 'JETPACK', 'MOLOTOV', 'BEER', 'LIQUOR', 'PISTOL', 'UZI', 'SHOTGUN', 'ASSAULT_RIFLE', 'MINIGUN', 'ROCKET', 'FLAMETHROWER', 'GRENADE', 'KNIFE', 'AXE', 'CHAINSAW', 'RAILGUN', 'ALIEN_LASER'].forEach(type => {
+        ['HEART', 'STAR', 'BOOSTER', 'JETPACK', 'LSD', 'MOLOTOV', 'BEER', 'LIQUOR', 'BAT', 'PISTOL', 'UZI', 'SHOTGUN', 'ASSAULT_RIFLE', 'MINIGUN', 'ROCKET', 'FLAMETHROWER', 'GRENADE', 'KNIFE', 'AXE', 'CHAINSAW', 'RAILGUN', 'ALIEN_LASER', 'DEAGLE', 'FIFTY_MG', 'G11', 'CROSSBOW', 'BUZZSAW', 'POISON_GAS', 'BLACKHOLE', 'TESLA', 'AIRSTRIKE', 'TURRET'].forEach(type => {
             this.items[type] = SpriteGenerator.generate('ITEM', type);
         });
 

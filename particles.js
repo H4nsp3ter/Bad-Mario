@@ -44,21 +44,33 @@ class ParticleManager {
     }
 
     spawnBlood(x, y, count) {
+        // LSD-Trip: kein Blut mehr, sondern fröhliche Herzchen
+        const lsd = window.gameInstance && window.gameInstance.player && window.gameInstance.player.lsdActive;
         for (let i = 0; i < Math.ceil(count * 1.2); i++) {
             const angle = Math.random() * Math.PI * 2;
             const vel = Math.random() * 600; // Spritzt viel weiter
+            if (lsd) {
+                this.particles.push({
+                    type: 'HEARTP', x, y,
+                    vx: Math.cos(angle) * vel * 0.6, vy: Math.sin(angle) * vel * 0.6 - 260,
+                    life: 1.4 + Math.random() * 1.6, maxLife: 2.0,
+                    color: ['#ff5fa2', '#ff9ad1', '#ff66ff', '#ffd0e8'][Math.floor(Math.random() * 4)],
+                    size: Math.random() * 26 + 26, glow: true, stopped: false   // große Herzchen
+                });
+                continue;
+            }
             this.particles.push({
                 type: 'BLOOD',
-                x: x, 
-                y: y, 
-                vx: Math.cos(angle) * vel, 
+                x: x,
+                y: y,
+                vx: Math.cos(angle) * vel,
                 vy: Math.sin(angle) * vel - 200,
-                life: 2.0 + Math.random() * 3.0, 
+                life: 2.0 + Math.random() * 3.0,
                 maxLife: 5.0,
                 color: Math.random() > 0.3 ? '#880000' : '#FF0000',
-                size: Math.random() * 18 + 10, 
-                glow: false, 
-                isBlood: true, 
+                size: Math.random() * 18 + 10,
+                glow: false,
+                isBlood: true,
                 stopped: false
             });
         }
@@ -216,6 +228,18 @@ class ParticleManager {
                 ctx.fillStyle = '#8B6508'; ctx.fillRect(-p.w/2, -p.h/2, 3, p.h);
                 ctx.restore();
             } 
+            else if (p.type === 'HEARTP') {
+                // LSD: kleines Herzchen statt Blutspritzer
+                const s = p.size, px = p.x - camX, py = p.y - camY;
+                ctx.globalCompositeOperation = 'lighter';
+                ctx.fillStyle = p.color;
+                ctx.beginPath();
+                ctx.arc(px - s * 0.25, py, s * 0.3, 0, Math.PI * 2);
+                ctx.arc(px + s * 0.25, py, s * 0.3, 0, Math.PI * 2);
+                ctx.moveTo(px - s * 0.54, py + s * 0.08); ctx.lineTo(px, py + s * 0.72); ctx.lineTo(px + s * 0.54, py + s * 0.08);
+                ctx.fill();
+                ctx.globalCompositeOperation = 'source-over';
+            }
             else if (p.type === 'FIRE') {
                 // Fettes, leuchtendes Kugel-Feuer
                 ctx.globalCompositeOperation = 'lighter';

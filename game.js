@@ -25,6 +25,8 @@ class Game {
         this.player = null;
         this.projectiles = [];
         this.railBeams = [];        // leuchtende Railgun-Spuren (verblassen über ein paar Sekunden)
+        this.fx = [];               // Spezialwaffen-Aktoren (Jet, Giftwolke, Schwarzes Loch, Geschütz, Blitz)
+        this.stuckBolts = [];       // steckende Armbrust-Bolzen (aufsammelbar)
         this.customMode = false; this.testFromEditor = false; this.customLevelData = null;   // Editor-Level
         this.bgLayers = [];
         this.shakeMag = 0; 
@@ -111,6 +113,7 @@ class Game {
 
     // Stufenweiser Menü-Assistent: START -> mode -> music -> hero -> level
     showStep(name) {
+        if (this.audio && this.audio.playTitle) this.audio.playTitle();   // Startscreen-/Menü-Theme (Rock-Logo)
         ['step-mode', 'step-music', 'hero-select', 'step-level'].forEach(id => {
             const el = document.getElementById(id); if (el) el.classList.add('hidden');
         });
@@ -130,6 +133,30 @@ class Game {
         document.querySelectorAll('#step-mode .mode-card').forEach(card => {
             const cv = card.querySelector('.mode-preview'); if (!cv) return;
             const ctx = cv.getContext('2d'); const W = cv.width, H = cv.height; ctx.clearRect(0, 0, W, H);
+            if (card.dataset.action === 'editor') {
+                // Editor-Vorschau: Raster + Bausteine + Cursor
+                ctx.fillStyle = '#1f2632'; ctx.fillRect(0, 0, W, H);
+                ctx.strokeStyle = 'rgba(255,255,255,0.10)'; ctx.lineWidth = 1;
+                for (let x = 0; x < W; x += 22) { ctx.beginPath(); ctx.moveTo(x, 0); ctx.lineTo(x, H); ctx.stroke(); }
+                for (let y = 0; y < H; y += 22) { ctx.beginPath(); ctx.moveTo(0, y); ctx.lineTo(W, y); ctx.stroke(); }
+                ctx.fillStyle = '#C84C0C'; ctx.fillRect(22, H - 46, 66, 44);
+                ctx.fillStyle = '#FCA800'; ctx.fillRect(110, 50, 30, 30);
+                ctx.fillStyle = '#00A800'; ctx.fillRect(170, H - 70, 30, 68);
+                ctx.strokeStyle = '#36c6ff'; ctx.lineWidth = 2; ctx.setLineDash([5, 3]); ctx.strokeRect(106, 46, 38, 38); ctx.setLineDash([]);
+                ctx.fillStyle = '#36c6ff'; ctx.beginPath(); ctx.moveTo(150, 96); ctx.lineTo(168, 110); ctx.lineTo(150, 112); ctx.lineTo(154, 124); ctx.lineTo(146, 126); ctx.lineTo(142, 112); ctx.lineTo(132, 116); ctx.closePath(); ctx.fill();
+                return;
+            }
+            if (card.dataset.action === 'mylevels') {
+                const g = ctx.createLinearGradient(0, 0, 0, H); g.addColorStop(0, '#15324a'); g.addColorStop(1, '#0b1a28');
+                ctx.fillStyle = g; ctx.fillRect(0, 0, W, H);
+                // Ordner/Karten-Stapel
+                ctx.fillStyle = '#2f6cc0'; ctx.fillRect(W / 2 - 70, 36, 140, 80);
+                ctx.fillStyle = '#3f86e8'; ctx.fillRect(W / 2 - 58, 28, 140, 80);
+                ctx.fillStyle = '#bfe0ff'; ctx.font = 'bold 42px sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+                ctx.fillText('▶', W / 2 - 4, 70); ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+                ctx.fillStyle = '#C84C0C'; ctx.fillRect(0, H - 20, W, 20);
+                return;
+            }
             if (card.dataset.mode === 'CLASSIC') {
                 ctx.fillStyle = '#5C94FC'; ctx.fillRect(0, 0, W, H);
                 ctx.fillStyle = '#00A800'; ctx.beginPath(); ctx.arc(W * 0.32, H - 24, 40, Math.PI, 0); ctx.fill();
@@ -235,6 +262,18 @@ class Game {
     }
 
         setupEventListeners() {
+        // Startscreen-Theme bei der ALLERERSTEN Nutzergeste starten (Browser-Autoplay-Sperre):
+        // so spielt die Musik sofort auf dem Startbildschirm, nicht erst im Menü.
+        const startThemeOnce = () => {
+            window.removeEventListener('pointerdown', startThemeOnce, true);
+            window.removeEventListener('keydown', startThemeOnce, true);
+            window.removeEventListener('touchstart', startThemeOnce, true);
+            if (this.state === 'MENU') this.audio.playTitle();
+        };
+        window.addEventListener('pointerdown', startThemeOnce, true);
+        window.addEventListener('keydown', startThemeOnce, true);
+        window.addEventListener('touchstart', startThemeOnce, true);
+
         const launchWithDiff = (diff) => {
             // Nur in Fullscreen gehen, wenn es nicht blockiert wird (z.B. Firefox Gamepad API Restriction)
             try {
@@ -249,6 +288,9 @@ class Game {
 
         document.body.addEventListener('click', (e) => {
             const t = e.target;
+            // ---- PAUSE-MENÜ ----
+            if (t.closest && t.closest('#btn-resume')) { if (this.state === 'PAUSED') this.state = 'PLAYING'; return; }
+            if (t.closest && t.closest('#btn-quit')) { this.quitToMenu(); return; }
             // ---- STUFENWEISER MENÜ-ASSISTENT: START -> Modus -> Musik -> Held -> Level ----
             if (t.id === 'btn-start') { this.audio.init(); this.showStep('mode'); return; }
             // Schwierigkeit im Level-Schritt = Auswahl (Start über LOS GEHT'S)
@@ -268,8 +310,16 @@ class Game {
             // Zurück-Knöpfe im Assistenten
             const back = t.closest && t.closest('.wiz-back');
             if (back) { this.showStep(back.dataset.back); return; }
+            // Aktion-Karten (Editor / Meine Levels) -> direkt öffnen statt Modus-Flow
+            const actionCard = t.closest && t.closest('.mode-card[data-action]');
+            if (actionCard) {
+                this.audio.init();
+                if (actionCard.dataset.action === 'editor') { if (this.audio.stopTitle) this.audio.stopTitle(); if (window.levelEditor) window.levelEditor.open(); }
+                else if (actionCard.dataset.action === 'mylevels') { if (window.levelEditor) window.levelEditor.openPlayList(); }
+                return;
+            }
             // Modus-Karte -> Musik-Schritt
-            const modeCard = t.closest && t.closest('.mode-card');
+            const modeCard = t.closest && t.closest('.mode-card[data-mode]');
             if (modeCard) { this.setMode(modeCard.dataset.mode); this.showStep('music'); return; }
             // Musik-Karte -> Held-Schritt
             const musicCard = t.closest && t.closest('.music-card');
@@ -326,6 +376,18 @@ class Game {
              if (this.state === 'PLAYING') this.state = 'PAUSED';
              else if (this.state === 'PAUSED') this.state = 'PLAYING';
         });
+
+        // Inventar antippbar (Waffe direkt wählen) — v.a. Smartphone/Tablet
+        if (this.ui.inventoryDiv) {
+            const pick = (e) => {
+                const slot = e.target.closest && e.target.closest('[data-weapon]');
+                if (!slot) return;
+                e.preventDefault();
+                this.selectWeapon(slot.dataset.weapon);
+            };
+            this.ui.inventoryDiv.addEventListener('click', pick);
+            this.ui.inventoryDiv.addEventListener('touchstart', pick, { passive: false });
+        }
     }
 
     requestFullScreen() {
@@ -408,7 +470,7 @@ class Game {
         this.levelGen.currentGeneratedLevel = -1; // erzwingt sauberen (Neu-)Aufbau im ersten update()
         this.levelGen.init(0, 500);
         this.projectiles = [];
-        this.railBeams = [];
+        this.railBeams = []; this.fx = []; this.stuckBolts = [];
         this.particles.particles = [];
         this.screenBlood = [];
         this.combo = 0;
@@ -419,6 +481,7 @@ class Game {
         
         this.audio.audioTheme = this.audioMode;
         this.audio.startBGM();
+        if (this.audio.playSfx) this.audio.playSfx('SFX_INTRO', 0.85);   // cineastischer Levelstart-Whoosh
         this.transitionTimer = 3.0;
         this.levelFlashTimer = 0;
         this.lastTime = performance.now();
@@ -456,12 +519,35 @@ class Game {
         if (this.audio.stopBGM) this.audio.stopBGM();
         this.state = 'MENU';
         if (toEditor && window.levelEditor) {
+            if (this.audio.stopTitle) this.audio.stopTitle();   // im Editor kein Menü-Theme
             window.levelEditor.open(won ? 'Level geschafft!' : null);
         } else {
+            if (this.audio.playTitle) this.audio.playTitle();   // ins Menü -> Theme
             if (this.ui.menuOverlay) this.ui.menuOverlay.classList.remove('hidden');
             const sp = document.getElementById('start-screen-prompt'); if (sp) sp.classList.remove('hidden');
             if (this.ui.mobileControls) this.ui.mobileControls.classList.add('hidden');
         }
+    }
+
+    // Pause -> "Spiel beenden": zurück ins Hauptmenü (bzw. Editor bei Editor-Test)
+    quitToMenu() {
+        if (this.customMode) { this.finishCustom(false); return; }
+        this.returnToMenu();
+    }
+
+    returnToMenu() {
+        this.state = 'MENU';
+        this.customMode = false; this.testFromEditor = false;
+        document.body.classList.remove('editor-testing', 'lsd-trip', 'paused', 'in-game');
+        if (this.audio.stopBGM) this.audio.stopBGM();
+        if (this.audio.stopAllSustains) this.audio.stopAllSustains();
+        if (this.audio.playTitle) this.audio.playTitle();   // Menü-Theme wieder an
+        if (this.ui.menuOverlay) this.ui.menuOverlay.classList.remove('hidden');
+        const sp = document.getElementById('start-screen-prompt'); if (sp) sp.classList.remove('hidden');
+        if (this.ui.gameOverStats) this.ui.gameOverStats.classList.add('hidden');
+        ['step-mode', 'step-music', 'hero-select', 'step-level'].forEach(id => { const e = document.getElementById(id); if (e) e.classList.add('hidden'); });
+        if (this.ui.mobileControls) this.ui.mobileControls.classList.add('hidden');
+        const wasted = document.querySelector('.wasted-text'); if (wasted) wasted.innerText = 'WASTED';
     }
 
     continueGame() {
@@ -546,6 +632,7 @@ class Game {
     handleBossDefeat() {
         this.triggerShake(80, 2.5);
         this.audio.playExplosion();
+        if (this.audio.playSfx) this.audio.playSfx('SFX_BASSDROP', 0.95);   // wuchtiger Bass-Drop beim Boss-Sieg
         this.player.score += 5000;
         if (this.customMode) { this.finishCustom(true); return; }   // Editor-Level: Boss besiegt = geschafft
         this.advanceLevel();
@@ -555,6 +642,7 @@ class Game {
     advanceLevel() {
         this.transitionTimer = 4.0;
         this.levelFlashTimer = 1.2;
+        if (this.audio.playSfx) this.audio.playSfx('SFX_INTRO', 0.85);   // Whoosh beim Levelübergang
         // Classic-Modus: nur verfügbare Klassik-Level fortsetzen, sonst Sieg.
         const hasNext = this.classicMode ? !!CLASSIC_AVAILABLE[this.level + 1] : (this.level < 10);
         if (hasNext) {
@@ -577,7 +665,7 @@ class Game {
             if (this.classicMode) {
                 this.player.x = 100; this.player.y = 200; this.player.vx = 0; this.player.vy = 0;
                 this.camera.x = 0; this.camera.y = 0; this.deathY = 2000;
-                this.projectiles = []; this.railBeams = [];
+                this.projectiles = []; this.railBeams = []; this.fx = []; this.stuckBolts = [];
             }
             // Level wird automatisch neu generiert (LevelGenerator erkennt den Levelwechsel)
         } else {
@@ -602,6 +690,7 @@ class Game {
         if (this.customMode) { this.finishCustom(false); return; }
         this.state = 'GAMEOVER';
         this.audio.stopBGM();
+        if (this.audio.playSfx) { this.audio.playSfx('SFX_DEATH', 1.0); this.audio.playSfx('AMB_DRONE', 0.5); }   // Tod-Stinger + düstere Atmo
         
         if (this.player.score > this.savedHighscore) {
             this.savedHighscore = this.player.score;
@@ -637,35 +726,48 @@ class Game {
             this.updateInventoryUI();
             this.uiCache.weapon = currentWeaponStr;
         }
+        // Inventar auch aktualisieren, wenn sich das Waffen-SET ändert (neue Waffe aufgehoben -> sofort sichtbar)
+        const invSig = Object.keys(this.player.inventory).join(',') + '|' + this.player.weapon;
+        if (this.uiCache.invSig !== invSig) {
+            this.updateInventoryUI();
+            this.uiCache.invSig = invSig;
+        }
     }
 
     updateInventoryUI() {
         if (!this.ui.inventoryDiv || !this.player) return;
         const inv = Object.keys(this.player.inventory);
-        let html = '';
-        
-        inv.forEach((wType) => {
-            const isCurrent = this.player.weapon === wType;
-            const am = this.player.inventory[wType] === Infinity ? '∞' : this.player.inventory[wType];
-            
-            let bgCol = isCurrent ? 'rgba(255, 255, 0, 0.4)' : 'rgba(0, 0, 0, 0.8)';
-            let bCol = isCurrent ? '#FFF' : '#666';
-            let shadow = isCurrent ? '0 0 15px #FF0' : 'none';
-            let textColor = isCurrent ? '#FFF' : '#AAA';
-            
-            html += `<div style="
-                width: 70px; height: 70px; 
-                background: ${bgCol}; border: 3px solid ${bCol}; 
-                display: flex; flex-direction: column; justify-content: flex-end; align-items: center;
-                padding-bottom: 5px; border-radius: 5px; box-shadow: ${shadow};
-                transition: all 0.2s;
-            ">
-                <span style="font-size:11px; color:#0F0; margin-bottom:10px; font-weight:bold; text-shadow: 1px 1px 0 #000;">${wType.substring(0,3)}</span>
-                <span style="font-size:16px; font-weight:bold; color:${textColor}; text-shadow: 2px 2px 0 #000;">${am}</span>
-            </div>`;
-        });
-        
-        this.ui.inventoryDiv.innerHTML = html;
+        const ammoOf = (w) => this.player.inventory[w] === Infinity ? '∞' : this.player.inventory[w];
+        const sig = inv.join(',') + '|' + this.player.weapon;
+        if (sig !== this._invSig) {
+            // Struktur neu aufbauen (Waffen-Set oder aktive Waffe geändert)
+            this._invSig = sig;
+            let html = '';
+            inv.forEach((wType) => {
+                const isCurrent = this.player.weapon === wType;
+                const spr = (typeof Assets !== 'undefined' && Assets.items) ? Assets.items[wType] : null;
+                const icon = spr ? `<img class="inv-icon" src="${spr.src}" alt="${wType}" draggable="false">`
+                                 : `<span class="inv-lab">${wType.substring(0, 3)}</span>`;
+                html += `<button type="button" class="inv-slot${isCurrent ? ' current' : ''}" data-weapon="${wType}" title="${wType}">
+                    ${icon}<span class="inv-ammo" data-w="${wType}">${ammoOf(wType)}</span></button>`;
+            });
+            this.ui.inventoryDiv.innerHTML = html;
+        } else {
+            // nur Munitionszahlen aktualisieren (kein Bild-Neuaufbau -> kein Flackern beim Schießen)
+            inv.forEach((wType) => {
+                const el = this.ui.inventoryDiv.querySelector(`.inv-ammo[data-w="${wType}"]`);
+                if (el) el.textContent = ammoOf(wType);
+            });
+        }
+    }
+
+    // Waffe direkt per Tipp/Klick im Inventar wählen (v.a. für Smartphone/Tablet)
+    selectWeapon(wType) {
+        if (!this.player || this.player.inventory[wType] == null) return;
+        if (this.player.weapon === wType) return;
+        this.player.weapon = wType;
+        if (this.audio && this.audio.playWeaponPickup) this.audio.playWeaponPickup();
+        this.updateHUD();
     }
 
     loop(timestamp) {
@@ -675,6 +777,8 @@ class Game {
         
         window.gameInstance = this;
         document.body.classList.toggle('in-game', this.state === 'PLAYING' || this.state === 'PAUSED'); // Controls/Zoom nur im Spiel
+        document.body.classList.toggle('paused', this.state === 'PAUSED');   // Pause-Menü ein-/ausblenden
+        document.body.classList.toggle('lsd-trip', !!(this.player && this.player.lsdActive && this.state === 'PLAYING')); // LSD-Bildschirmeffekt
 
         if (this.state === 'PLAYING') {
             this.update(dt);
@@ -730,7 +834,10 @@ class Game {
         
         // Boss-Thrash läuft, sobald ein Endboss in der Arena ist
         const bossActive = this.levelGen.enemies.some(e => e.isBoss && !e.dead);
-        if (bossActive && !this._bossWasActive) this.audio.playRoar(); // Gebrüll beim Auftritt
+        if (bossActive && !this._bossWasActive) {
+            this.audio.playRoar(); // Gebrüll beim Auftritt
+            if (this.audio.playSfx) this.audio.playSfx('SFX_BOSS_RUMBLE', 0.95);   // tiefes, animalistisches Grollen
+        }
         this._bossWasActive = bossActive;
         this.audio.updateBGM(this.level, bossActive);
         this.levelGen.update(this.camera.x, this.logicalWidth, this.level, this.difficulty);
@@ -790,7 +897,7 @@ class Game {
             if (this.player.checkCollision(item)) {
                 
                 // BUGFIX: Nutzt jetzt immer playPickup!
-                let isPowerup = ['HEART', 'STAR', 'BOOSTER', 'JETPACK'].includes(item.type);
+                let isPowerup = ['HEART', 'STAR', 'BOOSTER', 'JETPACK', 'LSD'].includes(item.type);
                 this.audio.playPickup(isPowerup);
 
                 if (item.type === 'HEART') { 
@@ -824,6 +931,12 @@ class Game {
                     this.player.jetpackFuel = this.player.jetpackMax;   // Volltank (auch beim Nachgreifen)
                     this.particles.spawn(item.x, item.y, '#33d6ff', 40, 300, 1.0, true);
                 }
+                else if (item.type === 'LSD') {
+                    this.player.lsdTimer = 16.0;                        // Trip für ~16s
+                    this.triggerShake(8, 0.4);
+                    this.particles.spawn(item.x, item.y, '#ff66ff', 50, 400, 1.0, true);
+                    this.particles.spawn(item.x, item.y, '#66ffff', 40, 360, 1.0, true);
+                }
                 else if (item.type === 'COIN') { 
                     this.player.score += 50; this.player.coins += 1; 
                     this.particles.spawn(item.x + item.w/2, item.y + item.h/2, CONFIG.COLORS.COIN || '#FFD700', 15, 150); 
@@ -842,7 +955,17 @@ class Game {
                     else if (item.type === 'FLAMETHROWER') ammoAmount = 150;
                     else if (item.type === 'ALIEN_LASER') ammoAmount = 80;
                     else if (item.type === 'RAILGUN') ammoAmount = 8;
-                    
+                    else if (item.type === 'CROSSBOW') ammoAmount = 12;
+                    else if (item.type === 'BUZZSAW') ammoAmount = 24;
+                    else if (item.type === 'POISON_GAS') ammoAmount = 6;
+                    else if (item.type === 'BLACKHOLE') ammoAmount = 3;
+                    else if (item.type === 'TESLA') ammoAmount = 90;
+                    else if (item.type === 'AIRSTRIKE') ammoAmount = 2;
+                    else if (item.type === 'TURRET') ammoAmount = 2;
+                    else if (item.type === 'DEAGLE') ammoAmount = 21;
+                    else if (item.type === 'FIFTY_MG') ammoAmount = 120;
+                    else if (item.type === 'G11') ammoAmount = 90;
+
                     this.player.inventory[item.type] += ammoAmount;
                     // Aktuelle Waffe in der Hand behalten — nur Munition auffüllen.
                     // Nur automatisch wechseln, wenn man bisher bloß die Fäuste/den Schläger (BAT) trägt.
@@ -874,8 +997,60 @@ class Game {
             }
             
             let hit = false;
-            
-            if (!hit && proj.isEnemy && this.player.checkCollision(proj) && !this.player.isStar) { 
+
+            // --- Spezialprojektile mit eigener Treffer-/Abprall-Logik ---
+            if (proj.type === 'BUZZSAW') {
+                for (const e of this.levelGen.enemies) {
+                    if (e.dead || !proj.checkCollision(e)) continue;
+                    const id = e._eid || (e._eid = (this._eidCounter = (this._eidCounter || 0) + 1));
+                    if (!proj.hitCooldown[id] || proj.hitCooldown[id] <= 0) { e.takeDamage(40, this, 'BUZZSAW'); proj.hitCooldown[id] = 0.3; }
+                }
+                for (const k in proj.hitCooldown) proj.hitCooldown[k] -= dt;
+                for (const p of this.levelGen.platforms) {
+                    if (!p.isSolidGround || !proj.checkCollision(p)) continue;
+                    const oL = (proj.x + proj.w) - p.x, oR = (p.x + p.w) - proj.x, oT = (proj.y + proj.h) - p.y, oB = (p.y + p.h) - proj.y;
+                    if (Math.min(oL, oR) < Math.min(oT, oB)) { proj.vx = -proj.vx; proj.x += Math.sign(proj.vx) * 8; }
+                    else { proj.vy = -proj.vy; proj.y += Math.sign(proj.vy) * 8; }
+                    proj.bounces = (proj.bounces || 0) + 1;
+                    this.particles.spawn(proj.x + proj.w / 2, proj.y + proj.h / 2, '#ffd24a', 6, 200);
+                    if (this.audio.playMeleeHit) this.audio.playMeleeHit('KNIFE');
+                    break;
+                }
+                if (proj.bounces > 8) this.projectiles.splice(i, 1);
+                continue;
+            }
+            if (proj.type === 'BOLT') {
+                for (const e of this.levelGen.enemies) {
+                    if (!e.dead && proj.checkCollision(e)) {
+                        // Bolzen tiefer in den Körper setzen (in Flugrichtung versetzt) und an den Gegner binden
+                        const ex = proj.x + proj.w / 2 + Math.cos(proj.angle) * 40;
+                        const ey = proj.y + proj.h / 2 + Math.sin(proj.angle) * 40;
+                        this.stuckBolts.push(new StuckBolt(ex, ey, proj.angle, e));
+                        e.takeDamage(55, this); hit = true; break;
+                    }
+                }
+                if (!hit) for (const p of this.levelGen.platforms) {
+                    if (!proj.checkCollision(p)) continue;
+                    if (!proj.isEnemy && p.bumpable && !p.used) this.bumpBlock(p);
+                    this.stuckBolts.push(new StuckBolt(proj.x + proj.w / 2, proj.y + proj.h / 2, proj.angle)); hit = true; break;
+                }
+                if (hit) this.projectiles.splice(i, 1);
+                continue;
+            }
+            if (proj.type === 'GAS_CANISTER' || proj.type === 'SINGULARITY') {
+                let land = false;
+                for (const p of this.levelGen.platforms) { if (p.isSolidGround && proj.checkCollision(p)) { land = true; break; } }
+                if (!land) for (const e of this.levelGen.enemies) { if (!e.dead && proj.checkCollision(e)) { land = true; break; } }
+                if (land) {
+                    if (proj.type === 'GAS_CANISTER') { this.fx.push(new GasCloud(proj.x + proj.w / 2, proj.y + proj.h / 2)); if (this.audio.playExplosion) this.audio.playExplosion(); }
+                    else this.fx.push(new BlackHole(proj.x + proj.w / 2, proj.y + proj.h / 2));
+                    this.particles.spawn(proj.x, proj.y, proj.color, 14, 220);
+                    this.projectiles.splice(i, 1);
+                }
+                continue;
+            }
+
+            if (!hit && proj.isEnemy && this.player.checkCollision(proj) && !this.player.isStar) {
                 this.player.takeDamage(15, this); 
                 hit = true; 
             }
@@ -883,29 +1058,36 @@ class Game {
                         if (!hit && !proj.isEnemy) {
                 for (let j = this.levelGen.enemies.length - 1; j >= 0; j--) {
                     let enemy = this.levelGen.enemies[j];
-                    if (!enemy.dead && proj.checkCollision(enemy)) {
-                        let damage = 25;
-                        if (proj.type === 'FLAME' || proj.type === 'MOLOTOV_FIRE') damage = 15;
-                        else if (proj.type === 'ROCKET') damage = 500;
+                    if (enemy.dead || !proj.checkCollision(enemy)) continue;
+                    if (proj.hitEnemies && proj.hitEnemies.indexOf(enemy) !== -1) continue;   // .50: bereits durchschlagen
+                    let damage = (proj.dmg != null) ? proj.dmg : 25;   // .50/Deagle setzen proj.dmg
+                    if (proj.type === 'FLAME' || proj.type === 'MOLOTOV_FIRE') damage = 15;
+                    else if (proj.type === 'ROCKET') damage = 500;
 
-                        // Bosse sind schwer gepanzert: nur Kopftreffer (oberes ~28%) richten vollen Schaden an,
-                        // Körpertreffer prallen weitgehend ab -> gezieltes Zielen wird belohnt.
-                        if (enemy.isBoss) {
-                            const projCy = proj.y + proj.h / 2;
-                            if (projCy <= enemy.y + enemy.h * 0.28) {
-                                damage *= 3;
-                                this.particles.spawn(proj.x, proj.y, '#FFFF00', 8, 320, 0.4, true); // Kopftreffer-Funken
-                                this.triggerShake(6, 0.1);
-                            } else {
-                                damage *= 0.15;
-                                this.particles.spawn(proj.x, proj.y, '#AAAAAA', 4, 160, 0.25); // Abpraller am Panzer
-                            }
+                    // Bosse sind schwer gepanzert: nur Kopftreffer (oberes ~28%) richten vollen Schaden an,
+                    // Körpertreffer prallen weitgehend ab -> gezieltes Zielen wird belohnt.
+                    if (enemy.isBoss) {
+                        const projCy = proj.y + proj.h / 2;
+                        if (projCy <= enemy.y + enemy.h * 0.28) {
+                            damage *= 3;
+                            this.particles.spawn(proj.x, proj.y, '#FFFF00', 8, 320, 0.4, true); // Kopftreffer-Funken
+                            this.triggerShake(6, 0.1);
+                        } else {
+                            damage *= 0.15;
+                            this.particles.spawn(proj.x, proj.y, '#AAAAAA', 4, 160, 0.25); // Abpraller am Panzer
                         }
+                    }
 
-                        enemy.takeDamage(damage, this, proj.type);
-                        
+                    enemy.takeDamage(damage, this, proj.type);
+
+                    // .50er durchschlägt Gegner und trifft bis zu 3 dahinter (pierce), Wände stoppen sie weiterhin
+                    if (proj.pierce && proj.pierce > 0) {
+                        proj.pierce--; if (proj.hitEnemies) proj.hitEnemies.push(enemy);
+                        this.particles.spawn(proj.x + proj.w / 2, proj.y + proj.h / 2, '#ffcf6a', 7, 240); // Durchschlag-Funken
+                        // kein hit/break -> Kugel fliegt weiter durch
+                    } else {
                         if (proj.type !== 'FLAME' && proj.type !== 'MOLOTOV_FIRE') hit = true;
-                        break; 
+                        break;
                     }
                 }
             }
@@ -949,6 +1131,21 @@ class Game {
         for (let i = this.railBeams.length - 1; i >= 0; i--) {
             this.railBeams[i].life -= dt;
             if (this.railBeams[i].life <= 0) this.railBeams.splice(i, 1);
+        }
+
+        // Spezialwaffen-Aktoren (Jet, Giftwolke, Schwarzes Loch, Geschütz, Blitz)
+        for (let i = this.fx.length - 1; i >= 0; i--) { if (!this.fx[i].update(dt, this)) this.fx.splice(i, 1); }
+        // Armbrust-Bolzen: Lebensdauer + Wiederaufsammeln
+        for (let i = this.stuckBolts.length - 1; i >= 0; i--) {
+            const b = this.stuckBolts[i];
+            if (!b.update(dt, this)) { this.stuckBolts.splice(i, 1); continue; }
+            if (this.player.checkCollision(b)) {
+                if (this.player.inventory['CROSSBOW'] == null) this.player.inventory['CROSSBOW'] = 0;
+                this.player.inventory['CROSSBOW']++;
+                if (this.audio.playPickup) this.audio.playPickup(false);
+                this.stuckBolts.splice(i, 1);
+                this.updateHUD();
+            }
         }
 
         for (let i = this.levelGen.enemies.length - 1; i >= 0; i--) {
@@ -1060,6 +1257,49 @@ class Game {
         }
         ctx.restore();
         ctx.globalAlpha = 1;
+    }
+
+    // LSD-Trip: zeichnet statt des echten Gegners ein süßes, hüpfendes Häschen (zur Gegnergröße skaliert)
+    drawLsdBunny(ctx, e, camX, camY) {
+        const t = performance.now() / 1000;
+        const phase = (e.x * 0.013) % (Math.PI * 2);
+        const s = Math.max(0.45, Math.min(e.w, e.h) / 95);
+        const hop = Math.abs(Math.sin(t * 4 + phase)) * (16 + e.h * 0.12);
+        const cx = e.x - camX + e.w / 2, footY = e.y - camY + e.h;
+        const faceL = !!e.facingLeft;
+        const fur = '#ffd9ec', furDk = '#ffb6d5', inner = '#ff8fc0';
+        ctx.save();
+        // Bodenschatten
+        ctx.fillStyle = 'rgba(0,0,0,0.18)'; ctx.beginPath(); ctx.ellipse(cx, footY - 2, 26 * s, 7 * s, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.translate(cx, footY - hop); ctx.scale(faceL ? -s : s, s);
+        // Füße
+        ctx.fillStyle = furDk;
+        ctx.beginPath(); ctx.ellipse(-11, -4, 16, 9, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(13, -4, 14, 8, 0, 0, Math.PI * 2); ctx.fill();
+        // Körper + Schwänzchen
+        ctx.fillStyle = fur; ctx.beginPath(); ctx.ellipse(0, -30, 27, 31, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(-24, -24, 7, 0, Math.PI * 2); ctx.fill();
+        // Ohren
+        ctx.save(); ctx.translate(3, -68);
+        ctx.fillStyle = fur;
+        ctx.beginPath(); ctx.ellipse(-7, -22, 6, 24, -0.2, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(10, -24, 6, 24, 0.15, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = inner;
+        ctx.beginPath(); ctx.ellipse(-7, -22, 3, 16, -0.2, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.ellipse(10, -24, 3, 16, 0.15, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
+        // Kopf
+        ctx.fillStyle = fur; ctx.beginPath(); ctx.arc(6, -56, 19, 0, Math.PI * 2); ctx.fill();
+        // Gesicht
+        ctx.fillStyle = '#3a2a33';
+        ctx.beginPath(); ctx.arc(0, -58, 2.6, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(13, -58, 2.6, 0, Math.PI * 2); ctx.fill();
+        ctx.fillStyle = inner; ctx.beginPath(); ctx.ellipse(7, -51, 3, 2.2, 0, 0, Math.PI * 2); ctx.fill();
+        ctx.strokeStyle = '#d76a9c'; ctx.lineWidth = 1.4; ctx.beginPath(); ctx.arc(7, -49, 4, 0.15, Math.PI - 0.15); ctx.stroke();
+        ctx.fillStyle = 'rgba(255,120,170,0.45)';
+        ctx.beginPath(); ctx.arc(-2, -52, 4, 0, Math.PI * 2); ctx.fill();
+        ctx.beginPath(); ctx.arc(16, -52, 4, 0, Math.PI * 2); ctx.fill();
+        ctx.restore();
     }
 
     drawBackground(levelData) {
@@ -1220,10 +1460,13 @@ class Game {
         for (let i = 0; i < this.levelGen.ladders.length; i++) { const l = this.levelGen.ladders[i]; if (vis(l)) l.draw(this.ctx, this.camera.x, this.camera.y, theme); }
         for (let i = 0; i < this.levelGen.platforms.length; i++) { const p = this.levelGen.platforms[i]; if (vis(p)) p.draw(this.ctx, this.camera.x, this.camera.y, levelData, theme); }
         if (this.levelGen.goalX != null) this.drawGoal(this.levelGen.goalX);
-        for (let i = 0; i < this.levelGen.corpses.length; i++) { const c = this.levelGen.corpses[i]; if (vis(c, 60)) c.draw(this.ctx, this.camera.x, this.camera.y); }
+        const lsd = !!(this.player && this.player.lsdActive);   // LSD: Gegner als Häschen, keine Leichen
+        if (!lsd) for (let i = 0; i < this.levelGen.corpses.length; i++) { const c = this.levelGen.corpses[i]; if (vis(c, 60)) c.draw(this.ctx, this.camera.x, this.camera.y); }
         for (let i = 0; i < this.levelGen.items.length; i++) { const it = this.levelGen.items[i]; if (vis(it, 60)) it.draw(this.ctx, this.camera.x, this.camera.y); }
-        for (let i = 0; i < this.levelGen.enemies.length; i++) { const e = this.levelGen.enemies[i]; if (vis(e, 120)) e.draw(this.ctx, this.camera.x, this.camera.y); }
+        for (let i = 0; i < this.levelGen.enemies.length; i++) { const e = this.levelGen.enemies[i]; if (vis(e, 120)) { if (lsd) this.drawLsdBunny(this.ctx, e, this.camera.x, this.camera.y); else e.draw(this.ctx, this.camera.x, this.camera.y); } }
         for (let i = 0; i < this.projectiles.length; i++) { const pr = this.projectiles[i]; if (vis(pr, 60)) pr.draw(this.ctx, this.camera.x, this.camera.y); }
+        for (let i = 0; i < this.stuckBolts.length; i++) { const b = this.stuckBolts[i]; if (vis(b, 40)) b.draw(this.ctx, this.camera.x, this.camera.y); }
+        for (let i = 0; i < this.fx.length; i++) this.fx[i].draw(this.ctx, this.camera.x, this.camera.y);
         this.drawRailBeams();
 
         if (this.player) {
@@ -1338,17 +1581,9 @@ class Game {
         }
         
         if (this.state === 'PAUSED') {
-            const W = this.logicalWidth, H = this.logicalHeight;
+            // Spiel abdunkeln — Titel & Buttons liefert das DOM-Pause-Menü (#pause-menu)
             this.ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
-            this.ctx.fillRect(0, 0, W, H);
-            this.ctx.textAlign = 'center'; this.ctx.textBaseline = 'middle';
-            this.ctx.fillStyle = '#FFF';
-            this.ctx.font = `${Math.max(20, Math.min(40, Math.floor(W / 26)))}px 'Press Start 2P', monospace`;
-            this.ctx.fillText('PAUSED', W / 2, H / 2 - 10);
-            this.ctx.fillStyle = '#d82820';
-            this.ctx.font = `${Math.max(10, Math.min(16, Math.floor(W / 70)))}px 'Press Start 2P', monospace`;
-            this.ctx.fillText('ESC = RESUME', W / 2, H / 2 + 40);
-            this.ctx.textAlign = 'left'; this.ctx.textBaseline = 'alphabetic';
+            this.ctx.fillRect(0, 0, this.logicalWidth, this.logicalHeight);
         }
 
         this.ctx.fillStyle = 'rgba(0,0,0,0.3)'; 

@@ -187,6 +187,7 @@ class LevelGenerator {
                     this.addFloor(700);
                 }
                 this.spawnThemeEnemy(this.cursorX - 300, lvl, diff, 'basic');
+                this.items.push(new Collectible(this.cursorX - 450, B - 120, d % 2 ? 'G11' : 'DEAGLE')); // schwere Pistole/G11 als Lohn
                 break;
             }
 
@@ -197,6 +198,7 @@ class LevelGenerator {
                 const n = 2 + Math.floor(d / 3);
                 for (let i = 0; i < n; i++) this.addMovingPlatform(gx + 60 + i * ((gw - 120) / Math.max(1, n - 1)), B - 180, 190, rng, spd + i * 0.1);
                 this.items.push(new Collectible(gx + gw * 0.5, B - 300, d > 4 ? 'LIQUOR' : 'BEER'));
+                this.items.push(new Collectible(far + 500, B - 120, 'TURRET'));   // Geschütz für den Brückenkopf
                 if (d >= 5) this.spawnThemeEnemy(far + 800, lvl, diff, 'ranged');
                 break;
             }
@@ -237,6 +239,7 @@ class LevelGenerator {
                     if (i > 0) this.spawnThemeEnemy(px - 170, lvl, diff, i % 2 ? 'fast' : 'basic');
                 }
                 this.items.push(new Collectible(sx + 300, B - 120, 'BEER'));
+                this.items.push(new Collectible(sx + 1700, B - 120, 'CROSSBOW'));   // Armbrust (Bolzen wieder einsammelbar)
                 break;
             }
 
@@ -250,6 +253,7 @@ class LevelGenerator {
                     if (i % 2 && d >= 3) this.addFireTrap(hx + 70, B - 40);
                 }
                 this.items.push(new Collectible(sx + 600, B - 300, 'LIQUOR'));
+                this.items.push(new Collectible(sx + 1200, B - 300, d >= 4 ? 'POISON_GAS' : 'BUZZSAW'));
                 break;
             }
 
@@ -289,7 +293,10 @@ class LevelGenerator {
                 this.items.push(new Collectible(sx + 300, B - 110, 'CHAINSAW')); // Kettensäge!
                 if (d >= 3) this.items.push(new Collectible(sx + 900, B - 110, 'ALIEN_LASER')); // Alien-Laser
                 this.items.push(new Collectible(sx + 600, B - 110, 'HEART'));
-                this.items.push(new Collectible(sx + 1250, B - 110, 'BEER'));
+                // Crowd-Control für die Arena: Kettenblitz, Sägeblatt, später Schwarzes Loch
+                this.items.push(new Collectible(sx + 1250, B - 110, 'TESLA'));
+                this.items.push(new Collectible(sx + 1600, B - 110, d >= 5 ? 'BLACKHOLE' : 'BUZZSAW'));
+                this.items.push(new Collectible(sx + 1900, B - 110, 'BEER'));
                 this.items.push(new Collectible(sx + 2100, B - 130, 'STAR'));
                 break;
             }
@@ -300,6 +307,8 @@ class LevelGenerator {
                 this.items.push(new Collectible(sx + 1150, B - 120, d % 3 === 0 ? 'BOOSTER' : 'HEART'));
                 this.items.push(new Collectible(sx + 750, B - 120, d <= 3 ? 'SHOTGUN' : 'ASSAULT_RIFLE')); // Waffen-Nachschub
                 this.items.push(new Collectible(sx + 980, B - 120, d % 2 ? 'MOLOTOV' : 'GRENADE'));       // Wurfwaffe
+                this.items.push(new Collectible(sx + 1300, B - 120, d % 2 ? 'CROSSBOW' : 'BUZZSAW'));      // exotisch
+                if (d >= 3) this.items.push(new Collectible(sx + 500, B - 320, 'LSD'));                    // seltener Trip
                 break;
             }
 
@@ -315,6 +324,13 @@ class LevelGenerator {
                 this.items.push(new Collectible(sx + 1950, B - 320, 'ALIEN_LASER')); // Alien-Laser (entzündet Gegner)
                 this.items.push(new Collectible(sx + 2350, B - 120, 'JETPACK'));   // Jetpack-Power-up
                 this.items.push(new Collectible(sx + 2500, B - 120, d >= 5 ? 'RAILGUN' : 'ALIEN_LASER')); // schwere Railgun ab Level 5
+                // exotisches Arsenal
+                this.items.push(new Collectible(sx + 450, B - 320, 'DEAGLE'));
+                this.items.push(new Collectible(sx + 600, B - 320, 'G11'));
+                this.items.push(new Collectible(sx + 750, B - 320, 'TESLA'));
+                this.items.push(new Collectible(sx + 1100, B - 320, d >= 4 ? 'AIRSTRIKE' : 'POISON_GAS'));
+                this.items.push(new Collectible(sx + 1450, B - 320, 'TURRET'));
+                this.items.push(new Collectible(sx + 2250, B - 320, d >= 6 ? 'BLACKHOLE' : 'FIFTY_MG'));
                 break;
             }
 
@@ -326,6 +342,7 @@ class LevelGenerator {
                     this.items.push(new Collectible(sx + 700 + i * 540, B - 380 - (i % 2) * 90, i % 2 ? 'LIQUOR' : 'BEER'));
                 }
                 this.items.push(new Collectible(sx + 1350, B - 600, 'STAR'));
+                this.items.push(new Collectible(sx + 820, B - 470, d >= 6 ? 'AIRSTRIKE' : 'POISON_GAS')); // Luftangriff/Giftgas hoch oben
                 this.items.push(new Collectible(sx + 1900, B - 360, 'JETPACK'));   // Jetpack hoch oben als Belohnung
                 if (d >= 4) this.spawnThemeEnemy(sx + 2400, lvl, diff, 'flyer');
                 break;
@@ -342,6 +359,7 @@ class LevelGenerator {
                     if (i % 2 && d >= 4) this.spawnThemeEnemy(px + 60, lvl, diff, 'flyer');
                 }
                 this.items.push(new Collectible(sx + 720, B - 170 - steps * 145, d >= 6 ? 'MINIGUN' : 'ROCKET'));
+                this.items.push(new Collectible(sx + 520, B - 170 - steps * 145, d >= 5 ? 'TESLA' : 'CROSSBOW')); // Gipfel-Bonus
                 this.spawnThemeEnemy(sx + 1300, lvl, diff, 'basic');
                 break;
             }
@@ -353,6 +371,7 @@ class LevelGenerator {
                 for (let i = 0; i < 6; i++) this.addPlatform(wallX - 380 + (i % 2) * 190, B - 130 - i * 130, 200);
                 this.ladders.push(new Ladder(sx + 300, B - 420, 70, 420));
                 this.items.push(new Collectible(wallX - 180, B - 800, 'LIQUOR'));
+                this.items.push(new Collectible(wallX - 380, B - 800, d >= 4 ? 'FIFTY_MG' : 'DEAGLE')); // schwere .50er ganz oben
                 this.cursorX = wallX + 120;
                 const far = this.addFloor(1400);
                 this.addMovingPlatform(wallX + 230, B - 250, 200, 120, 1.5);                // Abstieg dahinter
@@ -441,7 +460,7 @@ class LevelGenerator {
             p.style = o.style; p.ctheme = o.ctheme || this.classicTheme || 'over';
             if (o.style === 'QUESTION' || o.style === 'BRICK' || o.style === 'HIDDEN') {
                 p.bumpable = true;
-                p.content = o.content || (o.style === 'QUESTION' ? 'BEER' : (o.style === 'HIDDEN' ? 'COIN' : null));
+                p.content = o.content || (o.style === 'QUESTION' ? 'BEER' : (o.style === 'HIDDEN' ? 'BEER' : null));
             }
             if (o.style === 'CANNON' || o.cannon) p.isCannon = true;
         } else if (o.cannon) { p.isCannon = true; }
@@ -466,10 +485,14 @@ class LevelGenerator {
             BULLETBILL:() => S(BulletBillEnemy),
             HAMMERBRO: () => S(HammerBroEnemy),
             BOWSER:    () => S(BowserEnemy),
-            BOSS_GOLEM:() => { const b = S(BossGolem); if (b) b.isBoss = true; },
-            BOSS_MECH: () => { const b = S(BossMech);  if (b) b.isBoss = true; },
-            BOSS_HELL: () => { const b = S(BossHell);  if (b) b.isBoss = true; }
+            BOSS_GOLEM:() => { const b = S(BossGolem); if (b) b.isBoss = true; return b; },
+            BOSS_MECH: () => { const b = S(BossMech);  if (b) b.isBoss = true; return b; },
+            BOSS_HELL: () => { const b = S(BossHell);  if (b) b.isBoss = true; return b; }
         };
-        (map[o.cls] || map.GOOMBA)();
+        const e = (map[o.cls] || map.GOOMBA)();
+        // benutzerdefinierte HP aus dem Editor (überschreibt Basis-/Schwierigkeits-HP)
+        if (e && o.hp && o.hp > 0) { e.hp = o.hp; e.maxHp = o.hp; }
+        // sonst: Editor-Bosse nicht absurd zäh lassen (Standard-Boss-HP ist sehr hoch) -> deckeln
+        else if (e && e.isBoss) { e.hp = Math.min(e.hp, 1000); e.maxHp = e.hp; }
     }
 }

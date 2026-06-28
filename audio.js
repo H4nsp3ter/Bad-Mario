@@ -14,6 +14,15 @@ class AudioManager {
         this.currentBGMName = '';
         this.isMuted = false;
 
+        // Startscreen-/Menü-Theme (Rock-Logo) als vorgepuffertes <audio>-Element:
+        // lädt sofort beim Seitenstart (ohne Nutzergeste/AudioContext) und spielt
+        // verzögerungsfrei beim ersten Antippen -> Musik direkt auf dem Startbildschirm.
+        this.titleEl = null;
+        try {
+            this.titleEl = new Audio('sound%20files/title-theme.mp3');
+            this.titleEl.loop = true; this.titleEl.volume = 0.5; this.titleEl.preload = 'auto';
+        } catch (e) {}
+
         // Sound-Stil: 'METAL' (Samples + Synth, wie bisher) oder 'CLASSIC' (8-Bit-Chiptune à la Mario)
         this.audioTheme = 'METAL';
         this.chipName = '';      // aktuell laufende Chiptune-Melodie ('OVERWORLD'/'BOSS')
@@ -70,6 +79,17 @@ class AudioManager {
                 this.loadTrack('SFX_PAIN',       SF + 'pain-scream.mp3',   false);
                 this.loadTrack('SFX_PAIN',       SF + 'pain_scream.mp3',   false);
                 this.loadTrack('SFX_PAIN',       SF + 'pain scream.mp3',   false);
+                // Desert Eagle (.50er Pistole) — eigenes Schuss-Sample
+                this.loadTrack('SFX_DEAGLE',     SF + 'freesound_community-desert-eagle-90136.mp3', false);
+                this.loadTrack('SFX_DEAGLE',     SF + 'desert-eagle.mp3', false);   // Fallback-Name
+                // (Startscreen-/Menü-Theme läuft über ein vorgepuffertes <audio>-Element, siehe playTitle)
+                // Atmosphäre-/Cinematic-Stinger
+                this.loadTrack('SFX_INTRO',      SF + 'chrysalyn-cinematic-intro-whoosh-with-deep-bass-drop-543523.mp3', false);   // Levelstart
+                this.loadTrack('SFX_BOSS_RUMBLE',SF + 'dragon-studio-deep-animalistic-rumbling-472370.mp3', false);                 // Boss-Auftritt
+                this.loadTrack('SFX_DEATH',      SF + 'notification_message-cinematic-deep-dark-brooding-bass-atmospheric-synth-534018.mp3', false); // Tod
+                this.loadTrack('SFX_BASSDROP',   SF + 'freesound_community-deep-bass-01-64245.mp3', false);                          // Boss-Sieg / Wucht
+                this.loadTrack('AMB_DRONE',      SF + 'chrysalyn-deep-horror-drone-with-eerie-wind-and-metallic-chimes-543529.mp3', false); // Game-Over-Ambiente
+                this.loadTrack('SFX_BOOM',       SF + 'tomas_herudek-atmosphere-deep-amp-booming-256197.mp3', false);               // tiefer Atmo-Boom (Reserve)
             } catch(e) {
                 console.error("AudioContext Error:", e);
             }
@@ -122,17 +142,18 @@ class AudioManager {
     }
 
     // Dauer-Loop: läuft, solange er angefordert wird; stoppt ~0.13s nach dem letzten Aufruf (siehe tickSustains)
-    playLoop(name, volume = 0.7) {
+    // rate: Abspielgeschwindigkeit (höhere Kadenz), key: eigener Sustain-Slot (z.B. G11 nutzt das Uzi-Sample schneller)
+    playLoop(name, volume = 0.7, rate = 1, key = name) {
         if (!this.ctx || this.isMuted) return;
         const buf = this.sfxBuffers[name];
         if (!buf) return;
         const now = this.ctx.currentTime;
-        let s = this.sustains[name];
+        let s = this.sustains[key];
         if (!s || !s.src) {
-            const src = this.ctx.createBufferSource(); src.buffer = buf; src.loop = true;
+            const src = this.ctx.createBufferSource(); src.buffer = buf; src.loop = true; src.playbackRate.value = rate;
             const g = this.ctx.createGain(); g.gain.value = volume;
             src.connect(g).connect(this.masterGain); src.start(now);
-            s = this.sustains[name] = { src, g };
+            s = this.sustains[key] = { src, g };
         }
         s.until = now + 0.13;
     }
@@ -222,6 +243,43 @@ class AudioManager {
         o.connect(og).connect(this.masterGain); o.start(now); o.stop(now + 0.4);
     }
 
+    playZap() {                          // Tesla/Kettenblitz: knisternder Entladungs-Zap
+        if (!this.ctx || this.isMuted) return;
+        const now = this.ctx.currentTime;
+        const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+        o.type = 'square'; o.frequency.setValueAtTime(1800 + Math.random() * 400, now);
+        o.frequency.exponentialRampToValueAtTime(180, now + 0.12);
+        g.gain.setValueAtTime(0.0001, now); g.gain.exponentialRampToValueAtTime(0.35, now + 0.005); g.gain.exponentialRampToValueAtTime(0.0001, now + 0.14);
+        o.connect(g).connect(this.masterGain); o.start(now); o.stop(now + 0.16);
+    }
+    playThwip() {                        // Armbrust: kurzer, trockener Bolzen-Schuss
+        if (!this.ctx || this.isMuted) return;
+        const now = this.ctx.currentTime;
+        const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+        o.type = 'triangle'; o.frequency.setValueAtTime(900, now); o.frequency.exponentialRampToValueAtTime(160, now + 0.09);
+        g.gain.setValueAtTime(0.3, now); g.gain.exponentialRampToValueAtTime(0.0001, now + 0.1);
+        o.connect(g).connect(this.masterGain); o.start(now); o.stop(now + 0.12);
+    }
+    playWhir() {                         // Sägeblatt: kurzes Surren
+        if (!this.ctx || this.isMuted) return;
+        const now = this.ctx.currentTime;
+        const o = this.ctx.createOscillator(), g = this.ctx.createGain();
+        o.type = 'sawtooth'; o.frequency.setValueAtTime(260, now); o.frequency.linearRampToValueAtTime(420, now + 0.18);
+        g.gain.setValueAtTime(0.0001, now); g.gain.exponentialRampToValueAtTime(0.25, now + 0.02); g.gain.exponentialRampToValueAtTime(0.0001, now + 0.2);
+        o.connect(g).connect(this.masterGain); o.start(now); o.stop(now + 0.22);
+    }
+    playJet() {                          // Luftangriff: vorbeiziehendes Düsenrauschen
+        if (!this.ctx || this.isMuted) return;
+        const now = this.ctx.currentTime;
+        const noise = this.ctx.createBufferSource();
+        const buf = this.ctx.createBuffer(1, Math.floor(this.ctx.sampleRate * 0.9), this.ctx.sampleRate);
+        const d = buf.getChannelData(0); for (let i = 0; i < d.length; i++) d[i] = (Math.random() * 2 - 1);
+        noise.buffer = buf;
+        const bp = this.ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.setValueAtTime(500, now); bp.frequency.linearRampToValueAtTime(1400, now + 0.9); bp.Q.value = 0.8;
+        const g = this.ctx.createGain(); g.gain.setValueAtTime(0.0001, now); g.gain.linearRampToValueAtTime(0.3, now + 0.4); g.gain.linearRampToValueAtTime(0.0001, now + 0.9);
+        noise.connect(bp).connect(g).connect(this.masterGain); noise.start(now);
+    }
+
     makeDistortionCurve(amount) {
         const k = amount;
         const n_samples = 44100;
@@ -252,6 +310,13 @@ class AudioManager {
         const r = () => 0.95 + Math.random() * 0.1; // minimale Tonhöhen-Variation gegen "Maschinengewehr-Klone"
         switch (weaponType) {
             case 'ALIEN_LASER':   this.playLaser(); break;
+            case 'TESLA':         this.playZap(); break;
+            case 'CROSSBOW':      this.playThwip(); break;
+            case 'BUZZSAW':       this.playWhir(); break;
+            case 'POISON_GAS':    this.playSfx('SFX_ROCKET', 0.7, 1.3); break;
+            case 'DEAGLE':        this.playSfx('SFX_DEAGLE', 1.0, 0.96 + Math.random() * 0.08); break;
+            case 'FIFTY_MG':      this.playSfx('SFX_SHOTGUN', 1.0, 0.68); break;
+            case 'G11':           this.playLoop('SFX_UZI', 0.6, 1.7, 'G11LOOP'); break;   // Vollautomat, max. Kadenz (Uzi-Sample schneller)
             case 'PISTOL':        this.playSfx('SFX_PISTOL', 0.9, r()); break;
             case 'SHOTGUN':       this.playSfx('SFX_SHOTGUN', 1.0, r()); break;
             case 'ROCKET':        this.playSfx('SFX_ROCKET', 1.0, 1.0); break;
@@ -520,8 +585,19 @@ class AudioManager {
     }
 
 
+    // --- STARTSCREEN-/MENÜ-THEME (Rock-Logo) ---
+    playTitle() {
+        if (this.isMuted || !this.titleEl) return;
+        const p = this.titleEl.play();          // benötigt eine Nutzergeste -> vor der ersten Geste blockiert (ignorieren)
+        if (p && p.catch) p.catch(() => {});
+    }
+    stopTitle() {
+        if (this.titleEl) { try { this.titleEl.pause(); this.titleEl.currentTime = 0; } catch (e) {} }
+    }
+
     // --- BGM LOGIK ---
     startBGM() {
+        this.stopTitle();    // Menü-Theme beenden, wenn das Spiel startet
         this.init();
         if (this.audioTheme === 'CLASSIC') {
             // Eigene Classic-MP3 bevorzugen, sonst Chiptune (updateBGM wählt je Level die richtige Melodie)
@@ -599,6 +675,7 @@ class AudioManager {
         if (this.masterGain) {
             this.masterGain.gain.value = this.isMuted ? 0 : 0.65;
         }
+        if (this.titleEl) this.titleEl.muted = this.isMuted;   // Theme (eigenes <audio>) mitschalten
         return this.isMuted;
     }
 }

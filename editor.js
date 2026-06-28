@@ -52,7 +52,7 @@ const ED_PALETTE = [
         { t: 'item', type: 'JETPACK', label: 'Jetpack',        c: '#33d6ff' },
         { t: 'item', type: 'BEER',    label: 'Bier',           c: '#8B4513' },
         { t: 'item', type: 'LIQUOR',  label: 'Schnaps',        c: '#E0FFFF' },
-        { t: 'item', type: 'COIN',    label: 'Münze',          c: '#FFB800' }
+        { t: 'item', type: 'LSD',     label: 'LSD-Trip',       c: '#ff66ff' }
     ]},
     { title: 'Waffen', items: [
         { t: 'item', type: 'PISTOL',        label: 'Pistole' },
@@ -68,7 +68,17 @@ const ED_PALETTE = [
         { t: 'item', type: 'KNIFE',         label: 'Messer' },
         { t: 'item', type: 'AXE',           label: 'Axt' },
         { t: 'item', type: 'RAILGUN',       label: 'Railgun', c: '#33ccff' },
-        { t: 'item', type: 'ALIEN_LASER',   label: 'Alien-Laser', c: '#5dff3a' }
+        { t: 'item', type: 'ALIEN_LASER',   label: 'Alien-Laser', c: '#5dff3a' },
+        { t: 'item', type: 'DEAGLE',        label: '.50 Pistole', c: '#caa23a' },
+        { t: 'item', type: 'FIFTY_MG',      label: '.50 MG', c: '#caa23a' },
+        { t: 'item', type: 'G11',           label: 'G11', c: '#9aa' },
+        { t: 'item', type: 'CROSSBOW',      label: 'Armbrust', c: '#cfe8ff' },
+        { t: 'item', type: 'BUZZSAW',       label: 'Sägeblatt', c: '#cccccc' },
+        { t: 'item', type: 'POISON_GAS',    label: 'Giftgas-Werfer', c: '#7CFC00' },
+        { t: 'item', type: 'BLACKHOLE',     label: 'Schwarzes Loch', c: '#b060ff' },
+        { t: 'item', type: 'TESLA',         label: 'Tesla-Blitz', c: '#7cf' },
+        { t: 'item', type: 'AIRSTRIKE',     label: 'Luftangriff', c: '#9bb' },
+        { t: 'item', type: 'TURRET',        label: 'Geschütz', c: '#ffcb3a' }
     ]},
     { title: 'Gegner (Zombie-Welt)', items: [
         { t: 'foe', cls: 'ZOMBIE', variant: 'NORMAL',  label: 'Zombie', c: '#6a8a3a' },
@@ -98,10 +108,23 @@ const ED_PALETTE = [
         { t: 'foe', cls: 'BOWSER',     label: 'Boss: Bowser', c: '#2a8a2a' }
     ]},
     { title: 'Marker', items: [
-        { t: 'marker', id: 'start', label: '◉ Startpunkt', c: '#22dd44' },
-        { t: 'marker', id: 'goal',  label: '⚑ Ziel-Flagge', c: '#ffd700' }
+        { t: 'marker', id: 'start', label: 'Startpunkt', c: '#22dd44' },
+        { t: 'marker', id: 'goal',  label: 'Ziel-Flagge', c: '#ffd700' }
     ]}
 ];
+
+// Werkzeug-Leiste (immer sichtbar)
+const ED_TOOLS = [
+    { id: 'select', label: 'Auswählen', icon: '▣' },
+    { id: 'pan',    label: 'Bewegen',   icon: '✥' },
+    { id: 'erase',  label: 'Löschen',   icon: '✕' }
+];
+// Kurz-Namen für die Kategorie-Tabs
+const ED_TAB_NAMES = {
+    'Boden & Blöcke': 'Boden', 'Spezial-Plattformen': 'Spezial', 'Power-ups & Items': 'Items',
+    'Waffen': 'Waffen', 'Gegner (Zombie-Welt)': 'Zombies', 'Gegner (Mario)': 'Mario', 'Bosse': 'Bosse', 'Marker': 'Marker'
+};
+const ED_CATS = ED_PALETTE.filter(g => ED_TAB_NAMES[g.title]).map(g => ({ tab: ED_TAB_NAMES[g.title], items: g.items }));
 
 class LevelEditor {
     constructor() {
@@ -114,7 +137,8 @@ class LevelEditor {
         this.drag = null;     // {mode, ...}
         this.raf = null;
         this.dom = null;
-        this._snap = (v) => Math.round(v / ED_GRID) * ED_GRID;
+        this._snap = (v) => Math.round(v / ED_GRID) * ED_GRID;                                  // X & Größen: am Nullpunkt ausgerichtet
+        this._snapY = (v) => ED_BASEY + Math.round((v - ED_BASEY) / ED_GRID) * ED_GRID;          // Y: am Boden (y=600) ausgerichtet
         // ein Start-Boden, damit ein neues Level direkt spielbar ist
         this._addStarterFloor();
     }
@@ -140,28 +164,38 @@ class LevelEditor {
         el.className = 'hidden';
         el.innerHTML = `
           <div id="ed-top">
-            <span class="ed-title">🛠 LEVEL-EDITOR</span>
+            <span class="ed-title">🛠 Level-Editor</span>
             <input id="ed-name" class="ed-in" type="text" maxlength="28" placeholder="Levelname">
-            <label class="ed-lab">Theme
-              <select id="ed-theme" class="ed-in"></select>
-            </label>
-            <label class="ed-lab"><input id="ed-water-on" type="checkbox"> Wasser</label>
-            <input id="ed-water-y" class="ed-in ed-range" type="range" min="120" max="560" step="10">
-            <label class="ed-lab">Länge <input id="ed-length" class="ed-in" type="number" min="640" step="64" style="width:88px"></label>
             <span class="ed-grow"></span>
-            <button id="ed-new"  class="ed-btn">Neu</button>
-            <button id="ed-save" class="ed-btn ed-prim">💾 Speichern</button>
-            <select id="ed-load" class="ed-in"></select>
-            <button id="ed-del"  class="ed-btn ed-danger">Löschen</button>
-            <button id="ed-test" class="ed-btn ed-go">▶ Testen</button>
-            <button id="ed-exit" class="ed-btn">Beenden</button>
+            <div class="ed-actions">
+              <button id="ed-new"  class="ed-act">＋ Neu</button>
+              <button id="ed-save" class="ed-act ed-prim">💾 Speichern</button>
+              <select id="ed-load" class="ed-act ed-load"></select>
+              <button id="ed-del"  class="ed-act ed-danger">🗑 Löschen</button>
+              <button id="ed-test" class="ed-act ed-go">▶ Testen</button>
+              <button id="ed-exit" class="ed-act ed-ghost">✕ Beenden</button>
+            </div>
           </div>
           <div id="ed-body">
-            <div id="ed-palette"></div>
+            <div id="ed-side">
+              <div id="ed-settings">
+                <label class="ed-lab ed-lab-row">Theme <select id="ed-theme" class="ed-in"></select></label>
+                <div class="ed-set-row">
+                  <label class="ed-lab">Länge <input id="ed-length" class="ed-in ed-num-s" type="number" min="640" step="64"></label>
+                  <label class="ed-lab"><input id="ed-water-on" type="checkbox"> Wasser</label>
+                </div>
+                <input id="ed-water-y" class="ed-in ed-range" type="range" min="120" max="560" step="10" title="Wasserhöhe">
+              </div>
+              <div class="ed-side-h">Werkzeug</div>
+              <div id="ed-tools"></div>
+              <div class="ed-side-h">Bausteine</div>
+              <div id="ed-tabs" class="ed-register"></div>
+              <div id="ed-tiles"></div>
+              <div id="ed-props"></div>
+            </div>
             <canvas id="ed-canvas"></canvas>
-            <div id="ed-props"></div>
           </div>
-          <div id="ed-hint">„Auswählen“ → anklicken/ziehen zum Bearbeiten · <b>Rechtsklick = löschen</b> · Ecke unten rechts = skalieren · Mausrad = scrollen · Länge oben einstellbar</div>
+          <div id="ed-hint">„Auswählen“ → antippen/ziehen zum Bearbeiten · Rechtsklick (oder „Löschen“) entfernt · Ecke unten rechts skaliert · leere Fläche ziehen = scrollen</div>
           <div id="ed-toast" class="hidden"></div>
         `;
         document.body.appendChild(el);
@@ -173,7 +207,11 @@ class LevelEditor {
         const ts = el.querySelector('#ed-theme');
         ED_THEMES.forEach(t => { const o = document.createElement('option'); o.value = t.key; o.textContent = t.label; ts.appendChild(o); });
 
-        this._buildPalette();
+        this.canvas.style.touchAction = 'none';     // Touch: kein Browser-Scroll/Zoom auf der Bearbeitungsfläche
+        this.palTab = 0;
+        this._buildTools();
+        this._buildTabs();
+        this._renderTiles();
         this._bindControls();
         this._bindCanvas();
 
@@ -186,27 +224,80 @@ class LevelEditor {
         }
     }
 
-    _buildPalette() {
-        const pal = this.dom.querySelector('#ed-palette');
-        pal.innerHTML = '';
-        ED_PALETTE.forEach(group => {
-            const h = document.createElement('div'); h.className = 'ed-pgroup'; h.textContent = group.title; pal.appendChild(h);
-            group.items.forEach(it => {
-                const b = document.createElement('button');
-                b.className = 'ed-pitem';
-                b.innerHTML = `<span class="ed-sw" style="background:${it.c || '#bbb'}"></span>${it.label}`;
-                b.onclick = () => this._selectTool(it, b);
-                it._btn = b;
-                pal.appendChild(b);
-            });
+    _buildTools() {
+        const wrap = this.dom.querySelector('#ed-tools'); wrap.innerHTML = '';
+        ED_TOOLS.forEach(t => {
+            const b = document.createElement('button'); b.className = 'ed-tool';
+            b.innerHTML = `<span class="ed-tool-ic">${t.icon}</span><span>${t.label}</span>`;
+            b.onclick = () => this._selectTool({ t: 'tool', id: t.id }, null);
+            t._btn = b; wrap.appendChild(b);
         });
+        this._highlightTool();
+    }
+
+    _buildTabs() {
+        const wrap = this.dom.querySelector('#ed-tabs'); wrap.innerHTML = '';
+        ED_CATS.forEach((c, i) => {
+            const b = document.createElement('button');
+            b.className = 'ed-tab' + (i === this.palTab ? ' sel' : '');
+            b.textContent = c.tab;
+            b.onclick = () => { this.palTab = i; this._buildTabs(); this._renderTiles(); };
+            wrap.appendChild(b);
+        });
+    }
+
+    _renderTiles() {
+        const wrap = this.dom.querySelector('#ed-tiles'); wrap.innerHTML = '';
+        const cat = ED_CATS[this.palTab]; if (!cat) return;
+        cat.items.forEach(it => {
+            const b = document.createElement('button'); b.className = 'ed-tile' + (this.tool === it ? ' sel' : '');
+            const cv = document.createElement('canvas'); cv.className = 'ed-tile-cv'; cv.width = 58; cv.height = 44;
+            const lab = document.createElement('span'); lab.className = 'ed-tile-lab'; lab.textContent = it.label;
+            b.appendChild(cv); b.appendChild(lab);
+            b.onclick = () => this._selectTool(it, b);
+            it._btn = b; wrap.appendChild(b);
+            const c2 = cv.getContext('2d');
+            try { this._drawTile(c2, it, cv.width, cv.height); }
+            catch (e) { c2.fillStyle = it.c || '#888'; c2.fillRect(9, 7, cv.width - 18, cv.height - 14); }
+        });
+    }
+
+    _highlightTool() {
+        ED_TOOLS.forEach(t => { if (t._btn) t._btn.classList.toggle('sel', this.tool.t === 'tool' && this.tool.id === t.id); });
     }
 
     _selectTool(it, btn) {
         this.tool = it;
-        this.dom.querySelectorAll('.ed-pitem').forEach(x => x.classList.remove('sel'));
+        this.dom.querySelectorAll('.ed-tile').forEach(x => x.classList.remove('sel'));
         if (btn) btn.classList.add('sel');
+        this._highlightTool();
         if (it.t === 'tool' && it.id !== 'select') { this.selected = null; this._renderProps(); }
+    }
+
+    // Mini-Vorschau eines Bausteins (echtes Spiel-Rendering, skaliert in die Kachel)
+    _drawTile(ctx, it, W, H) {
+        ctx.clearRect(0, 0, W, H);
+        const fit = (ow, oh, drawFn) => { const s = Math.min(W / ow, H / oh) * 0.84; ctx.save(); ctx.translate(W / 2, H / 2); ctx.scale(s, s); drawFn(); ctx.restore(); };
+        if (it.t === 'plat') {
+            let ow = 64, oh = 64;
+            if (it.style === 'PIPE') { ow = 72; oh = 96; }
+            else if (it.style === 'MUSHROOM') { ow = 120; oh = 56; }
+            else if (it.gimmick === 'spiky' || it.gimmick === 'bouncy' || it.gimmick === 'moving' || it.gimmick === 'fireTrap') { ow = 120; oh = 40; }
+            const spec = { k: 'plat', x: 0, y: 0, w: ow, h: oh };
+            if (it.style) spec.style = it.style;
+            if (it.gimmick) spec[it.gimmick] = true;
+            const p = this._platInstance(spec);
+            fit(ow, oh, () => p.draw(ctx, ow / 2, oh / 2, this._levelData(), this._themeIndex()));
+            return;
+        }
+        if (it.t === 'lad') { const l = new Ladder(0, 0, 42, 120); fit(42, 120, () => l.draw(ctx, 21, 60, this._themeIndex() || 2)); return; }
+        if (it.t === 'item') { const c = new Collectible(0, 0, it.type); fit(80, 80, () => c.draw(ctx, 40, 40)); return; }
+        if (it.t === 'foe') { const f = this._makeFoe({ cls: it.cls, variant: it.variant, x: 0, y: 0 }); if (f) { f.x = 0; f.y = 0; fit(f.w, f.h, () => f.draw(ctx, f.w / 2, f.h / 2)); } return; }
+        if (it.t === 'marker') {
+            ctx.fillStyle = it.c || '#fff';
+            if (it.id === 'start') { ctx.fillRect(W / 2 - 2, H / 2 - 10, 4, 22); ctx.beginPath(); ctx.arc(W / 2, H / 2 - 12, 7, 0, Math.PI * 2); ctx.fill(); }
+            else { ctx.fillRect(W / 2 - 9, H / 2 - 14, 3, 28); ctx.beginPath(); ctx.moveTo(W / 2 - 6, H / 2 - 14); ctx.lineTo(W / 2 + 12, H / 2 - 7); ctx.lineTo(W / 2 - 6, H / 2); ctx.fill(); }
+        }
     }
 
     _bindControls() {
@@ -371,14 +462,18 @@ class LevelEditor {
         const cv = this.canvas;
         const pt = (e) => {
             const r = cv.getBoundingClientRect();
-            const cx = (e.touches ? e.touches[0].clientX : e.clientX) - r.left;
-            const cy = (e.touches ? e.touches[0].clientY : e.clientY) - r.top;
-            return { sx: cx, sy: cy, wx: cx + this.scrollX, wy: cy + this.scrollY };
+            return { sx: e.clientX - r.left, sy: e.clientY - r.top, wx: (e.clientX - r.left) + this.scrollX, wy: (e.clientY - r.top) + this.scrollY };
         };
-        cv.addEventListener('mousedown', (e) => { e.preventDefault(); this._onDown(pt(e), e.button); });
+        // Pointer Events vereinheitlichen Maus, Touch (Tablet/Handy) und Stift
+        cv.addEventListener('pointerdown', (e) => {
+            e.preventDefault();
+            try { cv.setPointerCapture(e.pointerId); } catch (er) {}
+            this._activePtr = e.pointerId; this._onDown(pt(e), e.button);
+        });
+        cv.addEventListener('pointermove', (e) => { if (this._activePtr === e.pointerId && this.drag) this._onMove(pt(e)); });
+        cv.addEventListener('pointerup', (e) => { if (this._activePtr === e.pointerId) { this._activePtr = null; this._onUp(); } });
+        cv.addEventListener('pointercancel', () => { this._activePtr = null; this._onUp(); });
         cv.addEventListener('contextmenu', (e) => e.preventDefault());   // Rechtsklick = löschen (kein Kontextmenü)
-        window.addEventListener('mousemove', (e) => { if (this.drag) this._onMove(pt(e)); else if (this.dom && !this.dom.classList.contains('hidden')) this._hover = pt(e); });
-        window.addEventListener('mouseup', () => this._onUp());
         cv.addEventListener('wheel', (e) => { e.preventDefault(); if (e.shiftKey) this.scrollY += e.deltaY; else this.scrollX += (e.deltaY + e.deltaX); this._clampScroll(); }, { passive: false });
         window.addEventListener('keydown', (e) => {
             if (!this.dom || this.dom.classList.contains('hidden')) return;
@@ -414,6 +509,26 @@ class LevelEditor {
         if (g && (g.x + (g.w || 0)) < x + ED_GRID * 2) g.w = this._snap(x + ED_GRID * 2);
     }
 
+    // ---- Gamepad-Cursor (vom MenuNav gesteuert, wenn der Canvas fokussiert ist) ----
+    gpSetActive(on) {
+        this.gpActive = on;
+        if (on && !this.gpCursor) this.gpCursor = { x: this.canvas.width / 2, y: this.canvas.height / 2 };
+    }
+    gpMove(dx, dy) {
+        if (!this.gpCursor) this.gpCursor = { x: this.canvas.width / 2, y: this.canvas.height / 2 };
+        this.gpCursor.x = Math.max(0, Math.min(this.canvas.width, this.gpCursor.x + dx));
+        this.gpCursor.y = Math.max(0, Math.min(this.canvas.height, this.gpCursor.y + dy));
+        const m = 46;   // am Rand automatisch scrollen
+        if (this.gpCursor.x > this.canvas.width - m) this.scrollX += 12;
+        if (this.gpCursor.x < m) this.scrollX -= 12;
+        if (this.gpCursor.y > this.canvas.height - m) this.scrollY += 12;
+        if (this.gpCursor.y < m) this.scrollY -= 12;
+        this._clampScroll();
+    }
+    _gpPt() { const c = this.gpCursor; return { sx: c.x, sy: c.y, wx: c.x + this.scrollX, wy: c.y + this.scrollY }; }
+    gpPrimary() { if (!this.gpCursor) return; const p = this._gpPt(); this._onDown(p, 0); this._onUp(); }   // platzieren/auswählen
+    gpSecondary() { if (!this.gpCursor) return; this._onDown(this._gpPt(), 2); }                              // löschen
+
     _hit(wx, wy) {
         for (let i = this.objects.length - 1; i >= 0; i--) {
             const b = this._objBox(this.objects[i]);
@@ -441,7 +556,7 @@ class LevelEditor {
 
         const t = this.tool;
         if (t.t === 'marker') {
-            if (t.id === 'start') this.meta.start = { x: this._snap(p.wx), y: this._snap(p.wy) };
+            if (t.id === 'start') this.meta.start = { x: this._snap(p.wx), y: this._snapY(p.wy) };
             else this.meta.goalX = this._snap(p.wx);
             this._renderProps();
             return;
@@ -457,18 +572,22 @@ class LevelEditor {
             }
             const o = this._hit(p.wx, p.wy);
             this.selected = o; this._renderProps();
-            if (o) { const b = this._objBox(o); this.drag = { mode: 'move', o, dx: p.wx - b.x, dy: p.wy - b.y }; }
+            if (o) {
+                const b = this._objBox(o); this.drag = { mode: 'move', o, dx: p.wx - b.x, dy: p.wy - b.y };
+            } else {
+                this.drag = { mode: 'pan', sx: p.sx, sy: p.sy, ox: this.scrollX, oy: this.scrollY };  // leere Fläche ziehen = scrollen
+            }
             return;
         }
 
         // Platzieren
         if (t.rect) {
-            this.drag = { mode: 'draw', startx: this._snap(p.wx), starty: this._snap(p.wy), curx: this._snap(p.wx), cury: this._snap(p.wy) };
+            this.drag = { mode: 'draw', startx: this._snap(p.wx), starty: this._snapY(p.wy), curx: this._snap(p.wx), cury: this._snapY(p.wy) };
         } else if (t.t === 'item') {
-            const o = { k: 'item', type: t.type, x: this._snap(p.wx - 36), y: this._snap(p.wy - 36) };
+            const o = { k: 'item', type: t.type, x: this._snap(p.wx - 36), y: this._snapY(p.wy - 36) };
             this.objects.push(o); this.selected = o; this._renderProps();
         } else if (t.t === 'foe') {
-            const o = { k: 'foe', cls: t.cls, x: this._snap(p.wx - 36), y: this._snap(p.wy - 60) };
+            const o = { k: 'foe', cls: t.cls, x: this._snap(p.wx - 36), y: this._snapY(p.wy - 60) };
             if (t.variant) o.variant = t.variant;
             this.objects.push(o); this.selected = o; this._renderProps();
         }
@@ -477,9 +596,9 @@ class LevelEditor {
     _onMove(p) {
         const d = this.drag; if (!d) return;
         if (d.mode === 'pan') { this.scrollX = d.ox - (p.sx - d.sx); this.scrollY = d.oy - (p.sy - d.sy); this._clampScroll(); return; }
-        if (d.mode === 'move') { d.o.x = this._snap(p.wx - d.dx); d.o.y = this._snap(p.wy - d.dy); return; }
+        if (d.mode === 'move') { d.o.x = this._snap(p.wx - d.dx); d.o.y = this._snapY(p.wy - d.dy); return; }
         if (d.mode === 'marker') {
-            if (d.which === 'start') this.meta.start = { x: this._snap(p.wx), y: this._snap(p.wy) };
+            if (d.which === 'start') this.meta.start = { x: this._snap(p.wx), y: this._snapY(p.wy) };
             else { this.meta.goalX = Math.max(ED_GRID, this._snap(p.wx)); this._ensureGroundReaches(this.meta.goalX); }
             return;
         }
@@ -489,7 +608,7 @@ class LevelEditor {
             d.o.h = Math.max(ED_GRID, this._snap(p.wy - d.o.y));
             return;
         }
-        if (d.mode === 'draw') { d.curx = this._snap(p.wx); d.cury = this._snap(p.wy); return; }
+        if (d.mode === 'draw') { d.curx = this._snap(p.wx); d.cury = this._snapY(p.wy); return; }
     }
 
     _onUp() {
@@ -519,20 +638,20 @@ class LevelEditor {
     _renderProps() {
         const p = this.dom.querySelector('#ed-props');
         const o = this.selected;
+        const head = `<div class="ed-props-head">${o ? 'Objekt-Eigenschaften' : 'Level-Eigenschaften'}</div>`;
+        const closeBtn = () => {};
         if (!o) {
-            p.innerHTML = `<div class="ed-pgroup">Level</div>
-              <div class="ed-prow">Länge / Ziel-X <input class="ed-num" id="ed-pp-goal" type="number" value="${this.meta.goalX}"></div>
+            p.innerHTML = head + `
               <div class="ed-prow">Start X <input class="ed-num" id="ed-pp-sx" type="number" value="${this.meta.start.x}"> Y <input class="ed-num" id="ed-pp-sy" type="number" value="${this.meta.start.y}"></div>
-              <div class="ed-prow ed-muted"><b>Bearbeiten:</b> Werkzeug „Auswählen“ → Objekt anklicken (Eigenschaften erscheinen hier), ziehen = verschieben, Ecke unten rechts = skalieren.</div>
-              <div class="ed-prow ed-muted"><b>Löschen:</b> Rechtsklick auf ein Objekt (oder auswählen + Entf).</div>
-              <div class="ed-prow ed-muted">Start- und Ziel-Fahne lassen sich mit „Auswählen“ direkt ziehen. Mausrad: scrollen · Shift+Mausrad: vertikal.</div>`;
+              <div class="ed-prow ed-muted">Werkzeug „Auswählen“ → Objekt anklicken: seine Eigenschaften erscheinen hier. Ziehen = verschieben, Ecke unten rechts = skalieren.</div>
+              <div class="ed-prow ed-muted">Rechtsklick (oder „Löschen“) entfernt ein Objekt. Start- und Ziel-Fahne lassen sich direkt ziehen.</div>`;
             const bind = (id, fn) => { const el = p.querySelector(id); if (el) el.onchange = (e) => { fn(parseInt(e.target.value, 10) || 0); this._renderProps(); }; };
-            bind('#ed-pp-goal', (v) => { this.meta.goalX = this._snap(Math.max(ED_GRID, v)); this._ensureGroundReaches(this.meta.goalX); this._syncControls(); });
             bind('#ed-pp-sx', (v) => { this.meta.start.x = v; });
             bind('#ed-pp-sy', (v) => { this.meta.start.y = v; });
+            closeBtn();
             return;
         }
-        let html = `<div class="ed-pgroup">Auswahl: ${o.k === 'plat' ? 'Plattform' : o.k === 'lad' ? 'Leiter' : o.k === 'item' ? 'Item' : 'Gegner'}</div>`;
+        let html = head + `<div class="ed-pgroup">Auswahl: ${o.k === 'plat' ? 'Plattform' : o.k === 'lad' ? 'Leiter' : o.k === 'item' ? 'Item' : 'Gegner'}</div>`;
         html += `<div class="ed-prow">X <input class="ed-num" data-f="x" type="number" value="${o.x}"> Y <input class="ed-num" data-f="y" type="number" value="${o.y}"></div>`;
         if (o.k === 'plat' || o.k === 'lad') {
             html += `<div class="ed-prow">B <input class="ed-num" data-f="w" type="number" value="${o.w || ED_GRID}"> H <input class="ed-num" data-f="h" type="number" value="${o.h || ED_GRID}"></div>`;
@@ -546,12 +665,12 @@ class LevelEditor {
             });
             html += `</div>`;
             if (o.style === 'QUESTION' || o.style === 'BRICK' || o.style === 'HIDDEN') {
-                const contents = ['COIN', 'HEART', 'STAR', 'BOOSTER', 'JETPACK', 'BEER', 'LIQUOR', 'PISTOL', 'SHOTGUN', 'ASSAULT_RIFLE', 'MINIGUN', 'ROCKET', 'FLAMETHROWER', 'CHAINSAW', 'RAILGUN', 'ALIEN_LASER'];
+                const contents = ['BEER', 'LIQUOR', 'HEART', 'STAR', 'BOOSTER', 'JETPACK', 'PISTOL', 'SHOTGUN', 'ASSAULT_RIFLE', 'MINIGUN', 'ROCKET', 'FLAMETHROWER', 'CHAINSAW', 'RAILGUN', 'ALIEN_LASER'];
                 html += `<div class="ed-prow">Inhalt <select class="ed-sel" data-f="content">${contents.map(c => `<option value="${c}" ${o.content === c ? 'selected' : ''}>${c}</option>`).join('')}</select></div>`;
             }
         }
         if (o.k === 'item') {
-            const types = ['HEART', 'STAR', 'BOOSTER', 'JETPACK', 'BEER', 'LIQUOR', 'COIN', 'PISTOL', 'UZI', 'SHOTGUN', 'ASSAULT_RIFLE', 'MINIGUN', 'ROCKET', 'FLAMETHROWER', 'GRENADE', 'MOLOTOV', 'CHAINSAW', 'KNIFE', 'AXE', 'RAILGUN', 'ALIEN_LASER'];
+            const types = ['HEART', 'STAR', 'BOOSTER', 'JETPACK', 'LSD', 'BEER', 'LIQUOR', 'PISTOL', 'UZI', 'SHOTGUN', 'ASSAULT_RIFLE', 'MINIGUN', 'ROCKET', 'FLAMETHROWER', 'GRENADE', 'MOLOTOV', 'CHAINSAW', 'KNIFE', 'AXE', 'RAILGUN', 'ALIEN_LASER', 'DEAGLE', 'FIFTY_MG', 'G11', 'CROSSBOW', 'BUZZSAW', 'POISON_GAS', 'BLACKHOLE', 'TESLA', 'AIRSTRIKE', 'TURRET'];
             html += `<div class="ed-prow">Typ <select class="ed-sel" data-f="type">${types.map(c => `<option value="${c}" ${o.type === c ? 'selected' : ''}>${c}</option>`).join('')}</select></div>`;
         }
         if (o.k === 'foe') {
@@ -561,6 +680,8 @@ class LevelEditor {
                 const variants = ['NORMAL', 'RUNNER', 'TANK', 'SPITTER', 'CRAWLER'];
                 html += `<div class="ed-prow">Variante <select class="ed-sel" data-f="variant">${variants.map(v => `<option value="${v}" ${o.variant === v ? 'selected' : ''}>${v}</option>`).join('')}</select></div>`;
             }
+            html += `<div class="ed-prow">HP <input class="ed-num" data-f="hp" type="number" min="0" value="${o.hp || ''}" placeholder="auto"></div>`;
+            html += `<div class="ed-prow ed-muted">HP leer/0 = Standard. Bosse zum leichteren Besiegen z.B. auf 300–600 setzen.</div>`;
         }
         html += `<div class="ed-prow"><button class="ed-btn ed-danger" id="ed-delobj">Objekt löschen</button></div>`;
         p.innerHTML = html;
@@ -569,6 +690,7 @@ class LevelEditor {
         p.querySelectorAll('.ed-sel').forEach(sel => sel.onchange = (e) => { const f = e.target.dataset.f; o[f] = e.target.value; if (f === 'style' && o.style === '') delete o.style; this._renderProps(); });
         p.querySelectorAll('input[data-g]').forEach(c => c.onchange = (e) => { const g = e.target.dataset.g; if (e.target.checked) o[g] = true; else delete o[g]; });
         const del = p.querySelector('#ed-delobj'); if (del) del.onclick = () => { this._removeObj(o); this.selected = null; this._renderProps(); };
+        closeBtn();
     }
 
     // ====================================================================
@@ -594,7 +716,8 @@ class LevelEditor {
         const gx0 = Math.floor(camX / ED_GRID) * ED_GRID;
         ctx.beginPath();
         for (let x = gx0; x < camX + W; x += ED_GRID) { const sx = x - camX; ctx.moveTo(sx, 0); ctx.lineTo(sx, H); }
-        const gy0 = Math.floor(camY / ED_GRID) * ED_GRID;
+        // horizontale Linien am Boden (y=600) ausrichten, damit der Boden auf einer Rasterlinie sitzt
+        const gy0 = ED_BASEY + Math.floor((camY - ED_BASEY) / ED_GRID) * ED_GRID;
         for (let y = gy0; y < camY + H; y += ED_GRID) { const sy = y - camY; ctx.moveTo(0, sy); ctx.lineTo(W, sy); }
         ctx.stroke();
 
@@ -641,6 +764,14 @@ class LevelEditor {
             ctx.strokeStyle = '#aaa'; ctx.lineWidth = 3; ctx.beginPath(); ctx.moveTo(gxp, groundSy); ctx.lineTo(gxp, groundSy - 240); ctx.stroke();
             ctx.fillStyle = '#ffd700'; ctx.beginPath(); ctx.moveTo(gxp, groundSy - 240); ctx.lineTo(gxp + 46, groundSy - 222); ctx.lineTo(gxp, groundSy - 204); ctx.fill();
             ctx.fillStyle = '#000'; ctx.fillText('ZIEL', gxp + 6, groundSy - 224);
+        }
+
+        // Gamepad-Cursor (nur wenn der Canvas per Joypad fokussiert ist)
+        if (this.gpActive && this.gpCursor) {
+            const cx = this.gpCursor.x, cy = this.gpCursor.y;
+            ctx.strokeStyle = '#ffd24a'; ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(cx - 14, cy); ctx.lineTo(cx + 14, cy); ctx.moveTo(cx, cy - 14); ctx.lineTo(cx, cy + 14); ctx.stroke();
+            ctx.beginPath(); ctx.arc(cx, cy, 8, 0, Math.PI * 2); ctx.stroke();
         }
     }
 
@@ -750,11 +881,4 @@ class LevelEditor {
 }
 
 window.levelEditor = new LevelEditor();
-
-// Menü-Buttons verdrahten (Buttons stehen vor diesem Script im DOM)
-(function () {
-    const be = document.getElementById('btn-editor');
-    if (be) be.onclick = () => window.levelEditor.open();
-    const bm = document.getElementById('btn-mylevels');
-    if (bm) bm.onclick = () => window.levelEditor.openPlayList();
-})();
+// Zugang erfolgt über die Modus-Kacheln "LEVEL-EDITOR" / "MEINE LEVELS" (siehe game.js).

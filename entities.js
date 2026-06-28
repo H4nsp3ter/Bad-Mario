@@ -467,6 +467,10 @@ class Projectile extends Entity {
         if (type === 'GORE') { w = 18; h = 18; }
         if (type === 'BULLET') { w = 20; h = 4; }
         if (type === 'LASER') { w = 30; h = 8; }
+        if (type === 'BOLT') { w = 28; h = 6; }
+        if (type === 'BUZZSAW') { w = 36; h = 36; }
+        if (type === 'GAS_CANISTER') { w = 16; h = 22; isBallistic = true; }
+        if (type === 'SINGULARITY') { w = 18; h = 18; isBallistic = true; }
         if (type === 'FLAME') { w = 30; h = 30; }
         if (type === 'MOLOTOV') { w = 16; h = 24; isBallistic = true; } 
         if (type === 'MOLOTOV_FIRE') { w = 80; h = 60; } 
@@ -478,12 +482,17 @@ class Projectile extends Entity {
         this.color = '#FFF';
         if (this.type === 'GORE') this.color = '#880000';
         else if (this.type === 'LASER') this.color = '#66ff33';
+        else if (this.type === 'BOLT') this.color = '#cfd6dd';
+        else if (this.type === 'BUZZSAW') this.color = '#cccccc';
+        else if (this.type === 'GAS_CANISTER') this.color = '#7CFC00';
+        else if (this.type === 'SINGULARITY') this.color = '#b060ff';
         else if (this.type === 'BULLET') this.color = '#FFD700';
         else if (this.type === 'GRENADE') this.color = '#006400';
         else if (this.type === 'FLAME' || this.type === 'MOLOTOV_FIRE') this.color = '#FF6600';
         else if (CONFIG.COLORS) this.color = isEnemy ? CONFIG.COLORS.PROJECTILE_ENEMY : (type === 'ROCKET' ? CONFIG.COLORS.PROJECTILE_ROCKET : CONFIG.COLORS.PROJECTILE_PLAYER);
         
-        this.life = (type === 'FLAME') ? 0.6 : ((type === 'MOLOTOV_FIRE') ? 4.0 : 99); 
+        this.life = (type === 'FLAME') ? 0.6 : ((type === 'MOLOTOV_FIRE') ? 4.0 : 99);
+        if (type === 'BUZZSAW') { this.life = 3.0; this.spin = 0; this.bounces = 0; this.hitCooldown = {}; }
     }
     
     update(dt, particles) {
@@ -498,8 +507,10 @@ class Projectile extends Entity {
             this.vy -= 150 * dt; 
             this.life -= dt; 
         } else if (this.type === 'MOLOTOV_FIRE') {
-            this.vx = 0; this.vy = 0; 
+            this.vx = 0; this.vy = 0;
             this.life -= dt;
+        } else if (this.type === 'BUZZSAW') {
+            this.life -= dt; this.spin = (this.spin || 0) + dt * 28;   // rotierendes Sägeblatt
         }
 
         this.x += this.vx * dt; 
@@ -558,6 +569,32 @@ class Projectile extends Entity {
             ctx.fillStyle = '#aaffaa'; ctx.fillRect(-this.w/2, -this.h/2 - 3, this.w, this.h + 6);
             ctx.fillStyle = '#33ff33'; ctx.fillRect(-this.w/2, -this.h/2, this.w, this.h);
             ctx.fillStyle = '#ffffff'; ctx.fillRect(-this.w/2, -2, this.w, 4);
+            ctx.globalCompositeOperation = 'source-over';
+        }
+        else if (this.type === 'BOLT') {
+            ctx.rotate(this.angle);
+            ctx.fillStyle = '#6a4a2a'; ctx.fillRect(-14, -1.5, 24, 3);                 // Schaft
+            ctx.fillStyle = '#cfd6dd'; ctx.beginPath(); ctx.moveTo(10, -4); ctx.lineTo(18, 0); ctx.lineTo(10, 4); ctx.closePath(); ctx.fill(); // Spitze
+            ctx.fillStyle = '#d33'; ctx.beginPath(); ctx.moveTo(-14, 0); ctx.lineTo(-20, -5); ctx.lineTo(-18, 0); ctx.lineTo(-20, 5); ctx.closePath(); ctx.fill(); // Federn
+        }
+        else if (this.type === 'BUZZSAW') {
+            ctx.rotate(this.spin || 0);
+            ctx.fillStyle = '#b8bdc4'; ctx.beginPath(); ctx.arc(0, 0, this.w / 2, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#dfe4ea'; ctx.beginPath(); ctx.arc(0, 0, this.w / 2 - 5, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#8a8f98';
+            for (let i = 0; i < 8; i++) { const a = i / 8 * Math.PI * 2; ctx.beginPath(); ctx.moveTo(Math.cos(a) * (this.w / 2), Math.sin(a) * (this.w / 2)); ctx.lineTo(Math.cos(a + 0.25) * (this.w / 2 + 5), Math.sin(a + 0.25) * (this.w / 2 + 5)); ctx.lineTo(Math.cos(a + 0.5) * (this.w / 2), Math.sin(a + 0.5) * (this.w / 2)); ctx.closePath(); ctx.fill(); }
+            ctx.fillStyle = '#333'; ctx.beginPath(); ctx.arc(0, 0, 4, 0, Math.PI * 2); ctx.fill();
+        }
+        else if (this.type === 'GAS_CANISTER') {
+            ctx.rotate(this.angle);
+            ctx.fillStyle = '#3a6a1a'; ctx.fillRect(-7, -11, 14, 22);
+            ctx.fillStyle = '#7CFC00'; ctx.fillRect(-7, -11, 14, 4);
+            ctx.fillStyle = '#888'; ctx.fillRect(-4, -15, 8, 5);
+        }
+        else if (this.type === 'SINGULARITY') {
+            ctx.globalCompositeOperation = 'lighter';
+            ctx.fillStyle = '#b060ff'; ctx.beginPath(); ctx.arc(0, 0, 9, 0, Math.PI * 2); ctx.fill();
+            ctx.fillStyle = '#fff'; ctx.beginPath(); ctx.arc(0, 0, 4, 0, Math.PI * 2); ctx.fill();
             ctx.globalCompositeOperation = 'source-over';
         }
         else if (this.type === 'MOLOTOV') {

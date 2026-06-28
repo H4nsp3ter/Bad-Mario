@@ -171,8 +171,21 @@ body::after {
     display: flex;
     gap: 10px;
     z-index: 12;
-    pointer-events: none;
+    pointer-events: auto;   /* antippbar: Waffe direkt wählen (Smartphone/Tablet/Maus) */
 }
+.inv-slot {
+    position: relative; width: 70px; height: 70px; padding: 0; overflow: hidden;
+    background: rgba(0,0,0,0.78); border: 3px solid #666; border-radius: 8px;
+    display: flex; align-items: center; justify-content: center; cursor: pointer;
+    -webkit-tap-highlight-color: transparent;
+}
+.inv-slot.current { border-color: #FFD700; background: rgba(255,210,0,0.22); box-shadow: 0 0 14px rgba(255,210,0,0.85); }
+.inv-slot:active { transform: scale(0.94); }
+.inv-icon { width: 100%; height: 100%; object-fit: contain; image-rendering: auto; pointer-events: none; }
+.inv-lab { font-family: 'Press Start 2P', monospace; font-size: 11px; color: #0F0; text-shadow: 1px 1px 0 #000; pointer-events: none; }
+.inv-ammo { position: absolute; right: 3px; bottom: 1px; font-family: 'Press Start 2P', monospace;
+    font-size: 12px; font-weight: bold; color: #fff; text-shadow: 1px 1px 0 #000, 0 0 4px #000; pointer-events: none; }
+.inv-slot.current .inv-ammo { color: #FFEA70; }
 
 /* ========================================================================= */
 /* STARTSCREEN / GAMEOVER (ZENTRIERUNGS-FIX VIA FLEXBOX)                     */
@@ -578,14 +591,15 @@ body.in-game.touch #mobile-controls { display: block; }
     position: absolute;
     bottom: 20px;
     right: 20px;
-    width: 150px;
-    height: 150px;
+    width: 168px;
+    height: 168px;
     opacity: 0.8;
 }
 .action-btn {
     position: absolute;
-    width: 110px;
-    height: 110px;
+    /* Größe RELATIV zum Pad (wie das D-Pad) -> überlappt nie, egal wie groß das Pad ist */
+    width: 39%;
+    height: 39%;
     border-radius: 50% !important;
     border: 5px solid #111 !important;
     font-family: "Press Start 2P", cursive;
@@ -708,106 +722,243 @@ body.in-game #zoom-controls { display: flex; }
 
     /* Touch-Pads: groß & gut erreichbar, dezent transparent */
     #dpad { width: 170px !important; height: 170px !important; bottom: 14px !important; left: 14px !important; opacity: 0.7; }
-    #action-pad { width: 170px !important; height: 170px !important; bottom: 14px !important; right: 14px !important; opacity: 0.8; }
-    .action-btn { width: 66px !important; height: 66px !important; font-size: 2rem !important; }
+    #action-pad { width: 188px !important; height: 188px !important; bottom: 14px !important; right: 14px !important; opacity: 0.85; }
+    .action-btn { font-size: 2rem !important; }   /* Größe bleibt prozentual (39%) -> keine Überlappung */
     .dpad-btn { border-width: 6px !important; }
 }
 
 /* ========================================================================= */
-/* LEVEL-EDITOR                                                               */
+/* LEVEL-EDITOR  (cleanes App-Design, kein 8-Bit-Font, touch & responsive)   */
 /* ========================================================================= */
-.start-extra { display: flex; gap: 10px; justify-content: center; margin-top: 14px; flex-wrap: wrap; }
-.start-sub { font-size: 0.62em !important; padding: 8px 14px !important; }
-
 #editor-overlay {
     position: fixed; inset: 0; z-index: 5000;
-    background: #15171c; color: #e8e8ec;
+    background: #11141a; color: #e7e9ee;
     display: flex; flex-direction: column;
-    font-family: 'Segoe UI', system-ui, sans-serif;
+}
+/* Saubere, moderne Schrift im GESAMTEN Editor (überschreibt das 8-Bit-Body-Font) */
+#editor-overlay, #editor-overlay *, #ed-playlist, #ed-playlist *, #editor-test-exit {
+    font-family: 'Inter', 'Segoe UI', system-ui, Roboto, Arial, sans-serif !important;
+    letter-spacing: normal; text-transform: none;
 }
 #editor-overlay.hidden { display: none; }
 
+/* --- Toolbar: Titel · Name · Aktions-Buttons (einheitliches Design) --- */
 #ed-top {
-    display: flex; align-items: center; gap: 8px;
-    padding: 8px 12px; background: #1e2129; border-bottom: 2px solid #000;
-    flex-wrap: wrap;
+    display: flex; align-items: center; gap: 10px;
+    padding: 9px 14px; background: #181c24; border-bottom: 1px solid #000;
+    flex-wrap: wrap; flex: 0 0 auto;
 }
-#ed-top .ed-title { font-weight: 800; color: #ffd24a; letter-spacing: 1px; }
-.ed-lab { font-size: 0.78rem; display: flex; align-items: center; gap: 4px; color: #b8bcc6; }
-.ed-grow { flex: 1; }
-.ed-in {
-    background: #2a2e38; color: #fff; border: 1px solid #3a3f4b; border-radius: 5px;
-    padding: 5px 8px; font-size: 0.82rem;
+#ed-top .ed-title { font-weight: 700; color: #ffce4a; font-size: 0.98rem; }
+#ed-name {
+    width: 200px; background: #222732; color: #fff; border: 1px solid #353c4a;
+    border-radius: 8px; padding: 8px 11px; font-size: 0.85rem; outline: none;
 }
-.ed-range { width: 120px; padding: 0; }
-.ed-btn {
-    background: #333845; color: #fff; border: 1px solid #4a505e; border-radius: 6px;
-    padding: 6px 12px; font-size: 0.82rem; cursor: pointer; font-weight: 600;
+#ed-name:focus { border-color: #4f8bff; }
+.ed-grow { flex: 1 1 8px; }
+.ed-actions { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.ed-act {
+    display: inline-flex; align-items: center; gap: 6px; height: 38px;
+    background: #272d39; color: #e7e9ee; border: 1px solid #343c4b; border-radius: 9px;
+    padding: 0 14px; font-size: 0.82rem; font-weight: 600; cursor: pointer; white-space: nowrap;
 }
-.ed-btn:hover { background: #3e4654; }
-.ed-prim { background: #2d6cdf; border-color: #2d6cdf; }
-.ed-go { background: #2faa45; border-color: #2faa45; }
-.ed-danger { background: #b53b3b; border-color: #b53b3b; }
+.ed-act:hover { background: #313a49; border-color: #465069; }
+.ed-act:active { transform: translateY(1px); }
+.ed-load { padding: 0 8px; }
+.ed-prim { background: #2f6cf0; border-color: #2f6cf0; }
+.ed-prim:hover { background: #3c79ff; }
+.ed-go { background: #27a657; border-color: #27a657; font-weight: 700; }
+.ed-go:hover { background: #2fbd66; }
+.ed-danger { background: #b3403b; border-color: #b3403b; }
+.ed-danger:hover { background: #c84a44; }
+.ed-ghost { background: transparent; border-color: #3a4150; color: #aab0bd; }
+.ed-ghost:hover { background: #272d39; color: #fff; }
 
-#ed-body { flex: 1; display: flex; min-height: 0; overflow: hidden; }
-#ed-palette {
-    width: 210px; flex: 0 0 210px; overflow-y: auto;
-    background: #1a1d24; border-right: 2px solid #000; padding: 6px;
-}
-.ed-pgroup { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; color: #7f8696; margin: 10px 4px 4px; font-weight: 700; }
-.ed-pitem {
-    display: flex; align-items: center; gap: 7px; width: 100%; text-align: left;
-    background: #262a33; color: #dfe2e8; border: 1px solid #333845; border-radius: 5px;
-    padding: 6px 8px; margin: 3px 0; font-size: 0.78rem; cursor: pointer;
-}
-.ed-pitem:hover { background: #31363f; }
-.ed-pitem.sel { background: #2d6cdf; border-color: #6ea2ff; color: #fff; }
-.ed-sw { width: 14px; height: 14px; border-radius: 3px; border: 1px solid #000; flex: 0 0 14px; }
+/* --- Body --- */
+#ed-body { flex: 1 1 auto; display: flex; min-height: 0; overflow: hidden; position: relative; }
 
-/* Wichtig: die globale "canvas {position:absolute;width:100%;height:100%}"-Regel (für #gameCanvas)
-   hier zurücksetzen, sonst legt sich der Editor-Canvas über Palette/Toolbar/Panel. */
+/* --- EINE linke Leiste: Einstellungen · Werkzeug · Bausteine(Register) · Eigenschaften --- */
+#ed-side {
+    width: 290px; flex: 0 0 290px; display: flex; flex-direction: column;
+    background: #161a21; border-right: 1px solid #000; min-height: 0;
+}
+#ed-settings { padding: 11px 12px; border-bottom: 1px solid #20252f; display: flex; flex-direction: column; gap: 9px; flex: 0 0 auto; }
+.ed-lab { font-size: 0.8rem; display: flex; align-items: center; gap: 6px; color: #aab0bd; white-space: nowrap; }
+.ed-lab-row { justify-content: space-between; }
+.ed-set-row { display: flex; align-items: center; gap: 16px; }
+.ed-in { background: #222732; color: #fff; border: 1px solid #353c4a; border-radius: 7px; padding: 7px 9px; font-size: 0.82rem; outline: none; }
+.ed-in:focus { border-color: #4f8bff; }
+.ed-num-s { width: 92px; }
+.ed-range { width: 100%; padding: 0; }
+#ed-theme { flex: 1; }
+
+.ed-side-h { font-size: 0.66rem; text-transform: uppercase; letter-spacing: 0.6px; color: #79808e; font-weight: 700; padding: 11px 12px 6px; }
+#ed-tools { display: flex; gap: 6px; padding: 0 12px 11px; border-bottom: 1px solid #20252f; }
+.ed-tool {
+    flex: 1; display: flex; flex-direction: column; align-items: center; gap: 2px;
+    background: #222732; color: #cfd4de; border: 1px solid #333a47; border-radius: 9px;
+    padding: 9px 4px; font-size: 0.7rem; cursor: pointer; font-weight: 600;
+}
+.ed-tool .ed-tool-ic { font-size: 1.15rem; line-height: 1; }
+.ed-tool:hover { background: #2b313d; }
+.ed-tool.sel { background: #2f6cf0; border-color: #6fa0ff; color: #fff; }
+
+/* Bausteine als Register/Reiter */
+.ed-register { display: flex; flex-wrap: wrap; gap: 3px; padding: 6px 10px 0; }
+.ed-register .ed-tab {
+    background: #1b202b; color: #9aa1b0; border: 1px solid #2a313d; border-bottom: none;
+    border-radius: 8px 8px 0 0; padding: 7px 11px; font-size: 0.74rem; cursor: pointer;
+    font-weight: 600; position: relative; top: 1px;
+}
+.ed-register .ed-tab:hover { background: #222836; color: #cfd4de; }
+.ed-register .ed-tab.sel { background: #1f2531; color: #fff; border-color: #39414f; }
+#ed-tiles {
+    flex: 1 1 auto; min-height: 90px; overflow-y: auto; padding: 11px 10px;
+    display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; align-content: start;
+    background: #1f2531; border-top: 1px solid #39414f;
+}
+.ed-tile {
+    display: flex; flex-direction: column; align-items: center; gap: 3px;
+    background: #19202b; color: #d7dbe3; border: 1px solid #2e3543; border-radius: 9px;
+    padding: 6px 3px 5px; cursor: pointer;
+}
+.ed-tile:hover { background: #222b38; border-color: #3c4456; }
+.ed-tile.sel { background: #2f6cf0; border-color: #7aa6ff; color: #fff; box-shadow: 0 0 0 2px rgba(47,108,240,0.35); }
+/* globale canvas-Regel (position:absolute/100%) für die Mini-Vorschauen zurücksetzen */
+.ed-tile-cv { position: static !important; width: 100% !important; height: 40px !important; background: #11151c; border-radius: 5px; image-rendering: auto; }
+.ed-tile-lab { font-size: 0.64rem; line-height: 1.1; text-align: center; }
+
+/* --- Canvas (globale canvas-Regel zurücksetzen!) --- */
 #ed-canvas {
     flex: 1 1 0; min-width: 0; min-height: 0;
-    background: #0d0f13; cursor: crosshair; display: block;
+    background: #0c0e13; cursor: crosshair; display: block; touch-action: none;
     position: relative !important; top: auto !important; left: auto !important;
     width: auto !important; height: auto !important; z-index: auto !important;
 }
 
+/* --- Eigenschaften UNTEN in der linken Leiste --- */
 #ed-props {
-    width: 230px; flex: 0 0 230px; overflow-y: auto;
-    background: #1a1d24; border-left: 2px solid #000; padding: 8px;
+    flex: 0 0 auto; max-height: 42%; overflow-y: auto;
+    background: #13171e; border-top: 2px solid #000; padding: 0 12px 12px;
 }
-.ed-prow { margin: 7px 0; font-size: 0.8rem; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
-.ed-muted { color: #868c98; font-size: 0.74rem; line-height: 1.35; }
-.ed-num { width: 64px; background: #2a2e38; color: #fff; border: 1px solid #3a3f4b; border-radius: 4px; padding: 4px; }
-.ed-sel { background: #2a2e38; color: #fff; border: 1px solid #3a3f4b; border-radius: 4px; padding: 4px; flex: 1; }
-.ed-chk { font-size: 0.72rem; display: inline-flex; align-items: center; gap: 3px; margin: 2px 6px 2px 0; color: #c8ccd4; }
+.ed-props-head { position: sticky; top: 0; background: #13171e; padding: 10px 0 8px; border-bottom: 1px solid #20252f; margin-bottom: 8px; font-weight: 700; color: #cfd4de; font-size: 0.82rem; }
+.ed-pgroup { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.6px; color: #79808e; margin: 6px 0 6px; font-weight: 700; }
+.ed-prow { margin: 8px 0; font-size: 0.82rem; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; color: #c4c9d3; }
+.ed-muted { color: #828997; font-size: 0.76rem; line-height: 1.4; }
+.ed-num { width: 70px; background: #222732; color: #fff; border: 1px solid #353c4a; border-radius: 6px; padding: 6px; }
+.ed-sel { background: #222732; color: #fff; border: 1px solid #353c4a; border-radius: 6px; padding: 6px; flex: 1; min-width: 90px; }
+.ed-chk { font-size: 0.74rem; display: inline-flex; align-items: center; gap: 4px; margin: 3px 8px 3px 0; color: #c4c9d3; }
 
-#ed-hint { padding: 5px 12px; background: #1e2129; border-top: 1px solid #000; font-size: 0.74rem; color: #8d94a2; text-align: center; }
+#ed-hint { padding: 7px 12px; background: #181c24; border-top: 1px solid #000; font-size: 0.74rem; color: #828997; text-align: center; flex: 0 0 auto; }
 #ed-toast {
-    position: fixed; top: 60px; left: 50%; transform: translateX(-50%); z-index: 5100;
-    background: #2faa45; color: #fff; padding: 10px 22px; border-radius: 8px; font-weight: 700;
-    box-shadow: 0 6px 20px rgba(0,0,0,0.5);
+    position: fixed; top: 64px; left: 50%; transform: translateX(-50%); z-index: 5100;
+    background: #28a85a; color: #fff; padding: 11px 24px; border-radius: 10px; font-weight: 700;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.5); font-family: 'Inter','Segoe UI',sans-serif;
 }
 #ed-toast.hidden { display: none; }
 
-/* Während eines Editor-Tests: Zurück-Button einblenden */
+/* Editor-Test: Zurück-Button */
 #editor-test-exit {
     position: fixed; top: 10px; left: 50%; transform: translateX(-50%); z-index: 6000;
-    display: none; background: #b53b3b; color: #fff; border: 2px solid #000; border-radius: 8px;
-    padding: 8px 16px; font-weight: 800; cursor: pointer; font-size: 0.8rem;
+    display: none; background: #c2453f; color: #fff; border: none; border-radius: 9px;
+    padding: 10px 18px; font-weight: 700; cursor: pointer; font-size: 0.85rem; box-shadow: 0 3px 12px rgba(0,0,0,0.5);
 }
 body.editor-testing #editor-test-exit { display: block; }
 
 /* Meine-Levels-Liste */
 #ed-playlist {
     position: fixed; inset: 0; z-index: 5200; display: flex; align-items: center; justify-content: center;
-    background: rgba(0,0,0,0.7);
+    background: rgba(0,0,0,0.72);
 }
 #ed-playlist.hidden { display: none; }
-.ed-pl-panel { background: #1e2129; border: 2px solid #000; border-radius: 12px; padding: 22px 26px; min-width: 360px; max-width: 90vw; max-height: 80vh; overflow-y: auto; }
-.ed-pl-panel h2 { color: #ffd24a; margin: 0 0 14px; letter-spacing: 1px; }
-.ed-pl-row { display: flex; align-items: center; gap: 10px; padding: 7px 0; border-bottom: 1px solid #2a2e38; }
-.ed-pl-row span { flex: 1; color: #e8e8ec; font-weight: 600; }
-.ed-pl-foot { margin-top: 16px; text-align: right; }
+.ed-pl-panel { background: #181c24; border: 1px solid #2a313d; border-radius: 14px; padding: 24px 26px; min-width: 340px; max-width: 92vw; max-height: 82vh; overflow-y: auto; color: #e7e9ee; }
+.ed-pl-panel h2 { color: #ffce4a; margin: 0 0 16px; font-size: 1.3rem; }
+.ed-pl-row { display: flex; align-items: center; gap: 10px; padding: 9px 0; border-bottom: 1px solid #242a35; }
+.ed-pl-row span { flex: 1; font-weight: 600; }
+.ed-pl-foot { margin-top: 18px; text-align: right; }
+.ed-pl-panel .ed-muted { margin: 8px 0 4px; }
+
+/* ===== Responsive: Tablet & Smartphone ===== */
+@media (max-width: 880px) {
+    #ed-top { gap: 6px; padding: 7px 9px; }
+    #ed-top .ed-title { width: 100%; }
+    #ed-name { flex: 1 1 120px; width: auto; }
+    .ed-actions { width: 100%; justify-content: flex-start; }
+    #ed-body { flex-direction: column; }
+    /* gesamte linke Leiste als untere Schublade (scrollt komplett) */
+    #ed-side {
+        order: 2; width: 100%; flex: 0 0 auto; max-height: 50vh; overflow-y: auto;
+        border-right: none; border-top: 1px solid #000;
+    }
+    #ed-canvas { order: 1; flex: 1 1 auto; min-height: 0; }
+    .ed-side-h { padding: 8px 12px 4px; }
+    #ed-settings { flex-direction: row; flex-wrap: wrap; align-items: center; gap: 12px; }
+    .ed-lab-row, .ed-set-row { width: auto; }
+    .ed-register { flex-wrap: nowrap; overflow-x: auto; }
+    .ed-register .ed-tab { flex: 0 0 auto; }
+    #ed-tiles { grid-template-columns: repeat(auto-fill, 80px); }
+    #ed-props { max-height: none; }
+}
+@media (max-width: 880px) and (orientation: landscape) {
+    #ed-side { max-height: 56vh; }
+}
+
+/* LSD-Trip: alles wird bunt, leicht neblig & verzerrt (nur während des Trips aktiv) */
+@keyframes lsd-hue {
+    from { filter: hue-rotate(0deg) saturate(1.9) contrast(1.08) brightness(1.05) blur(0.5px); }
+    to   { filter: hue-rotate(360deg) saturate(1.9) contrast(1.08) brightness(1.05) blur(0.5px); }
+}
+@keyframes lsd-wobble {
+    0%, 100% { transform: scale(1) rotate(0deg); }
+    25%      { transform: scale(1.015) rotate(0.4deg); }
+    75%      { transform: scale(0.99) rotate(-0.4deg); }
+}
+body.lsd-trip #gameCanvas {
+    animation: lsd-hue 4s linear infinite, lsd-wobble 7s ease-in-out infinite;
+    transform-origin: center center;
+}
+body.lsd-trip::before {
+    background: radial-gradient(circle at 32% 38%, rgba(255,0,200,0.14), rgba(0,200,255,0.10) 48%, rgba(200,120,0,0.20) 100%) !important;
+    box-shadow: inset 0 0 170px rgba(150,0,220,0.55) !important;
+}
+
+/* Gamepad-Fokusring (erscheint nur bei Joypad-Bedienung; Maus/Touch blendet ihn aus) */
+.gp-focus {
+    outline: 3px solid #ffd24a !important;
+    outline-offset: 2px;
+    box-shadow: 0 0 0 4px rgba(255, 210, 74, 0.35) !important;
+    z-index: 5;
+}
+
+/* ========================================================================= */
+/* PAUSE-MENÜ (über dem Spiel)                                                */
+/* ========================================================================= */
+#pause-menu {
+    position: absolute; inset: 0; z-index: 30;
+    display: none; align-items: center; justify-content: center;
+    pointer-events: none;
+}
+body.paused #pause-menu { display: flex; pointer-events: auto; }
+.pause-panel {
+    display: flex; flex-direction: column; align-items: center; gap: 2.6vmin;
+    padding: 5vmin 6vmin;
+    background: rgba(10, 2, 2, 0.92);
+    border: 3px solid #e62222; border-radius: 10px;
+    box-shadow: 0 0 40px rgba(230,34,34,0.5), inset 0 0 30px rgba(0,0,0,0.7);
+}
+.pause-title {
+    font-family: 'Press Start 2P', cursive; color: #ff2a2a;
+    font-size: clamp(1.2rem, 4.4vmin, 2.6rem);
+    text-shadow: 3px 3px 0 #000, 0 0 18px #f00; letter-spacing: 4px; margin: 0 0 1vmin;
+}
+.pause-btn {
+    font-family: 'Press Start 2P', cursive; cursor: pointer;
+    font-size: clamp(0.66rem, 2.1vmin, 1rem);
+    padding: 2.4vmin 4vmin; min-width: min(360px, 78vw); text-align: center;
+    color: #fff; background: #2faa45; border: 3px solid #000;
+    border-radius: 8px; box-shadow: 0 5px 0 #000; text-shadow: 2px 2px 0 #000;
+    -webkit-tap-highlight-color: transparent;
+}
+.pause-btn:hover { filter: brightness(1.12); }
+.pause-btn:active { transform: translateY(3px); box-shadow: 0 2px 0 #000; }
+.pause-quit { background: #c0281f; }
 

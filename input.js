@@ -117,20 +117,12 @@ class InputHandler {
                     this.gamepadKeys['KeyQ'] = true; 
                 }
 
-                // Start & Select
-                if (isPressed(9)) this.gamepadKeys['Enter'] = true; 
-                if (isPressed(8)) this.gamepadKeys['Escape'] = true; 
+                // Start & Select (Start startet weiterhin schnell aus dem Startscreen / setzt Game-Over fort)
+                if (isPressed(9)) this.gamepadKeys['Enter'] = true;
+                if (isPressed(8)) this.gamepadKeys['Escape'] = true;
+                // (Menü-Navigation übernimmt jetzt MenuNav; kein "jeder Knopf startet" mehr,
+                //  damit A im Menü bestätigt statt sofort zu starten.)
 
-                // Feature: JEDER Knopf auf dem Gamepad kann das Spiel im Menü starten
-                if (window.gameInstance && window.gameInstance.state !== 'PLAYING') {
-                    for (let b = 0; b < (gp.buttons ? gp.buttons.length : 0); b++) {
-                        if (isPressed(b)) {
-                            this.gamepadKeys['Enter'] = true;
-                            break;
-                        }
-                    }
-                }
-            
                 // Native Custom Events feuern anstatt KeyboardEvents zu simulieren
                 if (this.gamepadKeys['Enter'] && !this.previousKeys['Enter']) {
                     window.dispatchEvent(new Event('gamepadStart'));

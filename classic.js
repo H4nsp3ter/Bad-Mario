@@ -225,7 +225,7 @@ LevelGenerator.prototype.eBrickRow = function(tx, row, pattern, world) {
 
 // Waffen-/Power-up-Auswahl, gewichtet nach Welt — sorgt für Abwechslung
 const C_WEAPONS_EARLY = ['PISTOL', 'SHOTGUN', 'UZI', 'GRENADE', 'MOLOTOV', 'AXE', 'KNIFE', 'BAT'];
-const C_WEAPONS_LATE  = ['ASSAULT_RIFLE', 'MINIGUN', 'ROCKET', 'FLAMETHROWER', 'CHAINSAW', 'SHOTGUN', 'UZI', 'GRENADE', 'ALIEN_LASER', 'RAILGUN'];
+const C_WEAPONS_LATE  = ['ASSAULT_RIFLE', 'MINIGUN', 'ROCKET', 'FLAMETHROWER', 'CHAINSAW', 'SHOTGUN', 'UZI', 'GRENADE', 'ALIEN_LASER', 'RAILGUN', 'DEAGLE', 'FIFTY_MG', 'G11', 'CROSSBOW', 'BUZZSAW', 'POISON_GAS', 'BLACKHOLE', 'TESLA', 'AIRSTRIKE', 'TURRET'];
 const C_POWERUPS      = ['HEART', 'STAR', 'BOOSTER', 'JETPACK'];
 LevelGenerator.prototype.cWeapon = function(world) {
     if (Math.random() < 0.18) return C_POWERUPS[Math.floor(Math.random() * C_POWERUPS.length)];
@@ -625,7 +625,7 @@ LevelGenerator.prototype.build_2_4 = function(diff) {
     this.cPlat(87, B - 200, 2); this.cEnemy(87, 'para', diff);
 
     // Blöcke (Waffen/Heilung/Stern)
-    this.cBlock(13, LOW, '?', 'ROCKET'); this.cBlock(40, LOW, '?', 'HEART'); this.cBlock(66, LOW, '?', 'STAR'); this.cBlock(100, LOW, '?', 'FLAMETHROWER');
+    this.cBlock(13, LOW, '?', 'ROCKET'); this.cBlock(40, LOW, '?', 'HEART'); this.cBlock(66, LOW, '?', 'STAR'); this.cBlock(100, LOW, '?', 'DEAGLE');
     this.cDrink(28, B - 150, 'LIQUOR'); this.cDrink(70, B - 150, 'BEER');
 
     // Gegner-Gauntlet (durch worldHpMul zäher als Welt 1)
@@ -816,7 +816,7 @@ LevelGenerator.prototype.build_3_4 = function(diff) {
     this.cLift(99, B - 220, 2, 160, 1.2);
 
     // Blöcke (Waffen/Heilung/Stern)
-    this.cBlock(11, LOW, '?', 'ROCKET'); this.cBlock(33, LOW, '?', 'HEART'); this.cBlock(60, LOW, '?', 'STAR'); this.cBlock(92, LOW, '?', 'FLAMETHROWER');
+    this.cBlock(11, LOW, '?', 'ROCKET'); this.cBlock(33, LOW, '?', 'HEART'); this.cBlock(60, LOW, '?', 'STAR'); this.cBlock(92, LOW, '?', 'CROSSBOW');
     this.cDrink(28, B - 150, 'LIQUOR'); this.cDrink(76, B - 150, 'BEER');
 
     // Gegner-Gauntlet (zäher durch worldHpMul)
@@ -981,7 +981,7 @@ LevelGenerator.prototype.build_4_4 = function(diff) {
     this.cPlat(67, B - 200, 2); this.cEnemy(67, 'para', diff);
     this.cLift(95, B - 220, 2, 170, 1.2);
 
-    this.cBlock(11, LOW, '?', 'ROCKET'); this.cBlock(31, LOW, '?', 'HEART'); this.cBlock(58, LOW, '?', 'STAR'); this.cBlock(88, LOW, '?', 'FLAMETHROWER');
+    this.cBlock(11, LOW, '?', 'ROCKET'); this.cBlock(31, LOW, '?', 'HEART'); this.cBlock(58, LOW, '?', 'STAR'); this.cBlock(88, LOW, '?', 'BUZZSAW');
     this.cDrink(26, B - 150, 'LIQUOR'); this.cDrink(72, B - 150, 'BEER');
 
     this.cEnemy(5, 'koopa', diff); this.cEnemy(13, 'goomba', diff); this.cEnemy(22, 'koopa', diff);
@@ -1141,7 +1141,7 @@ LevelGenerator.prototype.build_5_4 = function(diff) {
     this.cLift(63, B - 230, 2, 180, 1.2);
     this.cPlat(89, B - 200, 2); this.cEnemy(89, 'para', diff);
 
-    this.cBlock(11, LOW, '?', 'ROCKET'); this.cBlock(29, LOW, '?', 'HEART'); this.cBlock(56, LOW, '?', 'STAR'); this.cBlock(84, LOW, '?', 'FLAMETHROWER');
+    this.cBlock(11, LOW, '?', 'ROCKET'); this.cBlock(29, LOW, '?', 'HEART'); this.cBlock(56, LOW, '?', 'STAR'); this.cBlock(84, LOW, '?', 'TESLA');
     this.cDrink(26, B - 150, 'LIQUOR'); this.cDrink(70, B - 150, 'BEER');
 
     this.cEnemy(5, 'koopa', diff); this.cEnemy(13, 'goomba', diff); this.cEnemy(22, 'koopa', diff);
@@ -1300,7 +1300,7 @@ LevelGenerator.prototype.build_6_4 = function(diff) {
     this.cLift(63, B - 240, 2, 190, 1.1);
     this.cPlat(89, B - 200, 2); this.cEnemy(89, 'para', diff);
 
-    this.cBlock(11, LOW, '?', 'ROCKET'); this.cBlock(29, LOW, '?', 'HEART'); this.cBlock(56, LOW, '?', 'STAR'); this.cBlock(84, LOW, '?', 'FLAMETHROWER');
+    this.cBlock(11, LOW, '?', 'ROCKET'); this.cBlock(29, LOW, '?', 'HEART'); this.cBlock(56, LOW, '?', 'STAR'); this.cBlock(84, LOW, '?', 'POISON_GAS');
     this.cDrink(26, B - 150, 'LIQUOR'); this.cDrink(70, B - 150, 'BEER');
 
     this.cEnemy(5, 'koopa', diff); this.cEnemy(13, 'goomba', diff); this.cEnemy(22, 'koopa', diff);
@@ -1443,7 +1443,7 @@ LevelGenerator.prototype.build_7_4 = function(diff) {
     this.cLift(63, B - 240, 2, 200, 1.1);
     this.cLift(89, B - 220, 2, 180, 1.4);
 
-    this.cBlock(11, LOW, '?', 'ROCKET'); this.cBlock(29, LOW, '?', 'HEART'); this.cBlock(56, LOW, '?', 'STAR'); this.cBlock(84, LOW, '?', 'FLAMETHROWER');
+    this.cBlock(11, LOW, '?', 'ROCKET'); this.cBlock(29, LOW, '?', 'HEART'); this.cBlock(56, LOW, '?', 'STAR'); this.cBlock(84, LOW, '?', 'FIFTY_MG');
     this.cDrink(26, B - 150, 'LIQUOR'); this.cDrink(70, B - 150, 'BEER');
 
     this.cEnemy(5, 'koopa', diff); this.cEnemy(13, 'goomba', diff); this.cEnemy(22, 'koopa', diff);
@@ -1605,7 +1605,7 @@ LevelGenerator.prototype.build_8_4 = function(diff) {
     this.cLift(93, B - 230, 2, 190, 1.4);
 
     this.cBlock(11, LOW, '?', 'ROCKET'); this.cBlock(31, LOW, '?', 'HEART'); this.cBlock(58, LOW, '?', 'STAR');
-    this.cBlock(88, LOW, '?', 'FLAMETHROWER'); this.cBlock(112, LOW, '?', 'MINIGUN');
+    this.cBlock(88, LOW, '?', 'BLACKHOLE'); this.cBlock(112, LOW, '?', 'RAILGUN');   // Endboss-Arsenal
     this.cDrink(28, B - 150, 'LIQUOR'); this.cDrink(82, B - 150, 'BEER'); this.cDrink(118, B - 150, 'LIQUOR');
 
     this.cEnemy(5, 'koopa', diff); this.cEnemy(13, 'goomba', diff); this.cEnemy(26, 'koopa', diff);
